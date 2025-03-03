@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Link2, Share } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 
 export function SettingsComponent({ courseId }: { courseId: string }) {
@@ -23,16 +22,6 @@ export function SettingsComponent({ courseId }: { courseId: string }) {
     emailNotifications: true,
     autoAnalysis: true,
   });
-
-  const feedbackLink = `https://evalo.app/feedback/${courseId}`;
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(feedbackLink);
-    toast({
-      title: "Link Copied",
-      description: "Feedback link copied to clipboard!",
-    });
-  };
 
   const handleSettingChange = (setting: keyof typeof settings) => {
     setSettings({
@@ -52,7 +41,9 @@ export function SettingsComponent({ courseId }: { courseId: string }) {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
 
+        {/* General Tab */}
         <TabsContent value="general" className="space-y-4">
+          {/* Course Information Card */}
           <Card>
             <CardHeader>
               <CardTitle>Course Information</CardTitle>
@@ -84,36 +75,40 @@ export function SettingsComponent({ courseId }: { courseId: string }) {
               <Button>Save Changes</Button>
             </CardFooter>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="feedback" className="space-y-4">
+          {/* Enrollment & Schedule Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Feedback Link</CardTitle>
+              <CardTitle>Enrollment & Schedule</CardTitle>
               <CardDescription>
-                Share this link with your students to collect feedback
+                Manage enrollment and scheduling settings for your course.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Input readOnly value={feedbackLink} />
-                <Button variant="outline" size="icon" onClick={handleCopyLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon">
-                  <Share className="h-4 w-4" />
-                </Button>
+              <div className="grid gap-2">
+                <Label htmlFor="max-participants">Maximum Participants</Label>
+                <Input id="max-participants" type="number" defaultValue="50" />
               </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" className="gap-2">
-                  <Link2 className="h-4 w-4" />
-                  Generate New Link
-                </Button>
-                <Button variant="outline">QR Code</Button>
+              <div className="grid gap-2">
+                <Label htmlFor="enrollment-deadline">Enrollment Deadline</Label>
+                <Input
+                  id="enrollment-deadline"
+                  type="date"
+                  defaultValue="2025-06-30"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="course-duration">Course Duration (weeks)</Label>
+                <Input id="course-duration" type="number" defaultValue="12" />
               </div>
             </CardContent>
+            <CardFooter>
+              <Button>Save Enrollment Settings</Button>
+            </CardFooter>
           </Card>
+        </TabsContent>
 
+        {/* Feedback Tab */}
+        <TabsContent value="feedback" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Feedback Settings</CardTitle>
@@ -137,7 +132,6 @@ export function SettingsComponent({ courseId }: { courseId: string }) {
                   }
                 />
               </div>
-
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label htmlFor="auto-analysis">Automatic Analysis</Label>
@@ -158,6 +152,7 @@ export function SettingsComponent({ courseId }: { courseId: string }) {
           </Card>
         </TabsContent>
 
+        {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-4">
           <Card>
             <CardHeader>
@@ -184,7 +179,6 @@ export function SettingsComponent({ courseId }: { courseId: string }) {
                   }
                 />
               </div>
-
               <div className="grid gap-2">
                 <Label htmlFor="notification-email">Notification Email</Label>
                 <Input

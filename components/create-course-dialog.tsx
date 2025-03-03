@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 interface CreateCourseDialogProps {
@@ -21,8 +22,8 @@ const CreateCourseDialog = ({ children }: CreateCourseDialogProps) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [kuerzel, setKuerzel] = useState("");
+  const [beschreibung, setBeschreibung] = useState("");
   const [teilnehmerzahl, setTeilnehmerzahl] = useState("");
-  const [erstelldatum, setErstelldatum] = useState("");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,14 +31,14 @@ const CreateCourseDialog = ({ children }: CreateCourseDialogProps) => {
     console.log("Creating Course:", {
       name,
       kuerzel,
+      beschreibung,
       teilnehmerzahl,
-      erstelldatum,
     });
     // Reset form and close dialog.
     setName("");
     setKuerzel("");
+    setBeschreibung("");
     setTeilnehmerzahl("");
-    setErstelldatum("");
     setOpen(false);
   };
 
@@ -70,23 +71,23 @@ const CreateCourseDialog = ({ children }: CreateCourseDialogProps) => {
             />
           </div>
           <div>
+            <Label htmlFor="beschreibung">Kursbeschreibung</Label>
+            <Textarea
+              id="beschreibung"
+              value={beschreibung}
+              onChange={(e) => setBeschreibung(e.target.value)}
+              placeholder="Course description"
+              required
+            />
+          </div>
+          <div>
             <Label htmlFor="teilnehmerzahl">Teilnehmerzahl</Label>
             <Input
               id="teilnehmerzahl"
               type="number"
               value={teilnehmerzahl}
               onChange={(e) => setTeilnehmerzahl(e.target.value)}
-              placeholder="Number of participants"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="erstelldatum">Erstelldatum</Label>
-            <Input
-              id="erstelldatum"
-              type="date"
-              value={erstelldatum}
-              onChange={(e) => setErstelldatum(e.target.value)}
+              placeholder="Number of students"
               required
             />
           </div>

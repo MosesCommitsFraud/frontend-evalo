@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
   return (
@@ -39,6 +40,8 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Theme toggle placed to the left of the bell icon */}
+          <ThemeToggle />
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <BellIcon className="h-5 w-5" />
             <span className="sr-only">Notifications</span>

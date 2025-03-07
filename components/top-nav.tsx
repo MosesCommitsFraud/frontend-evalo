@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BellIcon, Search, Settings, User } from "lucide-react";
+import { BellIcon, Menu, Search, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,11 +14,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export function TopNav() {
+export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="px-4 flex h-16 items-center justify-between">
         <div className="flex items-center gap-4 w-full max-w-md">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="mr-1 text-muted-foreground"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle sidebar</span>
+          </Button>
           <Link href="/" className="flex items-center gap-2">
             <div className="rounded-xl bg-emerald-600 px-2 py-1">
               <span className="text-lg font-bold text-white">evalo</span>

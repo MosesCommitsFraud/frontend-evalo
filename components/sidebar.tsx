@@ -65,11 +65,17 @@ const courses = [
   { id: "course-5", name: "Database Systems", code: "CS202" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:block w-64 shrink-0 border-r h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto">
+    <aside
+      className={cn(
+        "transition-all duration-300 ease-in-out",
+        "w-64 shrink-0 border-r h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto",
+        isVisible ? "block md:block" : "hidden",
+      )}
+    >
       {/* Main Navigation */}
       <div className="px-4 py-4">
         <div className="space-y-1">

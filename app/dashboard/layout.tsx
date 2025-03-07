@@ -23,7 +23,9 @@ export default function DashboardLayout({
         <Sidebar isVisible={sidebarVisible} />
 
         {/* Main content area */}
-        <main className="flex-1 p-6 max-w-[1200px] mx-auto">{children}</main>
+        <main className="flex-1 p-6 transition-all duration-300 ease-in-out">
+          <div className="max-w-[1200px] mx-auto">{children}</div>
+        </main>
       </div>
     </div>
   );

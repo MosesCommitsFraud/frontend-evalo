@@ -10,6 +10,7 @@ import {
   Plus,
   Settings,
   Users,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,40 +22,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-// Main navigation items
-const mainNavItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Analytics",
-    href: "/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "Courses",
-    href: "/courses",
-    icon: BookOpen,
-  },
-  {
-    title: "Students",
-    href: "/students",
-    icon: Users,
-  },
-  {
-    title: "Teachers",
-    href: "/teachers",
-    icon: GraduationCap,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-];
 
 // Mock course data - would come from your API
 const courses = [
@@ -76,46 +43,88 @@ export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
         isVisible ? "block md:block" : "hidden",
       )}
     >
-      {/* Main Navigation */}
-      <div className="px-4 py-4">
-        <div className="space-y-1">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+      {/* OVERVIEW Section */}
+      <div className="px-4 py-4 space-y-6">
+        <div className="space-y-2">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
+            OVERVIEW
+          </h3>
+          <div className="space-y-1">
+            <NavItem
+              href="/dashboard"
+              title="Dashboard"
+              icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/analytics"
+              title="Analytics"
+              icon={<BarChart3 className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+          </div>
+        </div>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                  isActive ? "bg-accent text-accent-foreground" : "transparent",
-                )}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                <span>{item.title}</span>
-              </Link>
-            );
-          })}
+        {/* MANAGEMENT Section */}
+        <div className="space-y-2">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
+            MANAGEMENT
+          </h3>
+          <div className="space-y-1">
+            <NavItem
+              href="/students"
+              title="Students"
+              icon={<Users className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/teachers"
+              title="Teachers"
+              icon={<GraduationCap className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+          </div>
+        </div>
+
+        {/* SETTINGS Section */}
+        <div className="space-y-2">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
+            SETTINGS
+          </h3>
+          <div className="space-y-1">
+            <NavItem
+              href="/settings"
+              title="Admin Settings"
+              icon={<Settings className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/help"
+              title="Help & Support"
+              icon={<HelpCircle className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+          </div>
         </div>
       </div>
 
       <Separator className="my-2" />
 
       {/* Courses Section */}
-      <div className="px-3 py-2">
-        <div className="mb-2 px-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">Courses</h2>
+      <div className="px-3 py-2 flex-1 flex flex-col">
+        <div className="mb-2 px-3 flex items-center justify-between">
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+            COURSES
+          </h3>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                  className="h-6 w-6 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3 w-3" />
                   <span className="sr-only">Add Course</span>
                 </Button>
               </TooltipTrigger>
@@ -125,32 +134,56 @@ export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <ScrollArea className="h-[300px]">
-          <div className="space-y-1">
-            {courses.map((course) => {
-              const href = `/dashboard/courses/${course.id}`;
-              const isActive =
-                pathname === href || pathname.startsWith(`${href}/`);
+        <div className="space-y-1 px-1 overflow-y-auto flex-1">
+          {courses.map((course) => {
+            const href = `/dashboard/courses/${course.id}`;
+            const isActive =
+              pathname === href || pathname.startsWith(`${href}/`);
 
-              return (
-                <Link
-                  key={course.id}
-                  href={href}
-                  className={cn(
-                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "transparent",
-                  )}
-                >
-                  <BookOpen className="mr-2 h-4 w-4 text-emerald-600" />
-                  <span>{course.name}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </ScrollArea>
+            return (
+              <Link
+                key={course.id}
+                href={href}
+                className={cn(
+                  "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                  isActive ? "bg-accent text-accent-foreground" : "transparent",
+                )}
+              >
+                <BookOpen className="h-4 w-4 mr-2" />
+                <span>{course.name}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </aside>
+  );
+}
+
+// Helper component for nav items
+function NavItem({
+  href,
+  title,
+  icon,
+  pathname,
+}: {
+  href: string;
+  title: string;
+  icon: React.ReactNode;
+  pathname: string;
+}) {
+  const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+        isActive ? "bg-accent text-accent-foreground" : "transparent",
+      )}
+    >
+      {icon}
+      <span>{title}</span>
+    </Link>
   );
 }

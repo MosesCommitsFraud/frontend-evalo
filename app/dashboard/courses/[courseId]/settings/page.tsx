@@ -1,3 +1,4 @@
+import React from "react";
 import { SettingsComponent } from "@/components/settings-component";
 
 interface SettingsPageProps {
@@ -7,5 +8,7 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ params }: SettingsPageProps) {
-  return <SettingsComponent courseId={params.courseId} />;
+  // Access the params directly
+  const courseId = params.courseId;
+  return <SettingsComponent courseId={courseId} />;
 }

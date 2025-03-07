@@ -1,6 +1,3 @@
-"use client";
-
-import Link from "next/link";
 import { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -11,29 +8,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  BarChart3,
-  CalendarDays,
-  Settings,
-  Plus,
-  CalendarIcon,
-  Clock,
-} from "lucide-react";
+import { BarChart3, CalendarDays, MessageSquare, Settings } from "lucide-react";
 import { FeedbackAnalytics } from "@/components/feedback-analytics";
-import ShareCourseDialog from "@/components/share-course-dialog";
-import AddEventDialog from "@/components/add-event-dialog"; // Import the dialog component
-
-// Helper function to get course name by ID
-function getCourseNameById(id: string): string {
-  const courses = {
-    "course-1": "Introduction to Programming",
-    "course-2": "Data Structures & Algorithms",
-    "course-3": "Web Development",
-    "course-4": "Machine Learning Basics",
-    "course-5": "Database Systems",
-  };
-  return courses[id as keyof typeof courses] || "Unknown Course";
-}
 
 interface CoursePageProps {
   params: {
@@ -42,101 +18,18 @@ interface CoursePageProps {
 }
 
 export default function CoursePage({ params }: CoursePageProps) {
+  // Access the params directly since we're not using Server Components features that require unwrapping
   const courseId = params.courseId;
   const courseName = getCourseNameById(courseId);
 
-  // Sample data for upcoming events (to be shown in Dashboard tab)
-  const upcomingEvents = [
-    {
-      id: "1",
-      title: "Lecture on React",
-      course: courseName,
-      time: "10:00 AM",
-      status: "open",
-    },
-    {
-      id: "2",
-      title: "Assignment Deadline",
-      course: courseName,
-      time: "3:00 PM",
-      status: "pending",
-    },
-  ];
-
-  // Sample data for events (used in the Events tab)
-  const events = [
-    {
-      id: "1",
-      title: "Lecture on React",
-      course: courseName,
-      time: "10:00 AM",
-      status: "open",
-    },
-    {
-      id: "2",
-      title: "Assignment Deadline",
-      course: courseName,
-      time: "3:00 PM",
-      status: "pending",
-    },
-    {
-      id: "3",
-      title: "Project Demo",
-      course: courseName,
-      time: "4:30 PM",
-      status: "closed",
-    },
-    {
-      id: "4",
-      title: "Guest Lecture",
-      course: courseName,
-      time: "1:00 PM",
-      status: "processed",
-    },
-    {
-      id: "5",
-      title: "Lab Session",
-      course: courseName,
-      time: "2:00 PM",
-      status: "open",
-    },
-  ];
-
-  // Filter events for each nested tab
-  const allEvents = events;
-  const openEvents = events.filter(
-    (event) => event.status === "open" || event.status === "pending",
-  );
-  const closedEvents = events.filter((event) => event.status === "closed");
-  const processedEvents = events.filter(
-    (event) => event.status === "processed",
-  );
-
   return (
     <div className="flex flex-col gap-6">
-      {/* Header with course title and action buttons */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{courseName}</h1>
-        <div className="flex gap-2">
-          {/* Wrap "Add Event" button with AddEventDialog */}
-          <AddEventDialog>
-            <Button
-              variant="default"
-              className="bg-green-500 hover:bg-green-600 text-white gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Event
-            </Button>
-          </AddEventDialog>
-          {/* Share Course Button using ShareCourseDialog */}
-          <ShareCourseDialog courseId={courseId} />
-          <Link href={`/dashboard/courses/${courseId}/settings`}>
-            <Button variant="outline" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Course Settings
-            </Button>
-          </Link>
-        </div>
+        <Button variant="outline" className="gap-2">
+          <Settings className="h-4 w-4" />
+          Course Settings
+        </Button>
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
@@ -149,9 +42,9 @@ export default function CoursePage({ params }: CoursePageProps) {
             <BarChart3 className="h-4 w-4" />
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="event" className="gap-2">
-            <CalendarIcon className="h-4 w-4" />
-            Events
+          <TabsTrigger value="feedback" className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Feedback
           </TabsTrigger>
           <TabsTrigger value="calendar" className="gap-2">
             <CalendarDays className="h-4 w-4" />
@@ -159,14 +52,13 @@ export default function CoursePage({ params }: CoursePageProps) {
           </TabsTrigger>
         </TabsList>
 
-        {/* Dashboard Tab Content */}
         <TabsContent value="dashboard" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
               title="Total Responses"
               value="124"
               description="+6 this week"
-              icon={BarChart3}
+              icon={MessageSquare}
             />
             <StatsCard
               title="Sentiment Score"
@@ -197,6 +89,7 @@ export default function CoursePage({ params }: CoursePageProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-80">
+                {/* Placeholder for chart */}
                 <div className="flex h-full items-center justify-center rounded-md border border-dashed p-8 text-muted-foreground">
                   Category distribution chart
                 </div>
@@ -223,236 +116,33 @@ export default function CoursePage({ params }: CoursePageProps) {
               </CardContent>
             </Card>
           </div>
-
-          {/* Upcoming Events added to Dashboard */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Events</CardTitle>
-              <CardDescription>
-                Your scheduled events for this week
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {upcomingEvents.map((event) => (
-                  <Link key={event.id} href={`/dashboard/events/${event.id}`}>
-                    <div className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded">
-                      <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                        <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {event.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {event.course}
-                        </p>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Status: {event.status}
-                        </span>
-                      </div>
-                      <div className="ml-auto flex items-center">
-                        <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">
-                          {event.time}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
-        {/* Analytics Tab Content */}
         <TabsContent value="analytics">
           <Suspense fallback={<div>Loading analytics...</div>}>
             <FeedbackAnalytics courseId={courseId} />
           </Suspense>
         </TabsContent>
 
-        {/* Events Tab Content with Nested Tabs */}
-        <TabsContent value="event" className="space-y-4">
-          <Tabs defaultValue="all">
-            <TabsList>
-              <TabsTrigger value="all">All Events</TabsTrigger>
-              <TabsTrigger value="open">Open Events</TabsTrigger>
-              <TabsTrigger value="closed">Closed Events</TabsTrigger>
-              <TabsTrigger value="processed">Processed Events</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Events</CardTitle>
-                  <CardDescription>Every event for this course</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {allEvents.map((event) => (
-                      <Link
-                        key={event.id}
-                        href={`/dashboard/events/${event.id}`}
-                      >
-                        <div className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded">
-                          <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                            <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium leading-none">
-                              {event.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {event.course}
-                            </p>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Status: {event.status}
-                            </span>
-                          </div>
-                          <div className="ml-auto flex items-center">
-                            <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              {event.time}
-                            </p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="open" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Open Events</CardTitle>
-                  <CardDescription>
-                    Events that are currently open (or pending)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {openEvents.map((event) => (
-                      <Link
-                        key={event.id}
-                        href={`/dashboard/events/${event.id}`}
-                      >
-                        <div className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded">
-                          <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                            <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium leading-none">
-                              {event.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {event.course}
-                            </p>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Status: {event.status}
-                            </span>
-                          </div>
-                          <div className="ml-auto flex items-center">
-                            <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              {event.time}
-                            </p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="closed" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Closed Events</CardTitle>
-                  <CardDescription>Events that are now closed</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {closedEvents.map((event) => (
-                      <Link
-                        key={event.id}
-                        href={`/dashboard/events/${event.id}`}
-                      >
-                        <div className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded">
-                          <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                            <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium leading-none">
-                              {event.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {event.course}
-                            </p>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Status: {event.status}
-                            </span>
-                          </div>
-                          <div className="ml-auto flex items-center">
-                            <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              {event.time}
-                            </p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="processed" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Processed Events</CardTitle>
-                  <CardDescription>
-                    Events that have been marked as processed
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {processedEvents.map((event) => (
-                      <Link
-                        key={event.id}
-                        href={`/dashboard/events/${event.id}`}
-                      >
-                        <div className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded">
-                          <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                            <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium leading-none">
-                              {event.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {event.course}
-                            </p>
-                            <span className="text-xs font-medium text-muted-foreground">
-                              Status: {event.status}
-                            </span>
-                          </div>
-                          <div className="ml-auto flex items-center">
-                            <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">
-                              {event.time}
-                            </p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+        <TabsContent value="feedback">
+          <Card>
+            <CardHeader>
+              <CardTitle>Student Feedback</CardTitle>
+              <CardDescription>
+                View and analyze all feedback received
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Feedback filters would go here */}
+                <div className="rounded-md border p-6 text-center text-muted-foreground">
+                  Feedback list would go here
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* Calendar Tab Content */}
         <TabsContent value="calendar">
           <Card>
             <CardHeader>
@@ -473,7 +163,7 @@ export default function CoursePage({ params }: CoursePageProps) {
   );
 }
 
-// Helper component for Stats Card
+// Helper components
 function StatsCard({
   title,
   value,
@@ -499,7 +189,7 @@ function StatsCard({
   );
 }
 
-// Mock data for quick stats
+// Mock data
 const quickStats = [
   { label: "Most Active Time", value: "Tuesdays, 10-12 AM" },
   { label: "Top Keyword", value: "Assignments" },
@@ -507,3 +197,16 @@ const quickStats = [
   { label: "Common Feature Request", value: "More practice problems" },
   { label: "Improvement Area", value: "Assignment clarity" },
 ];
+
+// Helper function to get course name by ID
+function getCourseNameById(id: string): string {
+  const courses = {
+    "course-1": "Introduction to Programming",
+    "course-2": "Data Structures & Algorithms",
+    "course-3": "Web Development",
+    "course-4": "Machine Learning Basics",
+    "course-5": "Database Systems",
+  };
+
+  return courses[id as keyof typeof courses] || "Unknown Course";
+}

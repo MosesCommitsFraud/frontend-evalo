@@ -17,18 +17,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 export function TopNav() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="px-4 flex h-16 items-center justify-between">
+        <div className="flex items-center gap-4 w-full max-w-md">
           <Link href="/" className="flex items-center gap-2">
             <div className="rounded-xl bg-emerald-600 px-2 py-1">
               <span className="text-lg font-bold text-white">evalo</span>
             </div>
           </Link>
-          <div className="hidden md:flex md:w-[240px] lg:w-[280px]">
-            <div className="relative w-full">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search..." className="w-full pl-8 text-sm" />
-            </div>
+          <div className="w-full relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search..." className="w-full pl-8 text-sm" />
           </div>
         </div>
         <div className="flex items-center gap-2">

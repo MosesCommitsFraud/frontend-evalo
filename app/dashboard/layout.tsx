@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { MainNav } from "@/components/main-nav";
 import { TopNav } from "@/components/top-nav";
+import { Sidebar } from "@/components/sidebar"; // Import the new consolidated sidebar
 
 export default function DashboardLayout({
   children,
@@ -12,11 +12,12 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <TopNav />
-      <div className="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
-        <aside className="fixed top-14 z-30 -ml-2 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 overflow-y-auto border-r md:sticky md:block">
-          <MainNav />
-        </aside>
-        <main className="relative py-6 md:gap-10 lg:py-8">{children}</main>
+      <div className="flex-1 flex">
+        {/* Single consolidated sidebar component */}
+        <Sidebar />
+
+        {/* Main content area */}
+        <main className="flex-1 p-6 max-w-[1200px] mx-auto">{children}</main>
       </div>
     </div>
   );

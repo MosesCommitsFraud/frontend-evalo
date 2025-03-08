@@ -10,7 +10,9 @@ import {
   Plus,
   Settings,
   Users,
+  ChartLine,
   HelpCircle,
+  Calendar1,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -60,6 +62,12 @@ export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
                 icon={<BarChart3 className="h-4 w-4 mr-2" />}
                 pathname={pathname}
               />
+              <NavItem
+                href="/calendar"
+                title="Calendar"
+                icon={<Calendar1 className="h-4 w-4 mr-2" />}
+                pathname={pathname}
+              />
             </div>
           </div>
 
@@ -70,9 +78,9 @@ export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
             </h3>
             <div className="space-y-1">
               <NavItem
-                href="/students"
-                title="Students"
-                icon={<Users className="h-4 w-4 mr-2" />}
+                href="/admin-analytics"
+                title="Analytics"
+                icon={<ChartLine className="h-4 w-4 mr-2" />}
                 pathname={pathname}
               />
               <NavItem

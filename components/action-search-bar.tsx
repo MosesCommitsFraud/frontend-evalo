@@ -11,10 +11,16 @@ import {
   MessageSquare,
   Users,
   GraduationCap,
+  LayoutDashboard,
+  Settings,
+  FileText,
+  HelpCircle,
 } from "lucide-react";
 import useDebounce from "@/hooks/use-debounce";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
+// Type for an action item
 interface Action {
   id: string;
   label: string;
@@ -28,86 +34,159 @@ interface SearchResult {
   actions: Action[];
 }
 
-// Sample data for courses and other navigable items
-const allActions = [
-  {
-    id: "course-1",
-    label: "Introduction to Programming",
-    icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
-    description: "CS101",
-    category: "Course",
-    path: "/dashboard/courses/course-1",
-  },
-  {
-    id: "course-2",
-    label: "Data Structures & Algorithms",
-    icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
-    description: "CS201",
-    category: "Course",
-    path: "/dashboard/courses/course-2",
-  },
-  {
-    id: "course-3",
-    label: "Web Development",
-    icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
-    description: "CS301",
-    category: "Course",
-    path: "/dashboard/courses/course-3",
-  },
-  {
-    id: "course-4",
-    label: "Machine Learning Basics",
-    icon: <BookOpen className="h-4 w-4 text-emerald-600" />,
-    description: "CS401",
-    category: "Course",
-    path: "/dashboard/courses/course-4",
-  },
-  {
-    id: "analytics",
-    label: "Analytics Dashboard",
-    icon: <BarChart3 className="h-4 w-4 text-blue-500" />,
-    description: "View all data",
-    category: "Page",
-    path: "/dashboard",
-  },
-  {
-    id: "feedback",
-    label: "Feedback Overview",
-    icon: <MessageSquare className="h-4 w-4 text-orange-500" />,
-    category: "Feature",
-    path: "/dashboard/feedback",
-  },
-  {
-    id: "calendar",
-    label: "Course Calendar",
-    icon: <CalendarDays className="h-4 w-4 text-purple-500" />,
-    category: "Feature",
-    path: "/dashboard/calendar",
-  },
-  {
-    id: "students",
-    label: "Student Management",
-    icon: <Users className="h-4 w-4 text-indigo-500" />,
-    category: "Page",
-    path: "/students",
-  },
-  {
-    id: "teachers",
-    label: "Teacher Directory",
-    icon: <GraduationCap className="h-4 w-4 text-green-500" />,
-    category: "Page",
-    path: "/dashboard/teachers",
-  },
-];
+// Icon mapping for dynamic icon selection
+const iconMap: Record<string, React.ReactNode> = {
+  dashboard: <LayoutDashboard className="h-4 w-4 text-gray-500" />,
+  analytics: <BarChart3 className="h-4 w-4 text-blue-500" />,
+  calendar: <CalendarDays className="h-4 w-4 text-purple-500" />,
+  courses: <BookOpen className="h-4 w-4 text-emerald-600" />,
+  teachers: <GraduationCap className="h-4 w-4 text-green-500" />,
+  resources: <FileText className="h-4 w-4 text-orange-500" />,
+  feedback: <MessageSquare className="h-4 w-4 text-orange-500" />,
+  settings: <Settings className="h-4 w-4 text-gray-500" />,
+  help: <HelpCircle className="h-4 w-4 text-gray-500" />,
+};
 
 function ActionSearchBar() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SearchResult | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [allActions, setAllActions] = useState<Action[]>([]);
   const debouncedQuery = useDebounce(query, 200);
   const router = useRouter();
+  const pathname = usePathname();
 
+  // Generate actions dynamically based on app structure
+  useEffect(() => {
+    // Core navigation actions (static part)
+    const coreActions: Action[] = [
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        icon: iconMap.dashboard,
+        description: "Main dashboard",
+        category: "Page",
+        path: "/dashboard",
+      },
+      {
+        id: "analytics",
+        label: "Analytics",
+        icon: iconMap.analytics,
+        description: "View all data",
+        category: "Page",
+        path: "/dashboard/analytics",
+      },
+      {
+        id: "calendar",
+        label: "Calendar",
+        icon: iconMap.calendar,
+        description: "All events",
+        category: "Page",
+        path: "/dashboard/calendar",
+      },
+    ];
+
+    // Management actions
+    const managementActions: Action[] = [
+      {
+        id: "teachers",
+        label: "Teacher Management",
+        icon: iconMap.teachers,
+        description: "Manage teachers",
+        category: "Management",
+        path: "/dashboard/teachers",
+      },
+      {
+        id: "resources",
+        label: "Resources",
+        icon: iconMap.resources,
+        description: "Course resources",
+        category: "Management",
+        path: "/dashboard/resources",
+      },
+    ];
+
+    // Settings actions
+    const settingsActions: Action[] = [
+      {
+        id: "settings",
+        label: "Settings",
+        icon: iconMap.settings,
+        description: "System settings",
+        category: "Settings",
+        path: "/dashboard/settings",
+      },
+      {
+        id: "help",
+        label: "Help & Support",
+        icon: iconMap.help,
+        description: "Get assistance",
+        category: "Settings",
+        path: "/dashboard/help",
+      },
+    ];
+
+    // Fetch course data - in a real app, this would come from an API
+    // For this example, we'll use mock data
+    const coursesActions: Action[] = [
+      {
+        id: "course-1",
+        label: "Introduction to Programming",
+        icon: iconMap.courses,
+        description: "CS101",
+        category: "Course",
+        path: "/dashboard/courses/course-1",
+      },
+      {
+        id: "course-2",
+        label: "Data Structures & Algorithms",
+        icon: iconMap.courses,
+        description: "CS201",
+        category: "Course",
+        path: "/dashboard/courses/course-2",
+      },
+      {
+        id: "course-3",
+        label: "Web Development",
+        icon: iconMap.courses,
+        description: "CS301",
+        category: "Course",
+        path: "/dashboard/courses/course-3",
+      },
+      {
+        id: "course-4",
+        label: "Machine Learning Basics",
+        icon: iconMap.courses,
+        description: "CS401",
+        category: "Course",
+        path: "/dashboard/courses/course-4",
+      },
+      {
+        id: "course-5",
+        label: "Database Systems",
+        icon: iconMap.courses,
+        description: "CS202",
+        category: "Course",
+        path: "/dashboard/courses/course-5",
+      },
+    ];
+
+    // In a real app, you would fetch this data dynamically:
+    // 1. From an API endpoint that provides available routes
+    // 2. From a global state/context
+    // 3. From a navigation map defined elsewhere
+
+    // Combine all actions
+    setAllActions([
+      ...coreActions,
+      ...managementActions,
+      ...settingsActions,
+      ...coursesActions,
+    ]);
+  }, []);
+
+  // Update search results when query changes
   useEffect(() => {
     if (!isFocused) {
       setResult(null);
@@ -130,7 +209,7 @@ function ActionSearchBar() {
 
     setResult({ actions: filteredActions });
     setSelectedIndex(-1); // Reset selection when results change
-  }, [debouncedQuery, isFocused]);
+  }, [debouncedQuery, isFocused, allActions]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -213,6 +292,11 @@ function ActionSearchBar() {
     setIsFocused(true);
   };
 
+  // Dynamically highlight active items based on current path
+  const isActiveItem = (path: string) => {
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
+
   return (
     <div className="relative max-w-md w-full">
       <div className="relative">
@@ -253,7 +337,7 @@ function ActionSearchBar() {
                       index === selectedIndex
                         ? "bg-accent text-accent-foreground"
                         : ""
-                    }`}
+                    } ${isActiveItem(action.path) ? "font-semibold" : ""}`}
                     variants={item}
                     layout
                     onClick={() => navigateToAction(action)}

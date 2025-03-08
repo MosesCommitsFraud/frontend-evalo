@@ -94,9 +94,50 @@ export default function HomePage() {
       <header className="border-b bg-white dark:bg-gray-950 backdrop-blur-md sticky top-0 z-50 transition-colors">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
-            <div className="rounded-xl bg-emerald-600 px-2 py-1">
-              <span className="text-lg font-bold text-white">evalo</span>
-            </div>
+            {/* React Logo with inline SVG */}
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="h-10 w-10 text-emerald-600">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 100 100"
+                  fill="currentColor"
+                >
+                  <circle cx="50" cy="50" r="8" />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="45"
+                    ry="17"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                  />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="45"
+                    ry="17"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    transform="rotate(60 50 50)"
+                  />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="45"
+                    ry="17"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    transform="rotate(-60 50 50)"
+                  />
+                </svg>
+              </div>
+              <span className="text-xl font-semibold text-emerald-600">
+                evalo
+              </span>
+            </Link>
             <nav className="hidden md:flex items-center space-x-1">
               {navItems.map((item) => (
                 <AnimatedNavItem key={item.label} item={item} />
@@ -203,8 +244,44 @@ export default function HomePage() {
         <div className="container">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-emerald-600 px-2 py-1">
-                <span className="text-sm font-bold text-white">evalo</span>
+              {/* Logo in footer */}
+              <div className="h-6 w-6 text-emerald-600">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 100 100"
+                  fill="currentColor"
+                >
+                  <circle cx="50" cy="50" r="8" />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="45"
+                    ry="17"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                  />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="45"
+                    ry="17"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    transform="rotate(60 50 50)"
+                  />
+                  <ellipse
+                    cx="50"
+                    cy="50"
+                    rx="45"
+                    ry="17"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    transform="rotate(-60 50 50)"
+                  />
+                </svg>
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 © 2025 Evalo. All rights reserved.

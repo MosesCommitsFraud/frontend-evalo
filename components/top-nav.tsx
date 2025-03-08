@@ -29,10 +29,49 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle sidebar</span>
           </Button>
-          <Link href="/" className="flex items-center gap-2">
-            <div className="rounded-xl bg-emerald-600 px-2 py-1">
-              <span className="text-lg font-bold text-white">evalo</span>
+          <Link href="/" className="flex items-center space-x-2">
+            {/* Inline SVG as fallback */}
+            <div className="h-10 w-10 text-emerald-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 100 100"
+                fill="currentColor"
+              >
+                <circle cx="50" cy="50" r="8" />
+                <ellipse
+                  cx="50"
+                  cy="50"
+                  rx="45"
+                  ry="17"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                />
+                <ellipse
+                  cx="50"
+                  cy="50"
+                  rx="45"
+                  ry="17"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  transform="rotate(60 50 50)"
+                />
+                <ellipse
+                  cx="50"
+                  cy="50"
+                  rx="45"
+                  ry="17"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  transform="rotate(-60 50 50)"
+                />
+              </svg>
             </div>
+            <span className="text-xl font-semibold text-emerald-600">
+              evalo
+            </span>
           </Link>
           <div className="w-full relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

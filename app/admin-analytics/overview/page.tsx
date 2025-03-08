@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 
 // This page shows analytics overview for the current teacher's courses
-export default function AnalyticsOverviewPage() {
+export default function AdminAnalyticsOverviewPage() {
   const router = useRouter();
   const [timePeriod, setTimePeriod] = useState("30");
 
@@ -322,8 +322,8 @@ export default function AnalyticsOverviewPage() {
 
   // Handle tab selection
   const handleTabChange = (index: number) => {
-    if (index === 1) router.push("/analytics/courses");
-    else if (index === 2) router.push("/analytics/feedback");
+    if (index === 1) router.push("/admin-analytics/courses");
+    else if (index === 2) router.push("/admin-analytics/feedback");
   };
 
   return (

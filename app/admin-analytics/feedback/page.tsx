@@ -44,7 +44,7 @@ import {
   Minus,
 } from "lucide-react";
 
-export default function AnalyticsFeedbackPage() {
+export default function AdminAnalyticsFeedbackPage() {
   const router = useRouter();
   const [timePeriod, setTimePeriod] = useState("30");
   const [searchQuery, setSearchQuery] = useState("");
@@ -427,8 +427,8 @@ export default function AnalyticsFeedbackPage() {
 
   // Handle tab selection
   const handleTabChange = (index: number) => {
-    if (index === 0) router.push("/analytics/overview");
-    else if (index === 1) router.push("/analytics/courses");
+    if (index === 0) router.push("/admin-analytics/overview");
+    else if (index === 1) router.push("/admin-analytics/courses");
   };
 
   return (

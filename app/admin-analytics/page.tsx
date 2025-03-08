@@ -7,12 +7,12 @@ import { BarChart3, Book, MessageSquare } from "lucide-react";
 
 // This main analytics page serves as an entry point to the analytics section
 // It redirects to the overview page by default
-export default function AnalyticsPage() {
+export default function AdminAnalyticsPage() {
   const router = useRouter();
 
   // Redirect to overview page on component mount
   useEffect(() => {
-    router.push("/analytics/overview");
+    router.push("/admin-analytics/overview");
   }, [router]);
 
   // Create tabs data for CustomTabs component
@@ -52,9 +52,9 @@ export default function AnalyticsPage() {
 
   // Handle tab selection
   const handleTabChange = (index: number) => {
-    if (index === 0) router.push("/analytics/overview");
-    else if (index === 1) router.push("/analytics/courses");
-    else if (index === 2) router.push("/analytics/feedback");
+    if (index === 0) router.push("/admin-analytics/overview");
+    else if (index === 1) router.push("/admin-analytics/courses");
+    else if (index === 2) router.push("/admin-analytics/feedback");
   };
 
   return (

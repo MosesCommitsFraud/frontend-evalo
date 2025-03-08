@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Plus,
   Settings,
-  Users,
   ChartLine,
   HelpCircle,
   Calendar1,
@@ -34,15 +33,12 @@ export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
   return (
     <aside
       className={cn(
-        "fixed md:relative h-[calc(100vh-4rem)] border-r bg-background",
+        "fixed md:relative min-h-screen border-r bg-background overflow-x-hidden",
         "transition-all duration-300 ease-in-out",
-        "overflow-y-auto",
         isVisible ? "w-64" : "w-0 -ml-64 md:w-0 md:-ml-16",
       )}
     >
       <div className="w-64">
-        {" "}
-        {/* Fixed width inner container */}
         {/* OVERVIEW Section */}
         <div className="px-4 py-4 space-y-6">
           <div className="space-y-2">

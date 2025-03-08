@@ -1,13 +1,14 @@
+// components/theme-toggle.tsx
 "use client";
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 
-export function ThemeToggle() {
+// Memoize the ThemeToggle component to prevent unnecessary re-renders
+export const ThemeToggle = memo(function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  // Add this state to prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
 
   // Only render the component once mounted on the client
@@ -24,28 +25,29 @@ export function ThemeToggle() {
     return <div className="w-20 h-8"></div>;
   }
 
+  const isDark = theme === "dark";
+
   return (
-    <div className="flex items-center space-x-2 transition-colors transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.6,1)]">
+    <div className="flex items-center space-x-2">
       <Sun
-        className={`h-[1.2rem] w-[1.2rem] transition-colors transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.6,1)] ${
-          theme === "dark"
+        className={`h-[1.2rem] w-[1.2rem] transition-all duration-200 ${
+          isDark
             ? "text-gray-500 scale-75 rotate-12"
             : "text-amber-500 scale-100 rotate-0"
         }`}
       />
       <Switch
-        checked={theme === "dark"}
+        checked={isDark}
         onCheckedChange={toggleTheme}
         aria-label="Toggle theme"
-        className="transition-colors transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.6,1)] hover:scale-110"
       />
       <Moon
-        className={`h-[1.2rem] w-[1.2rem] transition-colors transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.6,1)] ${
-          theme === "light"
+        className={`h-[1.2rem] w-[1.2rem] transition-all duration-200 ${
+          !isDark
             ? "text-gray-500 scale-75 rotate-12"
             : "text-blue-400 scale-100 rotate-0"
         }`}
       />
     </div>
   );
-}
+});

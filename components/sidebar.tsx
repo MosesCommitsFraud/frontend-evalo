@@ -1,5 +1,6 @@
 "use client";
 
+import React, { memo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -27,89 +28,154 @@ const courses = [
   { id: "course-5", name: "Database Systems", code: "CS202" },
 ];
 
-export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
+// Memoized nav item component to prevent unnecessary re-renders
+const NavItem = memo(
+  ({
+    href,
+    title,
+    icon,
+    pathname,
+  }: {
+    href: string;
+    title: string;
+    icon: React.ReactNode;
+    pathname: string;
+  }) => {
+    const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+    return (
+      <Link
+        href={href}
+        className={cn(
+          "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors-only",
+          isActive ? "bg-accent text-accent-foreground" : "transparent",
+        )}
+      >
+        {icon}
+        <span>{title}</span>
+      </Link>
+    );
+  },
+);
+NavItem.displayName = "NavItem";
+
+// Memoized course item component
+const CourseItem = memo(
+  ({
+    course,
+    pathname,
+  }: {
+    course: { id: string; name: string; code: string };
+    pathname: string;
+  }) => {
+    const href = `/dashboard/courses/${course.id}`;
+    const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+    return (
+      <Link
+        key={course.id}
+        href={href}
+        className={cn(
+          "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors-only",
+          isActive ? "bg-accent text-accent-foreground" : "transparent",
+        )}
+      >
+        <BookOpen className="h-4 w-4 mr-2" />
+        <span className="truncate">{course.name}</span>
+      </Link>
+    );
+  },
+);
+CourseItem.displayName = "CourseItem";
+
+// Memoized section component
+const SidebarSection = memo(
+  ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="space-y-2">
+      <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
+        {title}
+      </h3>
+      <div className="space-y-1">{children}</div>
+    </div>
+  ),
+);
+SidebarSection.displayName = "SidebarSection";
+
+// Main Sidebar component
+export const Sidebar = memo(({ isVisible = true }: { isVisible?: boolean }) => {
   const pathname = usePathname();
+
+  // Pre-defined fixed classes to avoid layout thrashing
+  const visibleClasses = "w-64";
+  const hiddenClasses = "w-0 -ml-64 md:w-0 md:-ml-16";
 
   return (
     <aside
       className={cn(
         "fixed md:relative min-h-screen border-r bg-background overflow-x-hidden",
-        "transition-all duration-300 ease-in-out",
-        isVisible ? "w-64" : "w-0 -ml-64 md:w-0 md:-ml-16",
+        "sidebar-transition hardware-accelerated",
+        isVisible ? visibleClasses : hiddenClasses,
       )}
+      style={{ contain: "layout" }}
     >
-      <div className="w-64">
+      <div className="w-64 contain-layout">
         {/* OVERVIEW Section */}
         <div className="px-4 py-4 space-y-6">
-          <div className="space-y-2">
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
-              OVERVIEW
-            </h3>
-            <div className="space-y-1">
-              <NavItem
-                href="/dashboard"
-                title="Dashboard"
-                icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-              <NavItem
-                href="/analytics"
-                title="Analytics"
-                icon={<BarChart3 className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-              <NavItem
-                href="/calendar"
-                title="Calendar"
-                icon={<Calendar1 className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-            </div>
-          </div>
+          <SidebarSection title="OVERVIEW">
+            <NavItem
+              href="/dashboard"
+              title="Dashboard"
+              icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/analytics"
+              title="Analytics"
+              icon={<BarChart3 className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/calendar"
+              title="Calendar"
+              icon={<Calendar1 className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+          </SidebarSection>
 
           {/* MANAGEMENT Section */}
-          <div className="space-y-2">
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
-              MANAGEMENT
-            </h3>
-            <div className="space-y-1">
-              <NavItem
-                href="/admin-analytics"
-                title="Analytics"
-                icon={<ChartLine className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-              <NavItem
-                href="/teachers"
-                title="Teachers"
-                icon={<GraduationCap className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-            </div>
-          </div>
+          <SidebarSection title="MANAGEMENT">
+            <NavItem
+              href="/admin-analytics"
+              title="Analytics"
+              icon={<ChartLine className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/teachers"
+              title="Teachers"
+              icon={<GraduationCap className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+          </SidebarSection>
 
           {/* SETTINGS Section */}
-          <div className="space-y-2">
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
-              SETTINGS
-            </h3>
-            <div className="space-y-1">
-              <NavItem
-                href="/settings"
-                title="Admin Settings"
-                icon={<Settings className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-              <NavItem
-                href="/help"
-                title="Help & Support"
-                icon={<HelpCircle className="h-4 w-4 mr-2" />}
-                pathname={pathname}
-              />
-            </div>
-          </div>
+          <SidebarSection title="SETTINGS">
+            <NavItem
+              href="/settings"
+              title="Admin Settings"
+              icon={<Settings className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+            <NavItem
+              href="/help"
+              title="Help & Support"
+              icon={<HelpCircle className="h-4 w-4 mr-2" />}
+              pathname={pathname}
+            />
+          </SidebarSection>
         </div>
         <Separator className="my-2" />
+
         {/* Courses Section */}
         <div className="px-3 py-2 flex-1 flex flex-col">
           <div className="mb-2 px-3 flex items-center justify-between">
@@ -127,59 +193,18 @@ export function Sidebar({ isVisible = true }: { isVisible?: boolean }) {
               </Button>
             </CreateCourseDialog>
           </div>
-          <div className="space-y-1 px-1 overflow-y-auto flex-1">
-            {courses.map((course) => {
-              const href = `/dashboard/courses/${course.id}`;
-              const isActive =
-                pathname === href || pathname.startsWith(`${href}/`);
 
-              return (
-                <Link
-                  key={course.id}
-                  href={href}
-                  className={cn(
-                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "transparent",
-                  )}
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  <span>{course.name}</span>
-                </Link>
-              );
-            })}
+          {/* Virtualized course list for better performance */}
+          <div className="space-y-1 px-1 overflow-y-auto flex-1 virtualized-list">
+            {courses.map((course) => (
+              <CourseItem key={course.id} course={course} pathname={pathname} />
+            ))}
           </div>
         </div>
       </div>
     </aside>
   );
-}
+});
+Sidebar.displayName = "Sidebar";
 
-// Helper component for nav items
-function NavItem({
-  href,
-  title,
-  icon,
-  pathname,
-}: {
-  href: string;
-  title: string;
-  icon: React.ReactNode;
-  pathname: string;
-}) {
-  const isActive = pathname === href || pathname.startsWith(`${href}/`);
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-        isActive ? "bg-accent text-accent-foreground" : "transparent",
-      )}
-    >
-      {icon}
-      <span>{title}</span>
-    </Link>
-  );
-}
+export default Sidebar;

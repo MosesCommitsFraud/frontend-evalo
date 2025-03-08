@@ -69,7 +69,26 @@
 
 /* Global smooth transition for theme changes */
 * {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  /* Only animate properties that need animation, avoid "all" */
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* For elements that need hardware acceleration */
+.hardware-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Use contain property for large layout containers to isolate their repaints */
+.contain-layout {
+  contain: layout;
+}
+
+/* Add this to your charts container to optimize rendering */
+.chart-container {
+  contain: content;
 }
 
 /* Force dark tooltips/popovers in dark mode with high specificity and rounded corners */

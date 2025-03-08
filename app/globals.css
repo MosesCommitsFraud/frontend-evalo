@@ -91,6 +91,18 @@
   contain: content;
 }
 
+/* Specific transition for the sidebar */
+.sidebar-transition {
+  transition-property: width, margin-left, transform;
+  transition-duration: 0.3s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Optional: Improve performance with will-change */
+.sidebar-transition.hardware-accelerated {
+  will-change: width, margin-left, transform;
+}
+
 /* Force dark tooltips/popovers in dark mode with high specificity and rounded corners */
 html.dark .tooltip,
 html.dark .tooltip-content,

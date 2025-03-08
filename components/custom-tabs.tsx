@@ -1,3 +1,5 @@
+// custom-tabs.tsx
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -11,12 +13,14 @@ interface CustomTabsProps {
   tabs: Tab[];
   defaultActiveIndex?: number;
   className?: string;
+  onTabChange?: (index: number) => void; // <-- Added onTabChange prop
 }
 
 const CustomTabs: React.FC<CustomTabsProps> = ({
   tabs,
   defaultActiveIndex = 0,
   className = "",
+  onTabChange, // <-- Destructure it
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(defaultActiveIndex);
@@ -93,7 +97,13 @@ const CustomTabs: React.FC<CustomTabsProps> = ({
               }`}
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
-              onClick={() => setActiveIndex(index)}
+              onClick={() => {
+                setActiveIndex(index);
+                // Call the onTabChange callback if provided
+                if (onTabChange) {
+                  onTabChange(index);
+                }
+              }}
             >
               <div className="text-sm leading-5 whitespace-nowrap flex items-center justify-center h-full">
                 {tab.label}

@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CustomTabs from "@/components/custom-tabs";
 import {
   Select,
   SelectContent,
@@ -156,15 +156,6 @@ export default function AnalyticsFeedbackPage() {
     return true;
   });
 
-  // Handle tab changes
-  const handleTabChange = (value: string) => {
-    if (value === "overview") {
-      router.push("/analytics/overview");
-    } else if (value === "courses") {
-      router.push("/analytics/courses");
-    }
-  };
-
   // Get sentiment icon based on sentiment
   const getSentimentIcon = (sentiment: string) => {
     switch (sentiment) {
@@ -183,54 +174,35 @@ export default function AnalyticsFeedbackPage() {
     return course ? `${course.code}: ${course.name}` : "Unknown Course";
   };
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Analytics Dashboard
-        </h1>
-        <div className="flex gap-2">
-          <Select value={timePeriod} onValueChange={setTimePeriod}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select time period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
-              <SelectItem value="365">Last year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </Button>
-        </div>
-      </div>
-
-      {/* Analytics Tabs */}
-      <Tabs
-        defaultValue="feedback"
-        onValueChange={handleTabChange}
-        className="space-y-6"
-      >
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto">
-          <TabsTrigger value="overview" className="gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="courses" className="gap-2">
-            <Book className="h-4 w-4" />
-            <span className="hidden sm:inline">Courses</span>
-          </TabsTrigger>
-          <TabsTrigger value="feedback" className="gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Feedback</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Feedback Tab Content */}
-        <TabsContent value="feedback" className="space-y-6">
+  // Create tabs data for CustomTabs component
+  const tabsData = [
+    {
+      label: (
+        <span className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4" />
+          Overview
+        </span>
+      ),
+      content: <div></div>,
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2">
+          <Book className="h-4 w-4" />
+          Courses
+        </span>
+      ),
+      content: <div></div>,
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4" />
+          Feedback
+        </span>
+      ),
+      content: (
+        <div className="space-y-6">
           {/* Feedback Distribution Charts */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Sentiment Distribution */}
@@ -448,8 +420,48 @@ export default function AnalyticsFeedbackPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      ),
+    },
+  ];
+
+  // Handle tab selection
+  const handleTabChange = (index: number) => {
+    if (index === 0) router.push("/analytics/overview");
+    else if (index === 1) router.push("/analytics/courses");
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Analytics Dashboard
+        </h1>
+        <div className="flex gap-2">
+          <Select value={timePeriod} onValueChange={setTimePeriod}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="365">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </Button>
+        </div>
+      </div>
+
+      {/* Use CustomTabs component */}
+      <CustomTabs
+        tabs={tabsData}
+        defaultActiveIndex={2}
+        onTabChange={handleTabChange}
+      />
     </div>
   );
 }

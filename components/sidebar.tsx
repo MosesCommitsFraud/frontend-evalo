@@ -161,7 +161,7 @@ export const Sidebar = memo(({ isVisible = true }: { isVisible?: boolean }) => {
           {/* SETTINGS Section */}
           <SidebarSection title="SETTINGS">
             <NavItem
-              href="/settings"
+              href="/admin-settings"
               title="Admin Settings"
               icon={<Settings className="h-4 w-4 mr-2" />}
               pathname={pathname}

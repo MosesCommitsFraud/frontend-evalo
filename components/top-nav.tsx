@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BellIcon, Menu, Search, Settings, User } from "lucide-react";
+import { BellIcon, Menu, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,12 +13,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import ActionSearchBar from "@/components/action-search-bar";
 
 export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="px-4 flex h-16 items-center justify-between">
-        <div className="flex items-center gap-4 w-full max-w-md">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
@@ -30,7 +30,6 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
             <span className="sr-only">Toggle sidebar</span>
           </Button>
           <Link href="/" className="flex items-center space-x-2">
-            {/* Inline SVG as fallback */}
             <div className="h-10 w-10 text-emerald-600">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -73,11 +72,13 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
               evalo
             </span>
           </Link>
-          <div className="w-full relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search..." className="w-full pl-8 text-sm" />
-          </div>
         </div>
+
+        {/* Action Search Bar in the middle */}
+        <div className="flex-1 flex justify-center max-w-xl mx-4">
+          <ActionSearchBar />
+        </div>
+
         <div className="flex items-center gap-2">
           {/* Theme toggle placed to the left of the bell icon */}
           <ThemeToggle />

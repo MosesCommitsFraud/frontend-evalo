@@ -34,17 +34,63 @@ interface SearchResult {
   actions: Action[];
 }
 
-// Icon mapping for dynamic icon selection
-const iconMap: Record<string, React.ReactNode> = {
-  dashboard: <LayoutDashboard className="h-4 w-4 text-gray-500" />,
-  analytics: <BarChart3 className="h-4 w-4 text-blue-500" />,
-  calendar: <CalendarDays className="h-4 w-4 text-purple-500" />,
-  courses: <BookOpen className="h-4 w-4 text-emerald-600" />,
-  teachers: <GraduationCap className="h-4 w-4 text-green-500" />,
-  resources: <FileText className="h-4 w-4 text-orange-500" />,
-  feedback: <MessageSquare className="h-4 w-4 text-orange-500" />,
-  settings: <Settings className="h-4 w-4 text-gray-500" />,
-  help: <HelpCircle className="h-4 w-4 text-gray-500" />,
+// Helper function to get icon based on path pattern
+const getIconForPath = (path: string) => {
+  if (path.includes("dashboard") && path.split("/").length === 2)
+    return <LayoutDashboard className="h-4 w-4 text-gray-500" />;
+  if (path.includes("analytics"))
+    return <BarChart3 className="h-4 w-4 text-blue-500" />;
+  if (path.includes("calendar"))
+    return <CalendarDays className="h-4 w-4 text-purple-500" />;
+  if (path.includes("courses"))
+    return <BookOpen className="h-4 w-4 text-emerald-600" />;
+  if (path.includes("teacher"))
+    return <GraduationCap className="h-4 w-4 text-green-500" />;
+  if (path.includes("feedback"))
+    return <MessageSquare className="h-4 w-4 text-orange-500" />;
+  if (path.includes("settings"))
+    return <Settings className="h-4 w-4 text-gray-500" />;
+  if (path.includes("help"))
+    return <HelpCircle className="h-4 w-4 text-gray-500" />;
+  if (path.includes("student"))
+    return <Users className="h-4 w-4 text-indigo-500" />;
+
+  return <FileText className="h-4 w-4 text-gray-500" />;
+};
+
+// Function to generate a nice label from a path
+const getLabelFromPath = (path: string) => {
+  // Remove leading slash and split into parts
+  const parts = path.replace(/^\//, "").split("/");
+
+  // Get the last meaningful part
+  let lastPart = parts[parts.length - 1];
+
+  // Handle dynamic routes with [param]
+  if (lastPart.startsWith("[") && lastPart.endsWith("]")) {
+    // If we're dealing with a dynamic route, use the parent route name instead
+    lastPart = parts[parts.length - 2] || "Item";
+  }
+
+  // Format the label (capitalize, replace hyphens with spaces)
+  return lastPart
+    .replace(/-/g, " ")
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+// Function to determine category based on path
+const getCategoryForPath = (path: string) => {
+  if (path === "/dashboard") return "Dashboard";
+  if (path.includes("courses")) return "Course";
+  if (path.includes("admin")) return "Admin";
+  if (path.includes("settings")) return "Settings";
+  if (path.includes("calendar")) return "Calendar";
+  if (path.includes("analytics")) return "Analytics";
+  if (path.includes("teachers")) return "Management";
+  if (path.includes("events")) return "Event";
+  return "Page";
 };
 
 function ActionSearchBar() {
@@ -57,133 +103,130 @@ function ActionSearchBar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Generate actions dynamically based on app structure
+  // Dynamically generate actions from routes
   useEffect(() => {
-    // Core navigation actions (static part)
-    const coreActions: Action[] = [
+    // Function to scan directory structure and extract routes
+    const getRoutesFromAppStructure = () => {
+      // In a real Next.js app, you could use a more automated approach
+      // For now, we'll extract routes from the file structure we can see
+      const routes = [
+        "/dashboard",
+        "/admin-analytics",
+        "/calendar",
+        "/teachers",
+        "/settings",
+        "/help",
+        "/student-feedback",
+        "/dashboard/courses",
+        "/dashboard/events",
+        "/dashboard/analytics",
+      ];
+
+      return routes;
+    };
+
+    // Generate course-specific routes
+    const generateCourseRoutes = () => {
+      const courseData = [
+        { id: "course-1", name: "Introduction to Programming", code: "CS101" },
+        { id: "course-2", name: "Data Structures & Algorithms", code: "CS201" },
+        { id: "course-3", name: "Web Development", code: "CS301" },
+        { id: "course-4", name: "Machine Learning Basics", code: "CS401" },
+        { id: "course-5", name: "Database Systems", code: "CS202" },
+      ];
+
+      // Map each course to its routes
+      return courseData.flatMap((course) => {
+        const basePath = `/dashboard/courses/${course.id}`;
+        return [
+          {
+            id: `course-${course.id}`,
+            path: basePath,
+            name: course.name,
+            code: course.code,
+          },
+          {
+            id: `course-${course.id}-analytics`,
+            path: `${basePath}/analytics`,
+            name: `${course.name} Analytics`,
+            code: course.code,
+          },
+          {
+            id: `course-${course.id}-feedback`,
+            path: `${basePath}/feedback`,
+            name: `${course.name} Feedback`,
+            code: course.code,
+          },
+          {
+            id: `course-${course.id}-calendar`,
+            path: `${basePath}/calendar`,
+            name: `${course.name} Calendar`,
+            code: course.code,
+          },
+          {
+            id: `course-${course.id}-settings`,
+            path: `${basePath}/settings`,
+            name: `${course.name} Settings`,
+            code: course.code,
+          },
+        ];
+      });
+    };
+
+    // Get app routes and course routes
+    const appRoutes = getRoutesFromAppStructure();
+    const courseRoutes = generateCourseRoutes();
+
+    // Convert routes to actions
+    const routeActions = appRoutes.map((route) => ({
+      id: route,
+      label: getLabelFromPath(route),
+      icon: getIconForPath(route),
+      description: `View ${getLabelFromPath(route).toLowerCase()}`,
+      category: getCategoryForPath(route),
+      path: route,
+    }));
+
+    // Convert course routes to actions
+    const courseActions = courseRoutes.map((course) => ({
+      id: course.id,
+      label: course.name,
+      icon: getIconForPath(course.path),
+      description: course.code,
+      category: "Course",
+      path: course.path,
+    }));
+
+    // Add event-specific routes if needed
+    const eventRoutes = [
       {
-        id: "dashboard",
-        label: "Dashboard",
-        icon: iconMap.dashboard,
-        description: "Main dashboard",
-        category: "Page",
-        path: "/dashboard",
+        id: "event-1",
+        name: "Lecture on React",
+        path: "/dashboard/events/event-1",
       },
       {
-        id: "analytics",
-        label: "Analytics",
-        icon: iconMap.analytics,
-        description: "View all data",
-        category: "Page",
-        path: "/dashboard/analytics",
+        id: "event-2",
+        name: "Assignment Deadline",
+        path: "/dashboard/events/event-2",
       },
       {
-        id: "calendar",
-        label: "Calendar",
-        icon: iconMap.calendar,
-        description: "All events",
-        category: "Page",
-        path: "/dashboard/calendar",
+        id: "event-3",
+        name: "Project Demo",
+        path: "/dashboard/events/event-3",
       },
     ];
 
-    // Management actions
-    const managementActions: Action[] = [
-      {
-        id: "teachers",
-        label: "Teacher Management",
-        icon: iconMap.teachers,
-        description: "Manage teachers",
-        category: "Management",
-        path: "/dashboard/teachers",
-      },
-      {
-        id: "resources",
-        label: "Resources",
-        icon: iconMap.resources,
-        description: "Course resources",
-        category: "Management",
-        path: "/dashboard/resources",
-      },
-    ];
-
-    // Settings actions
-    const settingsActions: Action[] = [
-      {
-        id: "settings",
-        label: "Settings",
-        icon: iconMap.settings,
-        description: "System settings",
-        category: "Settings",
-        path: "/dashboard/settings",
-      },
-      {
-        id: "help",
-        label: "Help & Support",
-        icon: iconMap.help,
-        description: "Get assistance",
-        category: "Settings",
-        path: "/dashboard/help",
-      },
-    ];
-
-    // Fetch course data - in a real app, this would come from an API
-    // For this example, we'll use mock data
-    const coursesActions: Action[] = [
-      {
-        id: "course-1",
-        label: "Introduction to Programming",
-        icon: iconMap.courses,
-        description: "CS101",
-        category: "Course",
-        path: "/dashboard/courses/course-1",
-      },
-      {
-        id: "course-2",
-        label: "Data Structures & Algorithms",
-        icon: iconMap.courses,
-        description: "CS201",
-        category: "Course",
-        path: "/dashboard/courses/course-2",
-      },
-      {
-        id: "course-3",
-        label: "Web Development",
-        icon: iconMap.courses,
-        description: "CS301",
-        category: "Course",
-        path: "/dashboard/courses/course-3",
-      },
-      {
-        id: "course-4",
-        label: "Machine Learning Basics",
-        icon: iconMap.courses,
-        description: "CS401",
-        category: "Course",
-        path: "/dashboard/courses/course-4",
-      },
-      {
-        id: "course-5",
-        label: "Database Systems",
-        icon: iconMap.courses,
-        description: "CS202",
-        category: "Course",
-        path: "/dashboard/courses/course-5",
-      },
-    ];
-
-    // In a real app, you would fetch this data dynamically:
-    // 1. From an API endpoint that provides available routes
-    // 2. From a global state/context
-    // 3. From a navigation map defined elsewhere
+    const eventActions = eventRoutes.map((event) => ({
+      id: event.id,
+      label: event.name,
+      icon: <CalendarDays className="h-4 w-4 text-purple-500" />,
+      description: "Event",
+      category: "Event",
+      path: event.path,
+    }));
 
     // Combine all actions
-    setAllActions([
-      ...coreActions,
-      ...managementActions,
-      ...settingsActions,
-      ...coursesActions,
-    ]);
+    setAllActions([...routeActions, ...courseActions, ...eventActions]);
   }, []);
 
   // Update search results when query changes

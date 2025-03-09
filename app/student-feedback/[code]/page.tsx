@@ -16,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, CheckCircle2, MessageSquare } from "lucide-react";
 
 // Route: /student-feedback/[code]/page.tsx
-// This would typically receive the code from the URL
 interface StudentFeedbackPageProps {
   params: {
     code?: string;
@@ -26,7 +25,11 @@ interface StudentFeedbackPageProps {
 export default function StudentFeedbackPage({
   params,
 }: StudentFeedbackPageProps) {
-  const [accessCode, setAccessCode] = useState(params.code || "");
+  // Unwrap params with React.use to fix the Next.js params access error
+  const resolvedParams = React.use(params);
+  const routeCode = resolvedParams.code;
+
+  const [accessCode, setAccessCode] = useState(routeCode || "");
   const [feedback, setFeedback] = useState("");
   const [isCodeValid, setIsCodeValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,8 +44,8 @@ export default function StudentFeedbackPage({
 
   // Auto-validate the code if it's in the URL
   useEffect(() => {
-    if (params.code) {
-      const isValid = validateCode(params.code);
+    if (routeCode) {
+      const isValid = validateCode(routeCode);
       setIsCodeValid(isValid);
       if (!isValid) {
         setError(
@@ -50,7 +53,7 @@ export default function StudentFeedbackPage({
         );
       }
     }
-  }, [params.code]);
+  }, [routeCode]);
 
   // Handle code input changes
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,8 +165,8 @@ export default function StudentFeedbackPage({
                     className="text-center text-lg tracking-widest"
                     maxLength={4}
                     required
-                    autoFocus={!params.code}
-                    disabled={!!params.code && isCodeValid}
+                    autoFocus={!routeCode}
+                    disabled={!!routeCode && isCodeValid}
                   />
                 </div>
 

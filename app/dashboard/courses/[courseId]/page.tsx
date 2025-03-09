@@ -7,9 +7,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, CalendarDays, MessageSquare, Settings } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  MessageSquare,
+  Settings,
+  QrCode,
+  Share2,
+} from "lucide-react";
 import { FeedbackAnalytics } from "@/components/feedback-analytics";
 import CustomTabs from "@/components/custom-tabs";
+import Link from "next/link";
 
 interface CoursePageProps {
   params: {
@@ -199,10 +207,23 @@ export default function CoursePage({ params }: CoursePageProps) {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">{courseName}</h1>
-        <Button variant="outline" className="gap-2">
-          <Settings className="h-4 w-4" />
-          Course Settings
-        </Button>
+        <div className="flex gap-2">
+          {/* New QR Code Share Button */}
+          <Button
+            asChild
+            variant="default"
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Link href={`/dashboard/courses/${courseId}/share`}>
+              <QrCode className="h-4 w-4" />
+              Share Feedback Code
+            </Link>
+          </Button>
+          <Button variant="outline" className="gap-2">
+            <Settings className="h-4 w-4" />
+            Course Settings
+          </Button>
+        </div>
       </div>
       <CustomTabs tabs={tabData} />
     </div>

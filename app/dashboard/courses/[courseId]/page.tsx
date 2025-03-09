@@ -25,10 +25,9 @@ interface CoursePageProps {
   };
 }
 
-export default function CoursePage({ params }: CoursePageProps) {
-  // Unwrap params with React.use to fix the Next.js params access error
-  const resolvedParams = React.use(params);
-  const courseId = resolvedParams.courseId;
+export default function CoursePage(props: CoursePageProps) {
+  // Access params directly without using React.use()
+  const courseId = props.params.courseId;
   const courseName = getCourseNameById(courseId);
 
   // Define your dashboard stats card component

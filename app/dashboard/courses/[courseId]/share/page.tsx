@@ -33,10 +33,9 @@ interface CourseShareProps {
 }
 
 // Route: /dashboard/courses/[courseId]/share/page.tsx
-export default function CourseSharePage({ params }: CourseShareProps) {
-  // Unwrap params with React.use to fix the Next.js params access error
-  const resolvedParams = React.use(params);
-  const courseId = resolvedParams.courseId;
+export default function CourseSharePage(props: CourseShareProps) {
+  // Access params directly without using React.use()
+  const courseId = props.params.courseId;
   const [feedbackCode, setFeedbackCode] = useState("AB12");
   const [copied, setCopied] = useState(false);
   const [feedbackLink, setFeedbackLink] = useState("");
@@ -213,9 +212,9 @@ export default function CourseSharePage({ params }: CourseShareProps) {
           <div className="flex items-center p-4 border rounded-lg bg-muted/50 w-full">
             <Info className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />
             <p className="text-sm text-muted-foreground">
-              This code doesn&#39;t expire and will work for the entire course.
-              You can reset it at any time, but this will invalidate any
-              previously shared links or codes.
+              This code doesn't expire and will work for the entire course. You
+              can reset it at any time, but this will invalidate any previously
+              shared links or codes.
             </p>
           </div>
         </CardContent>

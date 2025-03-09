@@ -22,14 +22,11 @@ interface StudentFeedbackPageProps {
   };
 }
 
-export default function StudentFeedbackPage({
-  params,
-}: StudentFeedbackPageProps) {
-  // Unwrap params with React.use to fix the Next.js params access error
-  const resolvedParams = React.use(params);
-  const routeCode = resolvedParams.code;
+export default function StudentFeedbackPage(props: StudentFeedbackPageProps) {
+  // Access the code from props directly - this avoids the TypeScript issues with React.use()
+  const codeFromRoute = props.params.code;
 
-  const [accessCode, setAccessCode] = useState(routeCode || "");
+  const [accessCode, setAccessCode] = useState(() => codeFromRoute || "");
   const [feedback, setFeedback] = useState("");
   const [isCodeValid, setIsCodeValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,8 +41,8 @@ export default function StudentFeedbackPage({
 
   // Auto-validate the code if it's in the URL
   useEffect(() => {
-    if (routeCode) {
-      const isValid = validateCode(routeCode);
+    if (codeFromRoute) {
+      const isValid = validateCode(codeFromRoute);
       setIsCodeValid(isValid);
       if (!isValid) {
         setError(
@@ -53,7 +50,7 @@ export default function StudentFeedbackPage({
         );
       }
     }
-  }, [routeCode]);
+  }, [codeFromRoute]);
 
   // Handle code input changes
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,8 +162,8 @@ export default function StudentFeedbackPage({
                     className="text-center text-lg tracking-widest"
                     maxLength={4}
                     required
-                    autoFocus={!routeCode}
-                    disabled={!!routeCode && isCodeValid}
+                    autoFocus={!codeFromRoute}
+                    disabled={!!codeFromRoute && isCodeValid}
                   />
                 </div>
 

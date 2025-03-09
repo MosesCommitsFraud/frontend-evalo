@@ -25,9 +25,9 @@ interface CoursePageProps {
   };
 }
 
-export default function CoursePage(props: CoursePageProps) {
-  // Access params directly without using React.use()
-  const courseId = props.params.courseId;
+export default function CoursePage({ params }: CoursePageProps) {
+  // Store courseId in a variable right away
+  const courseId = params.courseId;
   const courseName = getCourseNameById(courseId);
 
   // Define your dashboard stats card component

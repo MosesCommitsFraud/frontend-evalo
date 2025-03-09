@@ -22,11 +22,14 @@ interface StudentFeedbackPageProps {
   };
 }
 
-export default function StudentFeedbackPage(props: StudentFeedbackPageProps) {
-  // Access the code from props directly - this avoids the TypeScript issues with React.use()
-  const codeFromRoute = props.params.code;
+export default function StudentFeedbackPage({
+  params,
+}: StudentFeedbackPageProps) {
+  // Store code in a variable immediately
+  const codeFromRoute = params.code || "";
 
-  const [accessCode, setAccessCode] = useState(() => codeFromRoute || "");
+  // Then use codeFromRoute in your state initialization
+  const [accessCode, setAccessCode] = useState(() => codeFromRoute);
   const [feedback, setFeedback] = useState("");
   const [isCodeValid, setIsCodeValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

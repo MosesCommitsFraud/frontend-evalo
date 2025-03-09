@@ -15,6 +15,7 @@ interface EventPageProps {
 }
 
 export default function EventPage({ params }: EventPageProps) {
+  // Get eventId once and store it
   const eventId = params.eventId;
   const eventTitle = getEventTitleById(eventId);
 

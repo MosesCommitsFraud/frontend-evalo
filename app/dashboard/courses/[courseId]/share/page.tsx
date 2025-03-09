@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast";
 
 // This would typically be fetched from API based on the courseId
@@ -32,10 +31,9 @@ interface CourseShareProps {
   };
 }
 
-// Route: /dashboard/courses/[courseId]/share/page.tsx
-export default function CourseSharePage(props: CourseShareProps) {
-  // Access params directly without using React.use()
-  const courseId = props.params.courseId;
+export default function CourseSharePage({ params }: CourseShareProps) {
+  // Use local state for the courseId instead of accessing params directly
+  const [courseId] = useState(() => params.courseId);
   const [feedbackCode, setFeedbackCode] = useState("AB12");
   const [copied, setCopied] = useState(false);
   const [feedbackLink, setFeedbackLink] = useState("");
@@ -235,60 +233,6 @@ export default function CourseSharePage(props: CourseShareProps) {
           </div>
           <Button onClick={() => window.print()}>Print QR Code</Button>
         </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Share Options</CardTitle>
-          <CardDescription>
-            Different ways to share the feedback code with your students
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="inperson">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="inperson">In Person</TabsTrigger>
-              <TabsTrigger value="online">Online Class</TabsTrigger>
-              <TabsTrigger value="lms">LMS Integration</TabsTrigger>
-            </TabsList>
-            <TabsContent value="inperson" className="pt-4 space-y-4">
-              <p>
-                Display the QR code on screen during your lecture or share the
-                4-digit code with your students.
-              </p>
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Display the QR code on the projector during class</li>
-                <li>Write the code {feedbackCode} on the whiteboard</li>
-                <li>Print handouts with the QR code for students</li>
-              </ul>
-            </TabsContent>
-            <TabsContent value="online" className="pt-4 space-y-4">
-              <p>
-                For online or remote classes, you can share the link or code in
-                your virtual classroom.
-              </p>
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Share the link in your video conferencing chat</li>
-                <li>Display the QR code during your screen share</li>
-                <li>Send the code ({feedbackCode}) via email or chat</li>
-              </ul>
-            </TabsContent>
-            <TabsContent value="lms" className="pt-4 space-y-4">
-              <p>
-                Integrate with your Learning Management System to automatically
-                share the feedback link.
-              </p>
-              <ul className="list-disc pl-5 space-y-2">
-                <li>Add the feedback link to your course page</li>
-                <li>Embed the QR code in your course materials</li>
-                <li>Set up automated reminders for students</li>
-              </ul>
-              <Button variant="outline" className="mt-2">
-                Configure LMS Integration
-              </Button>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
       </Card>
 
       {/* Reset Code Dialog */}

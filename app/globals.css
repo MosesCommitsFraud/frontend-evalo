@@ -4,62 +4,47 @@
 
 @layer base {
   :root {
+    /* Light mode variables */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-
     --primary: 142.1 76.2% 36.3%;
     --primary-foreground: 355.7 100% 97.3%;
-
     --secondary: 220 14.3% 95.9%;
     --secondary-foreground: 220.9 39.3% 11%;
-
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
-
     --accent: 220 14.3% 95.9%;
     --accent-foreground: 220.9 39.3% 11%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
-
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 142.1 76.2% 36.3%;
-
     --radius: 0.5rem;
   }
 
   .dark {
+    /* Dark mode variables */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
-
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-
     --primary: 142.1 70.6% 45.3%;
     --primary-foreground: 144.9 80.4% 10%;
-
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 142.4 71.8% 29.2%;
@@ -74,4 +59,77 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
+
+@layer utilities {
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+}
+
+/* Global smooth transition for theme changes */
+* {
+  /* Only animate properties that need animation, avoid "all" */
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+
+/* For elements that need hardware acceleration */
+.hardware-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Use contain property for large layout containers to isolate their repaints */
+.contain-layout {
+  contain: layout;
+}
+
+/* Add this to your charts container to optimize rendering */
+.chart-container {
+  contain: content;
+}
+
+/* Specific transition for the sidebar */
+.sidebar-transition {
+  transition-property: width, margin-left, transform;
+  transition-duration: 0.3s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Optional: Improve performance with will-change */
+.sidebar-transition.hardware-accelerated {
+  will-change: width, margin-left, transform;
+}
+
+/* Force dark tooltips/popovers in dark mode with high specificity and rounded corners */
+html.dark .tooltip,
+html.dark .tooltip-content,
+html.dark [data-tooltip-content],
+html.dark [role="tooltip"],
+html.dark .popover,
+html.dark .popover-content,
+html.dark .tooltip-container {
+  background-color: #111827 !important; /* Dark slate */
+  color: #f9fafb !important; /* Light text */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+  border-radius: 0.5rem !important; /* Rounded corners */
+}
+
+/* Override hover states on cards and interactive elements in dark mode */
+html.dark .card:hover,
+html.dark .Card:hover,
+html.dark button:hover,
+html.dark a:hover,
+html.dark [data-hover] {
+  background-color: rgba(17, 24, 39, 0.1) !important; /* Subtle dark overlay */
+  color: inherit !important;
+}
+
+/* Utility to force dark background if needed */
+html.dark .force-dark-bg {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
 }

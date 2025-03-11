@@ -1,3 +1,4 @@
+import React from "react";
 import { CalendarComponent } from "@/components/calendar-component";
 
 interface CalendarPageProps {
@@ -7,5 +8,7 @@ interface CalendarPageProps {
 }
 
 export default function CalendarPage({ params }: CalendarPageProps) {
-  return <CalendarComponent courseId={params.courseId} />;
+  // Access the params directly
+  const courseId = params.courseId;
+  return <CalendarComponent courseId={courseId} />;
 }

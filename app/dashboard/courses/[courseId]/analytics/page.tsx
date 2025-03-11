@@ -1,3 +1,4 @@
+import React from "react";
 import { FeedbackAnalytics } from "@/components/feedback-analytics";
 
 interface AnalyticsPageProps {
@@ -7,5 +8,7 @@ interface AnalyticsPageProps {
 }
 
 export default function AnalyticsPage({ params }: AnalyticsPageProps) {
-  return <FeedbackAnalytics courseId={params.courseId} />;
+  // Access the params directly
+  const courseId = params.courseId;
+  return <FeedbackAnalytics courseId={courseId} />;
 }

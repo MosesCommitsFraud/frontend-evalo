@@ -1,3 +1,4 @@
+import React from "react";
 import { FeedbackList } from "@/components/feedback-list";
 
 interface FeedbackPageProps {
@@ -7,6 +8,7 @@ interface FeedbackPageProps {
 }
 
 export default function FeedbackPage({ params }: FeedbackPageProps) {
+  // Access the params directly
   const courseId = params.courseId;
 
   return (

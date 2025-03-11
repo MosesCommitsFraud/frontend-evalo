@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { TopNav } from "@/components/top-nav";
-import { Sidebar } from "@/components/sidebar"; // Import the consolidated sidebar
+import { Sidebar } from "@/components/sidebar";
 
-export default function DashboardLayout({
+export default function HelpLayout({
   children,
 }: {
   children: React.ReactNode;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,10 +63,77 @@ const feedbackData = [
   },
 ];
 
+// Memoized FeedbackCard component to prevent unnecessary re-renders
+const FeedbackCard = memo(({ feedback }: { feedback: any }) => {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={
+                feedback.sentiment === "positive"
+                  ? "default"
+                  : feedback.sentiment === "negative"
+                    ? "destructive"
+                    : "secondary"
+              }
+            >
+              {feedback.sentiment.charAt(0).toUpperCase() +
+                feedback.sentiment.slice(1)}
+            </Badge>
+            <Badge variant="outline">{feedback.category}</Badge>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {new Date(feedback.date).toLocaleDateString()}
+          </span>
+        </div>
+        <p className="mb-3">{feedback.content}</p>
+        <div className="flex flex-wrap gap-1">
+          {feedback.keywords.map((keyword: string) => (
+            <Badge key={keyword} variant="outline" className="bg-emerald-50">
+              {keyword}
+            </Badge>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+FeedbackCard.displayName = "FeedbackCard";
+
+// Empty state component for no results
+const EmptyState = memo(() => (
+  <div className="flex h-32 items-center justify-center rounded-md border text-center">
+    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+      <MessageSquare className="h-8 w-8" />
+      <p>No feedback matches your filters</p>
+    </div>
+  </div>
+));
+EmptyState.displayName = "EmptyState";
+
+// Main FeedbackList component
 export function FeedbackList({ courseId }: { courseId: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sentimentFilter, setSentimentFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+
+  // Memoized filter handlers
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchQuery(e.target.value);
+    },
+    [],
+  );
+
+  const handleSentimentFilterChange = useCallback((value: string) => {
+    setSentimentFilter(value);
+  }, []);
+
+  const handleCategoryFilterChange = useCallback((value: string) => {
+    setCategoryFilter(value);
+  }, []);
 
   // Filter feedback based on current filters
   const filteredFeedback = feedbackData.filter((feedback) => {
@@ -101,12 +168,15 @@ export function FeedbackList({ courseId }: { courseId: string }) {
             placeholder="Search feedback..."
             className="pl-8"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
           />
         </div>
 
         <div className="flex gap-2">
-          <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
+          <Select
+            value={sentimentFilter}
+            onValueChange={handleSentimentFilterChange}
+          >
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Sentiment" />
             </SelectTrigger>
@@ -118,7 +188,10 @@ export function FeedbackList({ courseId }: { courseId: string }) {
             </SelectContent>
           </Select>
 
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select
+            value={categoryFilter}
+            onValueChange={handleCategoryFilterChange}
+          >
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -141,12 +214,7 @@ export function FeedbackList({ courseId }: { courseId: string }) {
       {/* Feedback list */}
       <div className="space-y-4">
         {filteredFeedback.length === 0 ? (
-          <div className="flex h-32 items-center justify-center rounded-md border text-center">
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <MessageSquare className="h-8 w-8" />
-              <p>No feedback matches your filters</p>
-            </div>
-          </div>
+          <EmptyState />
         ) : (
           filteredFeedback.map((feedback) => (
             <FeedbackCard key={feedback.id} feedback={feedback} />
@@ -154,42 +222,5 @@ export function FeedbackList({ courseId }: { courseId: string }) {
         )}
       </div>
     </div>
-  );
-}
-
-function FeedbackCard({ feedback }: { feedback: any }) {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={
-                feedback.sentiment === "positive"
-                  ? "default"
-                  : feedback.sentiment === "negative"
-                    ? "destructive"
-                    : "secondary"
-              }
-            >
-              {feedback.sentiment.charAt(0).toUpperCase() +
-                feedback.sentiment.slice(1)}
-            </Badge>
-            <Badge variant="outline">{feedback.category}</Badge>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {new Date(feedback.date).toLocaleDateString()}
-          </span>
-        </div>
-        <p className="mb-3">{feedback.content}</p>
-        <div className="flex flex-wrap gap-1">
-          {feedback.keywords.map((keyword: string) => (
-            <Badge key={keyword} variant="outline" className="bg-emerald-50">
-              {keyword}
-            </Badge>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { BellIcon, Search, Settings, User } from "lucide-react";
+import { BellIcon, Menu, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,25 +12,76 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme-toggle";
+import ActionSearchBar from "@/components/action-search-bar";
 
-export function TopNav() {
+export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="px-4 flex h-16 items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="rounded-xl bg-emerald-600 px-2 py-1">
-              <span className="text-lg font-bold text-white">evalo</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="mr-1 text-muted-foreground"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle sidebar</span>
+          </Button>
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="h-10 w-10 text-emerald-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 100 100"
+                fill="currentColor"
+              >
+                <circle cx="50" cy="50" r="8" />
+                <ellipse
+                  cx="50"
+                  cy="50"
+                  rx="45"
+                  ry="17"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                />
+                <ellipse
+                  cx="50"
+                  cy="50"
+                  rx="45"
+                  ry="17"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  transform="rotate(60 50 50)"
+                />
+                <ellipse
+                  cx="50"
+                  cy="50"
+                  rx="45"
+                  ry="17"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  transform="rotate(-60 50 50)"
+                />
+              </svg>
             </div>
+            <span className="text-xl font-semibold text-emerald-600">
+              evalo
+            </span>
           </Link>
-          <div className="hidden md:flex md:w-[240px] lg:w-[280px]">
-            <div className="relative w-full">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search..." className="w-full pl-8 text-sm" />
-            </div>
-          </div>
         </div>
+
+        {/* Action Search Bar in the middle */}
+        <div className="flex-1 flex justify-center max-w-xl mx-4">
+          <ActionSearchBar />
+        </div>
+
         <div className="flex items-center gap-2">
+          {/* Theme toggle placed to the left of the bell icon */}
+          <ThemeToggle />
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <BellIcon className="h-5 w-5" />
             <span className="sr-only">Notifications</span>
@@ -59,11 +109,11 @@ export function TopNav() {
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+                <Link href="/profile">Profile</Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <Link href="/settings">Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Log out</DropdownMenuItem>

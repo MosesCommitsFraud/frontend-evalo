@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -5,10 +7,88 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CustomTabs from "@/components/custom-tabs";
 import { Activity, CalendarIcon, Clock, BarChart, Users } from "lucide-react";
 
 export default function DashboardPage() {
+  // Build tab for Upcoming Events
+  const upcomingTab = {
+    label: "Upcoming Events",
+    content: (
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming Events</CardTitle>
+          <CardDescription>Your scheduled events for this week</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {upcomingEvents.map((event) => (
+              <div key={event.id} className="flex items-center">
+                <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                  <CalendarIcon className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {event.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {event.course}
+                  </p>
+                </div>
+                <div className="ml-auto flex items-center">
+                  <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">{event.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    ),
+  };
+
+  // Build tab for Recent Feedback
+  const feedbackTab = {
+    label: "Recent Feedback",
+    content: (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Feedback</CardTitle>
+          <CardDescription>
+            Latest student feedback across all courses
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentFeedback.map((item) => (
+              <div key={item.id} className="space-y-2">
+                <div className="flex items-center">
+                  <span
+                    className={`mr-2 h-2 w-2 rounded-full ${
+                      item.sentiment === "positive"
+                        ? "bg-emerald-500"
+                        : item.sentiment === "negative"
+                          ? "bg-red-500"
+                          : "bg-gray-500"
+                    }`}
+                  />
+                  <p className="text-sm font-medium">{item.course}</p>
+                  <p className="ml-auto text-xs text-muted-foreground">
+                    {item.time}
+                  </p>
+                </div>
+                <p className="text-sm">{item.content}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    ),
+  };
+
+  // Combine tab data into an array
+  const tabsData = [upcomingTab, feedbackTab];
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -66,86 +146,13 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="upcoming">
-        <TabsList>
-          <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
-          <TabsTrigger value="feedback">Recent Feedback</TabsTrigger>
-        </TabsList>
-        <TabsContent value="upcoming" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Events</CardTitle>
-              <CardDescription>
-                Your scheduled events for this week
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {upcomingEvents.map((event) => (
-                  <div key={event.id} className="flex items-center">
-                    <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                      <CalendarIcon className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {event.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {event.course}
-                      </p>
-                    </div>
-                    <div className="ml-auto flex items-center">
-                      <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">
-                        {event.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="feedback" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Feedback</CardTitle>
-              <CardDescription>
-                Latest student feedback across all courses
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentFeedback.map((item) => (
-                  <div key={item.id} className="space-y-2">
-                    <div className="flex items-center">
-                      <span
-                        className={`mr-2 h-2 w-2 rounded-full ${
-                          item.sentiment === "positive"
-                            ? "bg-emerald-500"
-                            : item.sentiment === "negative"
-                              ? "bg-red-500"
-                              : "bg-gray-500"
-                        }`}
-                      />
-                      <p className="text-sm font-medium">{item.course}</p>
-                      <p className="ml-auto text-xs text-muted-foreground">
-                        {item.time}
-                      </p>
-                    </div>
-                    <p className="text-sm">{item.content}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Use the custom tabs component */}
+      <CustomTabs tabs={tabsData} />
     </div>
   );
 }
 
-// Mock data for the dashboard
+// BookIcon component used in the dashboard cards
 const BookIcon = ({ className }: { className?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -162,6 +169,7 @@ const BookIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Mock data for upcoming events and recent feedback
 const upcomingEvents = [
   {
     id: 1,

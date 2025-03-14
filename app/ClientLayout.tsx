@@ -4,6 +4,7 @@ import type React from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 
 const inter = Inter({
@@ -33,7 +34,7 @@ export default function ClientLayout({
           defaultTheme="light"
           enableSystem={false}
         >
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

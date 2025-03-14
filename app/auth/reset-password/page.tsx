@@ -1,8 +1,6 @@
-// app/auth/reset-password/page.tsx
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +21,6 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const { resetPassword } = useAuth();
-  const router = useRouter();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,19 +34,24 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    // Validate password strength
+    if (password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters long");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { error } = await resetPassword(password);
 
       if (error) {
         setErrorMessage(error.message);
-      } else {
-        // Redirect to sign in page on success
-        router.push("/auth/sign-in?reset=success");
+        setIsLoading(false);
       }
+      // Auth context will handle redirection on success
     } catch (error) {
       setErrorMessage("An unexpected error occurred. Please try again.");
       console.error(error);
-    } finally {
       setIsLoading(false);
     }
   };

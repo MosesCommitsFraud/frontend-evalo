@@ -26,6 +26,22 @@ export default function ClientLayout({
     setMounted(true);
   }, []);
 
+  if (!mounted) {
+    return (
+      <html lang="en" suppressHydrationWarning>
+        <body className={`font-sans ${inter.variable}`}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+          >
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${inter.variable}`}>

@@ -52,6 +52,10 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
     return user.user_metadata?.avatar_url || null;
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="px-4 flex h-16 items-center justify-between">
@@ -171,7 +175,7 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
                   <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut()}>
+                <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>

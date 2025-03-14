@@ -1,10 +1,9 @@
-// contexts/AuthContext.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { User, Session } from "@supabase/supabase-js";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Session, User, AuthError } from "@supabase/supabase-js";
 
 type AuthContextType = {
   user: User | null;
@@ -13,22 +12,15 @@ type AuthContextType = {
   signIn: (
     email: string,
     password: string,
-  ) => Promise<{
-    error: Error | null;
-    data: Session | null;
-  }>;
-  signInWithGoogle: () => Promise<void>;
+  ) => Promise<{ error: AuthError | null }>;
   signUp: (
     email: string,
     password: string,
     fullName: string,
-  ) => Promise<{
-    error: Error | null;
-    data: { user: User | null; session: Session | null } | null;
-  }>;
+  ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
-  forgotPassword: (email: string) => Promise<{ error: Error | null }>;
-  resetPassword: (password: string) => Promise<{ error: Error | null }>;
+  forgotPassword: (email: string) => Promise<{ error: AuthError | null }>;
+  resetPassword: (password: string) => Promise<{ error: AuthError | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,133 +30,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const pathname = usePathname();
 
+  // Initialize auth state
   useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        setSession(data.session);
-        setUser(data.session?.user || null);
+        // Get initial session
+        const {
+          data: { session: initialSession },
+        } = await supabase.auth.getSession();
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
       } catch (error) {
-        console.error("Error getting initial session:", error);
+        console.error("Error initializing auth:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
-    // Subscribe to auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log("Auth event:", event);
-        setSession(newSession);
-        setUser(newSession?.user || null);
-
-        if (event === "SIGNED_IN" && newSession) {
-          // Check if profile exists and create one if it doesn't
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", newSession.user.id)
-            .single();
-
-          if (!profile) {
-            // Create a new profile
-            await supabase.from("profiles").insert({
-              id: newSession.user.id,
-              email: newSession.user.email || "",
-              full_name:
-                newSession.user.user_metadata.full_name ||
-                newSession.user.user_metadata.name ||
-                "",
-              role: "teacher", // Default role
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-          }
-
-          // Check if there's a redirectTo parameter
-          const redirectTo = searchParams.get("redirectTo");
-
-          // Redirect to the original URL or default to dashboard
-          router.push(redirectTo || "/dashboard");
-        }
-
-        if (event === "SIGNED_OUT") {
-          // Redirect to home page after sign out
-          router.push("/");
-        }
-      },
-    );
+    // Subscribe to auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log("Auth state changed:", event);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+    });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [router, searchParams]);
+  }, []);
 
+  // Sign in with email and password
   const signIn = async (email: string, password: string) => {
-    setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      return { data: data.session, error };
+      if (!error) {
+        router.push("/dashboard");
+      }
+
+      return { error };
     } catch (error) {
       console.error("Error signing in:", error);
-      return { data: null, error: error as Error };
-    } finally {
-      setIsLoading(false);
+      return { error: error as AuthError };
     }
   };
 
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-  };
-
+  // Sign up with email and password
   const signUp = async (email: string, password: string, fullName: string) => {
-    setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
-      return { data, error };
+      if (!error) {
+        // On successful signup, create a profile record
+        // Note: In a real app, you might want to handle this with a database trigger,
+        // edge functions, or after email confirmation
+        const {
+          data: { user: newUser },
+        } = await supabase.auth.getUser();
+
+        if (newUser) {
+          await supabase.from("profiles").insert({
+            id: newUser.id,
+            email: newUser.email,
+            full_name: fullName,
+            role: "teacher", // Default role
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+
+        router.push("/dashboard");
+      }
+
+      return { error };
     } catch (error) {
       console.error("Error signing up:", error);
-      return { data: null, error: error as Error };
-    } finally {
-      setIsLoading(false);
+      return { error: error as AuthError };
     }
   };
 
+  // Sign out
   const signOut = async () => {
-    setIsLoading(true);
     try {
       await supabase.auth.signOut();
+      router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
+  // Password reset request
   const forgotPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -173,19 +145,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error };
     } catch (error) {
       console.error("Error requesting password reset:", error);
-      return { error: error as Error };
+      return { error: error as AuthError };
     }
   };
 
+  // Set new password
   const resetPassword = async (password: string) => {
     try {
       const { error } = await supabase.auth.updateUser({
         password,
       });
+
+      if (!error) {
+        router.push("/auth/sign-in?reset=success");
+      }
+
       return { error };
     } catch (error) {
       console.error("Error resetting password:", error);
-      return { error: error as Error };
+      return { error: error as AuthError };
     }
   };
 
@@ -194,7 +172,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     isLoading,
     signIn,
-    signInWithGoogle,
     signUp,
     signOut,
     forgotPassword,

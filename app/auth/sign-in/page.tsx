@@ -1,9 +1,9 @@
 // app/auth/sign-in/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +23,19 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Extract redirectTo from query parameters
+  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+
+  // If user is already logged in, redirect to dashboard
+  useEffect(() => {
+    if (user) {
+      router.push(redirectTo);
+    }
+  }, [user, router, redirectTo]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,11 +46,12 @@ export default function SignInPage() {
       const { error } = await signIn(email, password);
       if (error) {
         setErrorMessage(error.message);
+        setIsLoading(false);
       }
+      // No need to redirect here as the auth context will handle it
     } catch (error) {
       setErrorMessage("An unexpected error occurred. Please try again.");
       console.error(error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -47,6 +59,7 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle();
+      // Auth context will handle redirect after successful OAuth sign-in
     } catch (error) {
       console.error("Error signing in with Google:", error);
       setErrorMessage("Failed to sign in with Google. Please try again.");

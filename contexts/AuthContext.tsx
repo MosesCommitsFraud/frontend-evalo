@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { User, Session } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type AuthContextType = {
   user: User | null;
@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     // Get initial session
@@ -75,15 +76,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await supabase.from("profiles").insert({
               id: newSession.user.id,
               email: newSession.user.email || "",
-              full_name: newSession.user.user_metadata.full_name || null,
+              full_name:
+                newSession.user.user_metadata.full_name ||
+                newSession.user.user_metadata.name ||
+                "",
               role: "teacher", // Default role
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             });
           }
 
-          // Redirect to dashboard after sign in
-          router.push("/dashboard");
+          // Check if there's a redirectTo parameter
+          const redirectTo = searchParams.get("redirectTo");
+
+          // Redirect to the original URL or default to dashboard
+          router.push(redirectTo || "/dashboard");
         }
 
         if (event === "SIGNED_OUT") {
@@ -96,9 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, searchParams]);
 
   const signIn = async (email: string, password: string) => {
+    setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -109,6 +117,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Error signing in:", error);
       return { data: null, error: error as Error };
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -122,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -130,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -137,14 +149,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Error signing up:", error);
       return { data: null, error: error as Error };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signOut = async () => {
+    setIsLoading(true);
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Error signing out:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -1,63 +1,48 @@
-// middleware.ts
 import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import type { Database } from "@/types/supabase";
 
-// Define routes that should be accessible without authentication
-const publicRoutes = [
-  "/",
-  "/auth/sign-in",
-  "/auth/sign-up",
-  "/auth/forgot-password",
-  "/auth/reset-password",
-  "/auth/callback",
-  "/student-feedback", // Student feedback entries are public
-];
+export async function middleware(request: NextRequest) {
+  // Create a Supabase client configured for the edge runtime
+  const response = NextResponse.next();
+  const supabase = createMiddlewareClient({ req: request, res: response });
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-
-  // Create a Supabase client specifically for the middleware
-  const supabase = createMiddlewareClient<Database>({ req, res });
-
-  // Check if the user is authenticated
+  // Refresh session if expired
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Get the pathname from the request
-  const { pathname } = req.nextUrl;
+  // Define public routes that don't require authentication
+  const publicRoutes = [
+    "/",
+    "/auth/sign-in",
+    "/auth/sign-up",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/callback",
+  ];
+  const isPublicRoute =
+    publicRoutes.some((route) => request.nextUrl.pathname === route) ||
+    request.nextUrl.pathname.startsWith("/auth/");
 
-  // Check if the path is a public route or starts with one
-  // This handles paths like /student-feedback/{code}
-  const isPublicRoute = publicRoutes.some(
-    (route) =>
-      pathname === route ||
-      (route.endsWith("/")
-        ? pathname.startsWith(route)
-        : pathname.startsWith(`${route}/`)),
-  );
-
-  // If the route is not public and the user is not authenticated, redirect to sign in
-  if (!isPublicRoute && !session) {
-    const redirectUrl = new URL("/auth/sign-in", req.url);
-
-    // Add the original URL as a parameter to redirect back after login
-    redirectUrl.searchParams.set("redirectTo", pathname);
-
+  // Check if user is authenticated
+  if (!session && !isPublicRoute) {
+    // User is not authenticated and trying to access a protected route, redirect to login
+    const redirectUrl = new URL("/auth/sign-in", request.url);
+    // Add the original URL as a query parameter to redirect after login
+    redirectUrl.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If the user is trying to access auth pages while logged in, redirect to dashboard
-  if (pathname.startsWith("/auth/") && session) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  // If user is authenticated and trying to access auth pages, redirect to dashboard
+  if (session && request.nextUrl.pathname.startsWith("/auth/")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  return res;
+  return response;
 }
 
-// Configure the middleware to run on specific paths
+// Specify which routes this middleware should run on
 export const config = {
   matcher: [
     /*
@@ -66,8 +51,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - api routes that don't require authentication
+     * - API routes (you might want to protect some APIs too)
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|api/public).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public|api).*)",
   ],
 };

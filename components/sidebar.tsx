@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -33,12 +33,12 @@ interface NavItemProps {
   href: string;
   title: string;
   icon: React.ReactNode;
-  pathname: string;
+  pathname?: string | null;
 }
 
 // Memoized nav item component to prevent unnecessary re-renders
 const NavItem = memo(({ href, title, icon, pathname }: NavItemProps) => {
-  const isActive = pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <Link
@@ -58,13 +58,13 @@ NavItem.displayName = "NavItem";
 // Explicitly type the props for CourseItem
 interface CourseItemProps {
   course: { id: string; name: string; code: string };
-  pathname: string;
+  pathname?: string | null;
 }
 
 // Memoized course item component
 const CourseItem = memo(({ course, pathname }: CourseItemProps) => {
   const href = `/dashboard/courses/${course.id}`;
-  const isActive = pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <Link
@@ -107,6 +107,12 @@ interface SidebarProps {
 // Main Sidebar component
 export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
   const pathname = usePathname();
+  const [isClient, setIsClient] = useState(false);
+
+  // Ensure we're on the client side before rendering pathname-dependent parts
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Pre-defined fixed classes to avoid layout thrashing
   const visibleClasses = "w-64";
@@ -129,19 +135,19 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
               href="/dashboard"
               title="Dashboard"
               icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
             <NavItem
               href="/analytics"
               title="Analytics"
               icon={<BarChart3 className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
             <NavItem
               href="/calendar"
               title="Calendar"
               icon={<CalendarClock className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
           </SidebarSection>
 
@@ -151,13 +157,13 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
               href="/admin-analytics"
               title="Analytics"
               icon={<ChartLine className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
             <NavItem
               href="/teachers"
               title="Teachers"
               icon={<GraduationCap className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
           </SidebarSection>
 
@@ -167,13 +173,13 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
               href="/admin-settings"
               title="Admin Settings"
               icon={<Settings className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
             <NavItem
               href="/help"
               title="Help & Support"
               icon={<HelpCircle className="h-4 w-4 mr-2" />}
-              pathname={pathname}
+              pathname={isClient ? pathname : null}
             />
           </SidebarSection>
         </div>
@@ -200,7 +206,11 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
           {/* Virtualized course list for better performance */}
           <div className="space-y-1 px-1 overflow-y-auto flex-1 virtualized-list">
             {courses.map((course) => (
-              <CourseItem key={course.id} course={course} pathname={pathname} />
+              <CourseItem
+                key={course.id}
+                course={course}
+                pathname={isClient ? pathname : null}
+              />
             ))}
           </div>
         </div>

@@ -24,7 +24,19 @@ type AuthContextType = {
   resetPassword: (password: string) => Promise<{ error: AuthError | null }>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create a default value for the context
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  session: null,
+  isLoading: true,
+  signIn: async () => ({ error: null }),
+  signUp: async () => ({ error: null }),
+  signOut: async () => {},
+  forgotPassword: async () => ({ error: null }),
+  resetPassword: async () => ({ error: null }),
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -189,8 +201,5 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
   return context;
 }

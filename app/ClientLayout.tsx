@@ -42,6 +42,7 @@ export default function ClientLayout({
     );
   }
 
+  // Ensure AuthProvider is only mounted on the client side
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${inter.variable}`}>

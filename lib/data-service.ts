@@ -1,6 +1,6 @@
 // lib/data-service.ts
-import { supabase } from "./supabase";
-import { createServerClient } from "./supabase";
+import { createClient } from "./supabase/client";
+import { createClient as createServerClient } from "./supabase/server";
 import { Database } from "@/types/supabase";
 
 // Type definitions based on the database schema
@@ -24,52 +24,136 @@ export type FeedbackUpdate = Database["public"]["Tables"]["feedback"]["Update"];
 export const serverDataService = {
   // Profiles
   getProfile: async (userId: string) => {
-    const supabase = createServerClient();
-    return await supabase
+    const supabase = await createServerClient();
+    return supabase.from("profiles").select("*").eq("id", userId).single();
+  },
+
+  getAllProfiles: async () => {
+    const supabase = await createServerClient();
+    return supabase
       .from("profiles")
       .select("*")
-      .eq("id", userId)
-      .single();
+      .order("full_name", { ascending: true });
+  },
+
+  getTeacherProfiles: async () => {
+    const supabase = await createServerClient();
+    return supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "teacher")
+      .order("full_name", { ascending: true });
   },
 
   // Courses
-  getCourses: async (userId: string) => {
-    const supabase = createServerClient();
-    return await supabase
+  getCourses: async (userId?: string) => {
+    const supabase = await createServerClient();
+    let query = supabase
       .from("courses")
       .select("*")
-      .eq("owner_id", userId)
       .order("created_at", { ascending: false });
+
+    if (userId) {
+      query = query.eq("owner_id", userId);
+    }
+
+    return query;
   },
 
   getCourseById: async (id: string) => {
-    const supabase = createServerClient();
-    return await supabase.from("courses").select("*").eq("id", id).single();
+    const supabase = await createServerClient();
+    return supabase
+      .from("courses")
+      .select("*, profiles(full_name, email)")
+      .eq("id", id)
+      .single();
   },
 
   // Events
   getEvents: async (courseId: string) => {
-    const supabase = createServerClient();
-    return await supabase
+    const supabase = await createServerClient();
+    return supabase
       .from("events")
       .select("*")
       .eq("course_id", courseId)
       .order("event_date", { ascending: false });
   },
 
+  getAllEvents: async () => {
+    const supabase = await createServerClient();
+    return supabase
+      .from("events")
+      .select("*, courses(name, code)")
+      .order("event_date", { ascending: false });
+  },
+
   getEventById: async (id: string) => {
-    const supabase = createServerClient();
-    return await supabase.from("events").select("*").eq("id", id).single();
+    const supabase = await createServerClient();
+    return supabase
+      .from("events")
+      .select("*, courses(name, code, owner_id)")
+      .eq("id", id)
+      .single();
   },
 
   // Feedback
   getFeedbackByEventId: async (eventId: string) => {
-    const supabase = createServerClient();
-    return await supabase
+    const supabase = await createServerClient();
+    return supabase
       .from("feedback")
       .select("*")
       .eq("event_id", eventId)
       .order("created_at", { ascending: false });
+  },
+
+  getFeedbackByCourseId: async (courseId: string) => {
+    const supabase = await createServerClient();
+    return supabase
+      .from("feedback")
+      .select("*, events!inner(course_id)")
+      .eq("events.course_id", courseId)
+      .order("created_at", { ascending: false });
+  },
+
+  getFeedbackStats: async () => {
+    const supabase = await createServerClient();
+    const { data: events } = await supabase.from("events").select(`
+        id,
+        event_date,
+        positive_feedback_count,
+        negative_feedback_count,
+        neutral_feedback_count,
+        total_feedback_count
+      `);
+
+    if (!events) return null;
+
+    const totalFeedback = events.reduce(
+      (sum, event) => sum + (event.total_feedback_count || 0),
+      0,
+    );
+
+    const positiveFeedback = events.reduce(
+      (sum, event) => sum + (event.positive_feedback_count || 0),
+      0,
+    );
+
+    const negativeFeedback = events.reduce(
+      (sum, event) => sum + (event.negative_feedback_count || 0),
+      0,
+    );
+
+    const neutralFeedback = events.reduce(
+      (sum, event) => sum + (event.neutral_feedback_count || 0),
+      0,
+    );
+
+    return {
+      totalFeedback,
+      positiveFeedback,
+      negativeFeedback,
+      neutralFeedback,
+    };
   },
 };
 
@@ -77,57 +161,96 @@ export const serverDataService = {
 export const dataService = {
   // Profile Management
   getProfile: async () => {
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
-    return await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    return supabase.from("profiles").select("*").eq("id", user.id).single();
   },
 
   updateProfile: async (profile: ProfileUpdate) => {
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
-    return await supabase
+    return supabase
       .from("profiles")
-      .update(profile)
+      .update({
+        ...profile,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", user.id)
       .select()
       .single();
   },
 
-  // Course Management
-  getCourses: async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
+  getAllProfiles: async () => {
+    const supabase = createClient();
+    return supabase
+      .from("profiles")
+      .select("*")
+      .order("full_name", { ascending: true });
+  },
 
-    return await supabase
+  getTeachers: async () => {
+    const supabase = createClient();
+    return supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "teacher")
+      .order("full_name", { ascending: true });
+  },
+
+  // Course Management
+  getCourses: async (userId?: string) => {
+    const supabase = createClient();
+
+    if (!userId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return { data: null, error: new Error("User not found") };
+      userId = user.id;
+    }
+
+    return supabase
       .from("courses")
       .select("*")
-      .eq("owner_id", user.id)
+      .eq("owner_id", userId)
+      .order("created_at", { ascending: false });
+  },
+
+  getAllCourses: async () => {
+    const supabase = createClient();
+    return supabase
+      .from("courses")
+      .select("*, profiles(full_name)")
       .order("created_at", { ascending: false });
   },
 
   getCourseById: async (id: string) => {
-    return await supabase.from("courses").select("*").eq("id", id).single();
+    const supabase = createClient();
+    return supabase
+      .from("courses")
+      .select("*, profiles(full_name, email)")
+      .eq("id", id)
+      .single();
   },
 
-  createCourse: async (course: Omit<CourseInsert, "owner_id">) => {
+  createCourse: async (
+    course: Omit<CourseInsert, "owner_id" | "created_at" | "updated_at">,
+  ) => {
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
-    return await supabase
+    return supabase
       .from("courses")
       .insert({
         ...course,
@@ -140,7 +263,8 @@ export const dataService = {
   },
 
   updateCourse: async (id: string, course: CourseUpdate) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("courses")
       .update({
         ...course,
@@ -152,20 +276,35 @@ export const dataService = {
   },
 
   deleteCourse: async (id: string) => {
-    return await supabase.from("courses").delete().eq("id", id);
+    const supabase = createClient();
+    return supabase.from("courses").delete().eq("id", id);
   },
 
   // Event Management
   getEvents: async (courseId: string) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("events")
       .select("*")
       .eq("course_id", courseId)
       .order("event_date", { ascending: false });
   },
 
+  getAllEvents: async () => {
+    const supabase = createClient();
+    return supabase
+      .from("events")
+      .select("*, courses(name, code)")
+      .order("event_date", { ascending: false });
+  },
+
   getEventById: async (id: string) => {
-    return await supabase.from("events").select("*").eq("id", id).single();
+    const supabase = createClient();
+    return supabase
+      .from("events")
+      .select("*, courses(name, code, owner_id)")
+      .eq("id", id)
+      .single();
   },
 
   createEvent: async (
@@ -175,9 +314,12 @@ export const dataService = {
       | "negative_feedback_count"
       | "neutral_feedback_count"
       | "total_feedback_count"
+      | "created_at"
+      | "updated_at"
     >,
   ) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("events")
       .insert({
         ...event,
@@ -193,7 +335,8 @@ export const dataService = {
   },
 
   updateEvent: async (id: string, event: EventUpdate) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("events")
       .update({
         ...event,
@@ -205,7 +348,8 @@ export const dataService = {
   },
 
   deleteEvent: async (id: string) => {
-    return await supabase.from("events").delete().eq("id", id);
+    const supabase = createClient();
+    return supabase.from("events").delete().eq("id", id);
   },
 
   generateEventCode: async (eventId: string) => {
@@ -216,7 +360,8 @@ export const dataService = {
       code += characters.charAt(Math.floor(Math.random() * characters.length));
     }
 
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("events")
       .update({
         entry_code: code,
@@ -228,23 +373,38 @@ export const dataService = {
   },
 
   getEventByCode: async (code: string) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("events")
-      .select("*, courses(*)")
+      .select("*, courses(name, code, owner_id)")
       .eq("entry_code", code)
       .single();
   },
 
   // Feedback Management
   getFeedbackByEventId: async (eventId: string) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("feedback")
       .select("*")
       .eq("event_id", eventId)
       .order("created_at", { ascending: false });
   },
 
-  submitFeedback: async (feedback: FeedbackInsert) => {
+  getFeedbackByCourseId: async (courseId: string) => {
+    const supabase = createClient();
+    return supabase
+      .from("feedback")
+      .select("*, events!inner(course_id)")
+      .eq("events.course_id", courseId)
+      .order("created_at", { ascending: false });
+  },
+
+  submitFeedback: async (
+    feedback: Omit<FeedbackInsert, "is_reviewed" | "created_at">,
+  ) => {
+    const supabase = createClient();
+
     // Get the event to update feedback counts
     const { data: event } = await supabase
       .from("events")
@@ -256,7 +416,7 @@ export const dataService = {
       return { data: null, error: new Error("Event not found") };
     }
 
-    // Start a transaction to update both feedback and event
+    // Insert the feedback
     const { data, error } = await supabase
       .from("feedback")
       .insert({
@@ -295,7 +455,8 @@ export const dataService = {
   },
 
   updateFeedbackReviewStatus: async (id: string, isReviewed: boolean) => {
-    return await supabase
+    const supabase = createClient();
+    return supabase
       .from("feedback")
       .update({
         is_reviewed: isReviewed,
@@ -306,6 +467,8 @@ export const dataService = {
   },
 
   deleteFeedback: async (id: string) => {
+    const supabase = createClient();
+
     // Get the feedback to update the event counts
     const { data: feedback } = await supabase
       .from("feedback")
@@ -366,6 +529,7 @@ export const dataService = {
 
   // Analytics helpers
   getCourseSummaryStats: async (courseId: string) => {
+    const supabase = createClient();
     const { data: events } = await supabase
       .from("events")
       .select(
@@ -381,7 +545,18 @@ export const dataService = {
       .eq("course_id", courseId)
       .order("event_date", { ascending: true });
 
-    if (!events) return null;
+    if (!events || events.length === 0) {
+      return {
+        totalFeedback: 0,
+        positiveFeedback: 0,
+        negativeFeedback: 0,
+        neutralFeedback: 0,
+        positivePercentage: 0,
+        negativePercentage: 0,
+        neutralPercentage: 0,
+        trendData: [],
+      };
+    }
 
     // Calculate summary stats
     const totalFeedback = events.reduce(
@@ -426,6 +601,117 @@ export const dataService = {
       negativePercentage,
       neutralPercentage,
       trendData,
+    };
+  },
+
+  getGlobalAnalytics: async () => {
+    const supabase = createClient();
+
+    // Get courses count
+    const { count: coursesCount } = await supabase
+      .from("courses")
+      .select("*", { count: "exact", head: true });
+
+    // Get events count
+    const { count: eventsCount } = await supabase
+      .from("events")
+      .select("*", { count: "exact", head: true });
+
+    // Get feedback stats
+    const { data: events } = await supabase.from("events").select(`
+        positive_feedback_count,
+        negative_feedback_count,
+        neutral_feedback_count,
+        total_feedback_count
+      `);
+
+    let totalFeedback = 0;
+    let positiveFeedback = 0;
+    let negativeFeedback = 0;
+    let neutralFeedback = 0;
+
+    if (events && events.length > 0) {
+      totalFeedback = events.reduce(
+        (sum, event) => sum + (event.total_feedback_count || 0),
+        0,
+      );
+
+      positiveFeedback = events.reduce(
+        (sum, event) => sum + (event.positive_feedback_count || 0),
+        0,
+      );
+
+      negativeFeedback = events.reduce(
+        (sum, event) => sum + (event.negative_feedback_count || 0),
+        0,
+      );
+
+      neutralFeedback = events.reduce(
+        (sum, event) => sum + (event.neutral_feedback_count || 0),
+        0,
+      );
+    }
+
+    const positivePercentage =
+      totalFeedback > 0 ? (positiveFeedback / totalFeedback) * 100 : 0;
+    const negativePercentage =
+      totalFeedback > 0 ? (negativeFeedback / totalFeedback) * 100 : 0;
+    const neutralPercentage =
+      totalFeedback > 0 ? (neutralFeedback / totalFeedback) * 100 : 0;
+
+    // Get monthly feedback trend data
+    const { data: monthlyEvents } = await supabase
+      .from("events")
+      .select(
+        `
+        event_date,
+        positive_feedback_count,
+        negative_feedback_count,
+        neutral_feedback_count,
+        total_feedback_count
+      `,
+      )
+      .order("event_date", { ascending: true });
+
+    // Group by month and year
+    const monthlyTrendData: Record<string, any> = {};
+
+    if (monthlyEvents && monthlyEvents.length > 0) {
+      monthlyEvents.forEach((event) => {
+        const date = new Date(event.event_date);
+        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+        if (!monthlyTrendData[monthYear]) {
+          monthlyTrendData[monthYear] = {
+            month: monthYear,
+            positive: 0,
+            negative: 0,
+            neutral: 0,
+            total: 0,
+          };
+        }
+
+        monthlyTrendData[monthYear].positive +=
+          event.positive_feedback_count || 0;
+        monthlyTrendData[monthYear].negative +=
+          event.negative_feedback_count || 0;
+        monthlyTrendData[monthYear].neutral +=
+          event.neutral_feedback_count || 0;
+        monthlyTrendData[monthYear].total += event.total_feedback_count || 0;
+      });
+    }
+
+    return {
+      coursesCount: coursesCount || 0,
+      eventsCount: eventsCount || 0,
+      feedbackCount: totalFeedback,
+      positiveFeedback,
+      negativeFeedback,
+      neutralFeedback,
+      positivePercentage,
+      negativePercentage,
+      neutralPercentage,
+      monthlyTrendData: Object.values(monthlyTrendData),
     };
   },
 };

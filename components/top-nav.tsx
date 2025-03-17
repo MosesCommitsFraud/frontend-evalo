@@ -16,6 +16,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import ActionSearchBar from "@/components/action-search-bar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 // Define proper type for the toggleSidebar prop
 interface TopNavProps {
@@ -23,11 +24,29 @@ interface TopNavProps {
 }
 
 export function TopNav({ toggleSidebarAction }: TopNavProps) {
-  const { user, signOut } = useAuth();
+  // First, call all hooks unconditionally to maintain hook order
+  const [isClient, setIsClient] = useState(false);
   const pathname = usePathname();
 
+  // Always call useAuth - we'll handle the conditional access to its values below
+  const auth = useAuth();
+
+  // Use useEffect to set isClient to true after component has mounted
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Now use the auth context safely after all hooks have been called
+  // Only use the values when on client side
+  const user = isClient ? auth.user : null;
+  const signOut = async () => {
+    if (isClient) {
+      return auth.signOut();
+    }
+  };
+
   // Determine if we're on a page that would show the sidebar toggle
-  const showSidebarToggle = user && !pathname.startsWith("/auth/");
+  const showSidebarToggle = user && !pathname?.startsWith("/auth/");
 
   // Get initials from user's full name or email
   const getUserInitials = (): string => {
@@ -122,7 +141,7 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
         </div>
 
         {/* Action Search Bar in the middle - only show when logged in */}
-        {user && (
+        {isClient && user && (
           <div className="flex-1 flex justify-center max-w-xl mx-4">
             <ActionSearchBar />
           </div>
@@ -132,7 +151,7 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
           {/* Theme toggle placed to the left of the bell icon */}
           <ThemeToggle />
 
-          {user && (
+          {isClient && user && (
             <Button
               variant="ghost"
               size="icon"
@@ -143,7 +162,7 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
             </Button>
           )}
 
-          {user ? (
+          {isClient && user ? (
             // Show user menu when logged in
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

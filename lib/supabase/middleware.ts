@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
     "/auth/reset-password",
     "/auth/callback",
     "/student-feedback", // Keep student feedback public
+    "/access-denied", // Access denied page
   ];
 
   // Check if current path is a public route
@@ -56,14 +57,29 @@ export async function updateSession(request: NextRequest) {
     );
   });
 
-  // If no user and not on a public route, redirect to sign-in
+  // Check for login intent - source of navigation
+  const loginIntent = request.nextUrl.searchParams.get("login") === "true";
+  const referer = request.headers.get("referer") || "";
+  const isDirectNavigation =
+    !referer || referer.includes(request.nextUrl.origin + "/");
+
+  // If no user and not on a public route
   if (!user && !isPublicRoute) {
-    // No user, redirect to sign-in page
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/sign-in";
-    // Add the original URL as a "redirectTo" param to redirect after login
-    url.searchParams.set("redirectTo", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    // If there's login intent or they're coming from the homepage, go directly to sign-in
+    // This handles the "Teacher Login" button click case
+    if (loginIntent || referer.includes(request.nextUrl.origin + "/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/sign-in";
+      url.searchParams.set("redirectTo", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
+    // Otherwise (direct URL access), show access denied page
+    else {
+      const url = request.nextUrl.clone();
+      url.pathname = "/access-denied";
+      url.searchParams.set("from", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

@@ -1,4 +1,6 @@
-import { Suspense } from "react";
+"use client";
+
+import React, { Suspense } from "react";
 import {
   Card,
   CardContent,
@@ -13,11 +15,26 @@ import {
   MessageSquare,
   Settings,
   QrCode,
-  Share2,
+  ThumbsUp,
+  ThumbsDown,
+  Minus,
+  Search,
+  Filter,
 } from "lucide-react";
 import { FeedbackAnalytics } from "@/components/feedback-analytics";
 import CustomTabs from "@/components/custom-tabs";
 import Link from "next/link";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FeedbackList } from "@/components/feedback-list";
 
 interface CoursePageProps {
   params: {
@@ -26,9 +43,15 @@ interface CoursePageProps {
 }
 
 export default function CoursePage({ params }: CoursePageProps) {
+  // Unwrap params with React.use() as recommended by Next.js
+  const unwrappedParams = React.use(params);
   // Store courseId in a variable right away
-  const courseId = params.courseId;
+  const courseId = unwrappedParams.courseId;
   const courseName = getCourseNameById(courseId);
+
+  // State for filters on the feedback tab
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sentimentFilter, setSentimentFilter] = useState("all");
 
   // Define your dashboard stats card component
   function StatsCard({
@@ -64,6 +87,80 @@ export default function CoursePage({ params }: CoursePageProps) {
     { label: "Common Feature Request", value: "More practice problems" },
     { label: "Improvement Area", value: "Assignment clarity" },
   ];
+
+  // Mock feedback data for this course
+  const courseFeedbackData = [
+    {
+      id: "1",
+      content:
+        "The examples in today's lecture were very helpful for understanding the concept.",
+      sentiment: "positive",
+      date: "2025-03-06",
+      keywords: ["examples", "lecture", "helpful"],
+    },
+    {
+      id: "2",
+      content:
+        "I'm struggling with the assignment requirements. Could you provide more details?",
+      sentiment: "negative",
+      date: "2025-03-05",
+      keywords: ["assignment", "requirements", "struggling"],
+    },
+    {
+      id: "3",
+      content:
+        "The pace of the class is good, but I think we need more practice exercises.",
+      sentiment: "neutral",
+      date: "2025-03-04",
+      keywords: ["pace", "practice", "exercises"],
+    },
+    {
+      id: "4",
+      content:
+        "Really enjoyed the project work today. The hands-on approach helps solidify concepts.",
+      sentiment: "positive",
+      date: "2025-03-03",
+      keywords: ["project", "hands-on", "concepts"],
+    },
+    {
+      id: "5",
+      content:
+        "The quiz was much harder than expected based on the material covered in class.",
+      sentiment: "negative",
+      date: "2025-03-02",
+      keywords: ["quiz", "difficult", "material"],
+    },
+  ];
+
+  // Filter feedback based on current filters
+  const filteredFeedback = courseFeedbackData.filter((feedback) => {
+    // Search filter
+    if (
+      searchQuery &&
+      !feedback.content.toLowerCase().includes(searchQuery.toLowerCase())
+    ) {
+      return false;
+    }
+
+    // Sentiment filter
+    if (sentimentFilter !== "all" && feedback.sentiment !== sentimentFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Get sentiment icon based on sentiment
+  const getSentimentIcon = (sentiment: string) => {
+    switch (sentiment) {
+      case "positive":
+        return <ThumbsUp className="h-4 w-4 text-emerald-600" />;
+      case "negative":
+        return <ThumbsDown className="h-4 w-4 text-red-600" />;
+      default:
+        return <Minus className="h-4 w-4 text-gray-600" />;
+    }
+  };
 
   // Build your tab data array using your existing content from TabsContent
   const tabData = [
@@ -166,15 +263,49 @@ export default function CoursePage({ params }: CoursePageProps) {
           <CardHeader>
             <CardTitle>Student Feedback</CardTitle>
             <CardDescription>
-              View and analyze all feedback received
+              View and analyze all feedback received for {courseName}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div className="rounded-md border p-6 text-center text-muted-foreground">
-                Feedback list would go here
+          <CardContent className="space-y-6">
+            {/* Filter Bar */}
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search feedback..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Select
+                  value={sentimentFilter}
+                  onValueChange={setSentimentFilter}
+                >
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Sentiment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sentiments</SelectItem>
+                    <SelectItem value="positive">Positive</SelectItem>
+                    <SelectItem value="neutral">Neutral</SelectItem>
+                    <SelectItem value="negative">Negative</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button variant="outline" size="icon">
+                  <Filter className="h-4 w-4" />
+                </Button>
               </div>
             </div>
+
+            {/* Feedback List */}
+            <FeedbackList
+              courseName={courseName}
+              feedbackData={courseFeedbackData}
+            />
           </CardContent>
         </Card>
       ),

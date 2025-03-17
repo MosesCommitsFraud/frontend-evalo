@@ -805,63 +805,6 @@ export default function AnalyticsPage() {
               </Button>
             </div>
           </div>
-
-          {/* Feedback List */}
-          <div className="space-y-4">
-            {filteredFeedback.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-md border text-center">
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <MessageSquare className="h-8 w-8" />
-                  <p>No feedback matches your filters</p>
-                </div>
-              </div>
-            ) : (
-              filteredFeedback.map((feedback) => (
-                <Card key={feedback.id}>
-                  <CardContent className="p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            feedback.sentiment === "positive"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : feedback.sentiment === "negative"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                          }
-                        >
-                          <span className="flex items-center gap-1">
-                            {getSentimentIcon(feedback.sentiment)}
-                            {feedback.sentiment.charAt(0).toUpperCase() +
-                              feedback.sentiment.slice(1)}
-                          </span>
-                        </Badge>
-                        <Badge variant="outline">
-                          {getCourseName(feedback.courseId)}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(feedback.date).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="mb-3">{feedback.content}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {feedback.keywords.map((keyword) => (
-                        <Badge
-                          key={keyword}
-                          variant="outline"
-                          className="bg-blue-50 dark:bg-blue-900/10"
-                        >
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
         </CardContent>
       </Card>
     </div>

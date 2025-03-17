@@ -17,7 +17,7 @@ export default function TeacherLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopNav toggleSidebar={toggleSidebar} />
+      <TopNav toggleSidebarAction={toggleSidebar} />
       <div className="flex-1 flex">
         {/* Sidebar with visibility toggle */}
         <Sidebar isVisible={sidebarVisible} />

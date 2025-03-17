@@ -12,7 +12,7 @@ import {
   Settings,
   ChartLine,
   HelpCircle,
-  Calendar1,
+  CalendarClock, // Using CalendarClock instead of Calendar1 which might not exist
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -28,81 +28,84 @@ const courses = [
   { id: "course-5", name: "Database Systems", code: "CS202" },
 ];
 
-// Memoized nav item component to prevent unnecessary re-renders
-const NavItem = memo(
-  ({
-    href,
-    title,
-    icon,
-    pathname,
-  }: {
-    href: string;
-    title: string;
-    icon: React.ReactNode;
-    pathname: string;
-  }) => {
-    const isActive = pathname === href || pathname.startsWith(`${href}/`);
+// Explicitly type the props for NavItem
+interface NavItemProps {
+  href: string;
+  title: string;
+  icon: React.ReactNode;
+  pathname: string;
+}
 
-    return (
-      <Link
-        href={href}
-        className={cn(
-          "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors-only",
-          isActive ? "bg-accent text-accent-foreground" : "transparent",
-        )}
-      >
-        {icon}
-        <span>{title}</span>
-      </Link>
-    );
-  },
-);
+// Memoized nav item component to prevent unnecessary re-renders
+const NavItem = memo(({ href, title, icon, pathname }: NavItemProps) => {
+  const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors-only",
+        isActive ? "bg-accent text-accent-foreground" : "transparent",
+      )}
+    >
+      {icon}
+      <span>{title}</span>
+    </Link>
+  );
+});
 NavItem.displayName = "NavItem";
 
-// Memoized course item component
-const CourseItem = memo(
-  ({
-    course,
-    pathname,
-  }: {
-    course: { id: string; name: string; code: string };
-    pathname: string;
-  }) => {
-    const href = `/dashboard/courses/${course.id}`;
-    const isActive = pathname === href || pathname.startsWith(`${href}/`);
+// Explicitly type the props for CourseItem
+interface CourseItemProps {
+  course: { id: string; name: string; code: string };
+  pathname: string;
+}
 
-    return (
-      <Link
-        key={course.id}
-        href={href}
-        className={cn(
-          "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors-only",
-          isActive ? "bg-accent text-accent-foreground" : "transparent",
-        )}
-      >
-        <BookOpen className="h-4 w-4 mr-2" />
-        <span className="truncate">{course.name}</span>
-      </Link>
-    );
-  },
-);
+// Memoized course item component
+const CourseItem = memo(({ course, pathname }: CourseItemProps) => {
+  const href = `/dashboard/courses/${course.id}`;
+  const isActive = pathname === href || pathname.startsWith(`${href}/`);
+
+  return (
+    <Link
+      key={course.id}
+      href={href}
+      className={cn(
+        "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors-only",
+        isActive ? "bg-accent text-accent-foreground" : "transparent",
+      )}
+    >
+      <BookOpen className="h-4 w-4 mr-2" />
+      <span className="truncate">{course.name}</span>
+    </Link>
+  );
+});
 CourseItem.displayName = "CourseItem";
 
+// Explicitly type props for SidebarSection
+interface SidebarSectionProps {
+  title: string;
+  children: React.ReactNode;
+}
+
 // Memoized section component
-const SidebarSection = memo(
-  ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="space-y-2">
-      <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
-        {title}
-      </h3>
-      <div className="space-y-1">{children}</div>
-    </div>
-  ),
-);
+const SidebarSection = memo(({ title, children }: SidebarSectionProps) => (
+  <div className="space-y-2">
+    <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium px-3">
+      {title}
+    </h3>
+    <div className="space-y-1">{children}</div>
+  </div>
+));
 SidebarSection.displayName = "SidebarSection";
 
+// Type definition for Sidebar props
+interface SidebarProps {
+  isVisible?: boolean;
+}
+
 // Main Sidebar component
-export const Sidebar = memo(({ isVisible = true }: { isVisible?: boolean }) => {
+export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
   const pathname = usePathname();
 
   // Pre-defined fixed classes to avoid layout thrashing
@@ -137,7 +140,7 @@ export const Sidebar = memo(({ isVisible = true }: { isVisible?: boolean }) => {
             <NavItem
               href="/calendar"
               title="Calendar"
-              icon={<Calendar1 className="h-4 w-4 mr-2" />}
+              icon={<CalendarClock className="h-4 w-4 mr-2" />}
               pathname={pathname}
             />
           </SidebarSection>

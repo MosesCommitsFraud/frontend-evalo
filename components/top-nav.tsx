@@ -17,7 +17,12 @@ import ActionSearchBar from "@/components/action-search-bar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePathname } from "next/navigation";
 
-export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
+// Define proper type for the toggleSidebar prop
+interface TopNavProps {
+  toggleSidebarAction: () => void;
+}
+
+export function TopNav({ toggleSidebarAction }: TopNavProps) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
 
@@ -64,7 +69,7 @@ export function TopNav({ toggleSidebar }: { toggleSidebar: () => void }) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleSidebar}
+              onClick={toggleSidebarAction}
               className="mr-1 text-muted-foreground"
             >
               <Menu className="h-5 w-5" />

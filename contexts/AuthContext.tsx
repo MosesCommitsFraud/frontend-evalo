@@ -1,8 +1,9 @@
+// contexts/AuthContext.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Session, User, AuthError } from "@supabase/supabase-js";
 
 type AuthContextType = {
@@ -30,7 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname();
+
+  // Wir erstellen den Client hier
+  const supabase = createClient();
 
   // Initialize auth state
   useEffect(() => {
@@ -40,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const {
           data: { session: initialSession },
         } = await supabase.auth.getSession();
+
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
       } catch (error) {

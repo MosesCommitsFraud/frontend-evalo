@@ -29,27 +29,42 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
+  // IMPORTANT: Do not add code between createServerClient and supabase.auth.getUser()
+  // Otherwise, you might get unexpected auth behavior
 
-  // IMPORTANT: DO NOT REMOVE auth.getUser()
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/student-feedback")
-  ) {
-    // no user, redirect to login page
+  // Define public routes that don't require authentication
+  const publicRoutes = [
+    "/",
+    "/auth/sign-in",
+    "/auth/sign-up",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/callback",
+    "/student-feedback", // Keep student feedback public
+  ];
+
+  // Check if current path is a public route
+  const isPublicRoute = publicRoutes.some((route) => {
+    // Handle exact matches and routes that have additional path segments
+    return (
+      route === request.nextUrl.pathname ||
+      (route !== "/" && request.nextUrl.pathname.startsWith(route + "/"))
+    );
+  });
+
+  // If no user and not on a public route, redirect to sign-in
+  if (!user && !isPublicRoute) {
+    // No user, redirect to sign-in page
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/auth/sign-in";
+    // Add the original URL as a "redirectTo" param to redirect after login
+    url.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is.
   return supabaseResponse;
 }

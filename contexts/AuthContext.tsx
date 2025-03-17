@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Session, User, AuthError } from "@supabase/supabase-js";
 
@@ -31,8 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Wir erstellen den Client hier
+  // Create the Supabase client
   const supabase = createClient();
 
   // Initialize auth state
@@ -78,7 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!error) {
-        router.push("/dashboard");
+        // If redirectTo param exists, use it, otherwise go to dashboard
+        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+        router.push(redirectTo);
       }
 
       return { error };
@@ -103,8 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!error) {
         // On successful signup, create a profile record
-        // Note: In a real app, you might want to handle this with a database trigger,
-        // edge functions, or after email confirmation
         const {
           data: { user: newUser },
         } = await supabase.auth.getUser();
@@ -120,7 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
         }
 
-        router.push("/dashboard");
+        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+        router.push(redirectTo);
       }
 
       return { error };

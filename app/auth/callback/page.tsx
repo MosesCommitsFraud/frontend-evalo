@@ -1,17 +1,24 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
 
   useEffect(() => {
-    // Redirect to dashboard after successful authentication
-    // Supabase will automatically handle the auth state based on the URL params
-    router.push("/dashboard");
-  }, [router]);
+    // If there's an error, redirect to sign-in page
+    if (error) {
+      router.push(`/auth/sign-in?error=${error}`);
+      return;
+    }
+
+    // The actual auth verification is handled by the route.ts handler
+    // This is just a loading page that will be shown briefly
+  }, [error, router]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">

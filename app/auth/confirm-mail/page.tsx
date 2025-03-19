@@ -25,7 +25,7 @@ export default function EmailConfirmationScreen({
   const [error, setError] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Retrieve the email from query params, fallback to empty string if not present.
+  // Retrieve the email from the query parameter.
   const email = searchParams.get("email") || "";
   const supabase = createClient();
 
@@ -34,7 +34,6 @@ export default function EmailConfirmationScreen({
       await onResendEmail();
       return;
     }
-
     setIsResending(true);
     setError("");
     setResendSuccess(false);
@@ -78,7 +77,7 @@ export default function EmailConfirmationScreen({
         <CardContent className="text-center space-y-4">
           <p>
             To complete your registration, please check your email inbox and
-            click on the confirmation link.
+            click the confirmation link.
           </p>
 
           {resendSuccess && (

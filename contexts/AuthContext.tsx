@@ -181,11 +181,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      // Create the user – Supabase sends the confirmation email automatically.
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: {
+          data: { full_name: fullName },
+          // Set the email confirmation redirect URL to your callback page.
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
       if (error) {
@@ -193,7 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
 
-      // Immediately route to the confirm-mail page.
+      // Inform the user to check their email for confirmation.
       router.push(`/confirm-mail?email=${encodeURIComponent(email)}`);
       return { error: null };
     } catch (error) {

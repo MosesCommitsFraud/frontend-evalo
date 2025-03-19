@@ -3,28 +3,31 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = createClient();
   const error = searchParams.get("error");
 
   useEffect(() => {
-    if (error) {
-      router.push(`/auth/sign-in?error=${error}`);
-      return;
+    async function completeAuth() {
+      if (error) {
+        router.push(`/auth/sign-in?error=${error}`);
+        return;
+      }
+      // Retrieve the session to ensure the user is signed in after confirmation.
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      if (sessionError) {
+        console.error("Error getting session:", sessionError);
+      }
+      // Once the session is established, redirect to the dashboard (or any other page)
+      router.push("/dashboard");
     }
-    // Force a reload after a short delay to ensure the new session is detected
-    const timer = setTimeout(() => {
-      // Option 1: Reload the entire page
-      window.location.reload();
-
-      // Option 2: Or redirect to a route that initializes AuthContext (uncomment below if you prefer)
-      // router.push("/dashboard");
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [error, router]);
+    completeAuth();
+  }, [error, router, supabase]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">

@@ -106,7 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign up with email and password
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      // First sign up the user
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -116,23 +117,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      if (!error) {
-        // On successful signup, create a profile record
-        const {
-          data: { user: newUser },
-        } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error during signup:", error);
+        return { error };
+      }
 
-        if (newUser) {
-          await supabase.from("profiles").insert({
-            id: newUser.id,
-            email: newUser.email,
-            full_name: fullName,
-            role: "teacher", // Default role
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
+      // Get the user from the signup response directly (more reliable)
+      const newUser = data.user;
+
+      if (newUser) {
+        console.log("Creating profile for user:", newUser.id);
+
+        // Insert profile record with proper error handling
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: newUser.id,
+          email: newUser.email || email, // Fallback to provided email
+          full_name: fullName,
+          role: "teacher", // Default role
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          department: "", // Make sure to include all required fields
+        });
+
+        if (profileError) {
+          console.error("Error creating profile:", profileError);
+          // You might want to handle this error specifically
+          // Consider whether to show this error to the user or handle it silently
         }
+      } else {
+        console.error("No user returned from sign-up operation");
+      }
 
+      if (!error) {
         const redirectTo = searchParams.get("redirectTo") || "/dashboard";
         router.push(redirectTo);
       }

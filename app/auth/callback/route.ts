@@ -13,16 +13,44 @@ export async function GET(request: NextRequest) {
   if (token_hash && type) {
     const supabase = await createClient();
 
-    const { error } = await supabase.auth.verifyOtp({
+    // Verify the OTP
+    const { data, error } = await supabase.auth.verifyOtp({
       type,
       token_hash,
     });
-    if (!error) {
-      // redirect user to specified redirect URL or root of app
+
+    if (!error && data.user) {
+      // Successfully verified, now check for an existing profile
+      const { data: existingProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      console.log("Profile check:", existingProfile, profileError);
+
+      // If no profile exists, create one
+      if (!existingProfile && !profileError) {
+        const { error: insertError } = await supabase.from("profiles").insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: data.user.user_metadata?.full_name || "",
+          role: "teacher", // Default role
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          department: "", // Include required fields
+        });
+
+        if (insertError) {
+          console.error("Error creating profile:", insertError);
+        }
+      }
+
+      // Redirect user to specified redirect URL or root of app
       redirect(next);
     }
   }
 
-  // redirect the user to an error page with some instructions
+  // Redirect the user to an error page with some instructions
   redirect("/auth/sign-in?error=auth_callback_error");
 }

@@ -36,6 +36,39 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // If user is authenticated, ensure they have a profile
+  if (user) {
+    try {
+      // Check if profile exists
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // If no profile found and no error, create one
+      if (!profile && !error) {
+        console.log(`Creating profile for user ${user.id}`);
+
+        const { error: insertError } = await supabase.from("profiles").insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || "",
+          role: "teacher", // Default role
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          department: "", // Include required fields
+        });
+
+        if (insertError) {
+          console.error("Error creating profile:", insertError);
+        }
+      }
+    } catch (e) {
+      console.error("Error checking/creating profile:", e);
+    }
+  }
+
   // Define public routes that don't require authentication
   const publicRoutes = [
     "/",

@@ -19,6 +19,8 @@ export interface Database {
           created_at: string;
           updated_at: string;
           department: string | null;
+          bio: string | null;
+          avatar_url: string | null;
         };
         Insert: {
           id: string;
@@ -28,6 +30,8 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           department?: string | null;
+          bio?: string | null;
+          avatar_url?: string | null;
         };
         Update: {
           id?: string;
@@ -37,6 +41,8 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           department?: string | null;
+          bio?: string | null;
+          avatar_url?: string | null;
         };
       };
       // Rest of the tables remain the same

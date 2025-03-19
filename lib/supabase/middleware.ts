@@ -57,7 +57,9 @@ export async function updateSession(request: NextRequest) {
           role: "teacher", // Default role
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          department: "", // Include required fields
+          department: "", // Required field
+          bio: "Teacher with experience in education.", // Optional field
+          avatar_url: null, // Optional field
         });
 
         if (insertError) {

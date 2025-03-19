@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -20,8 +21,12 @@ import {
   Building,
   Clock,
   Edit,
+  Upload,
+  Pencil,
   Check,
   Loader2,
+  X,
+  Image,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { dataService } from "@/lib/data-service";
@@ -41,10 +46,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ProfilePage() {
   // Get authentication info
   const { user: authUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile data state
   const [user, setUser] = useState({
@@ -53,15 +60,19 @@ export default function ProfilePage() {
     department: "",
     joined: "",
     role: "",
+    bio: "",
+    avatar_url: "",
   });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [editForm, setEditForm] = useState({
     full_name: "",
     department: "",
     role: "teacher",
+    bio: "",
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -92,6 +103,8 @@ export default function ProfilePage() {
                   })
                 : "Not available",
               role: data.role || "teacher",
+              bio: data.bio || "",
+              avatar_url: data.avatar_url || "",
             });
 
             // Initialize edit form
@@ -99,6 +112,7 @@ export default function ProfilePage() {
               full_name: data.full_name || "",
               department: data.department || "",
               role: data.role || "teacher",
+              bio: data.bio || "",
             });
           }
         } catch (error) {
@@ -126,6 +140,113 @@ export default function ProfilePage() {
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Handle file input click
+  const handleUploadClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Handle avatar upload
+  // Modified handleAvatarUpload function with better error handling and debugging
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+
+    const file = e.target.files[0];
+    const fileExt = file.name.split(".").pop();
+    // Generate a unique filename to avoid caching issues
+    const fileName = `${Date.now()}_${authUser?.id}.${fileExt}`;
+    const filePath = fileName; // Simplified path - no folders
+
+    setIsUploading(true);
+    console.log("Starting avatar upload...");
+    console.log("File:", file.name, "Size:", file.size);
+
+    try {
+      // Upload file to Supabase Storage
+      const supabase = createClient();
+      console.log("Uploading to avatars bucket, path:", filePath);
+
+      // First check if bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets();
+      console.log("Available buckets:", buckets);
+
+      const bucketExists = buckets?.some((bucket) => bucket.name === "avatars");
+      if (!bucketExists) {
+        console.error("Avatars bucket doesn't exist!");
+        toast({
+          title: "Error",
+          description: "Storage bucket not found. Please contact support.",
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      // Upload the file
+      const { data, error } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, {
+          upsert: true,
+          cacheControl: "0", // Disable caching
+        });
+
+      if (error) {
+        console.error("Upload error:", error);
+        throw error;
+      }
+
+      console.log("Upload successful:", data);
+
+      // Get public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      console.log("Public URL:", urlData.publicUrl);
+
+      // Make sure the URL is using HTTPS (sometimes needed for security)
+      const publicUrl = urlData.publicUrl.replace("http:", "https:");
+
+      // Update profile with new avatar URL
+      console.log("Updating profile with new avatar URL");
+      const { error: updateError } = await dataService.updateProfile({
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        throw updateError;
+      }
+
+      // Update local state
+      setUser((prev) => ({
+        ...prev,
+        avatar_url: publicUrl,
+      }));
+
+      console.log("Avatar upload complete!");
+      toast({
+        title: "Success",
+        description: "Profile picture updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload profile picture. Please try again.",
+      });
+    } finally {
+      setIsUploading(false);
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   // Handle saving profile updates
   const handleSave = async () => {
     setIsSaving(true);
@@ -134,6 +255,7 @@ export default function ProfilePage() {
         full_name: editForm.full_name,
         department: editForm.department,
         role: editForm.role as "teacher" | "dean",
+        bio: editForm.bio,
         updated_at: new Date().toISOString(),
       });
 
@@ -152,6 +274,7 @@ export default function ProfilePage() {
         name: editForm.full_name,
         department: editForm.department,
         role: editForm.role,
+        bio: editForm.bio,
       }));
 
       setSaveSuccess(true);
@@ -194,36 +317,108 @@ export default function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex-1 space-y-4">
-                <div className="grid gap-1">
-                  <Label className="text-muted-foreground text-sm">
-                    Full Name
-                  </Label>
-                  <div className="font-medium">{user.name}</div>
-                </div>
-
-                <div className="grid gap-1">
-                  <Label className="text-muted-foreground text-sm">Role</Label>
-                  <div className="font-medium">
-                    {user.role === "dean" ? "Dean" : "Teacher"}
+              {/* Avatar section */}
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex flex-col items-center">
+                  <div className="relative">
+                    <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-emerald-100 dark:border-emerald-900/30">
+                      {user.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt="Profile"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-16 w-16 text-muted-foreground" />
+                      )}
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute bottom-0 right-0 rounded-full bg-background shadow"
+                      onClick={handleUploadClick}
+                      disabled={isUploading}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      disabled={isUploading}
+                    />
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-4"
+                    onClick={handleUploadClick}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Change Picture
+                      </>
+                    )}
+                  </Button>
                 </div>
 
-                <div className="grid gap-1">
-                  <Label className="text-muted-foreground text-sm">
-                    Department
-                  </Label>
-                  <div className="font-medium">{user.department}</div>
-                </div>
+                <div className="flex-1 space-y-4">
+                  <div className="grid gap-1">
+                    <Label className="text-muted-foreground text-sm">
+                      Full Name
+                    </Label>
+                    <div className="font-medium">{user.name}</div>
+                  </div>
 
-                <div className="grid gap-1">
-                  <Label className="text-muted-foreground text-sm">Email</Label>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{user.email}</span>
+                  <div className="grid gap-1">
+                    <Label className="text-muted-foreground text-sm">
+                      Role
+                    </Label>
+                    <div className="font-medium">
+                      {user.role === "dean" ? "Dean" : "Teacher"}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <Label className="text-muted-foreground text-sm">
+                      Department
+                    </Label>
+                    <div className="font-medium">{user.department}</div>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <Label className="text-muted-foreground text-sm">
+                      Email
+                    </Label>
+                    <div className="flex items-center">
+                      <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                      <span>{user.email}</span>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Bio section */}
+              {user.bio && (
+                <div>
+                  <Label className="text-muted-foreground text-sm">Bio</Label>
+                  <p className="mt-1">{user.bio}</p>
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               <Button variant="outline" className="gap-2" onClick={handleEdit}>
@@ -263,7 +458,7 @@ export default function ProfilePage() {
 
       {/* Edit Profile Dialog */}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
             <DialogDescription>
@@ -288,6 +483,18 @@ export default function ProfilePage() {
                 name="department"
                 value={editForm.department}
                 onChange={handleChange}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                name="bio"
+                value={editForm.bio}
+                onChange={handleChange}
+                rows={4}
+                placeholder="Tell us about yourself"
               />
             </div>
 

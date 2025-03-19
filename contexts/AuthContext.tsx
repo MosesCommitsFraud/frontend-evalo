@@ -103,10 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Sign up with email and password
+  // Sign up with email and password - Improved flow
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      // First sign up the user
+      // Step 1: Sign up the user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -122,38 +122,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
 
-      // Get the user from the signup response directly (more reliable)
-      const newUser = data.user;
+      // Step 2: Try to sign in immediately to establish a session
+      // This helps ensure we have proper auth context for the profile creation
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (newUser) {
-        console.log("Creating profile for user:", newUser.id);
+      if (signInError) {
+        console.error("Error signing in after signup:", signInError);
+        return { error: signInError };
+      }
 
-        // Insert profile record with proper error handling
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: newUser.id,
-          email: newUser.email || email, // Fallback to provided email
-          full_name: fullName,
-          role: "teacher", // Default role
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          department: "", // Make sure to include all required fields
-        });
+      // Step 3: Create profile with a slight delay to ensure session is established
+      setTimeout(async () => {
+        try {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert({
+              id: data.user?.id,
+              email: data.user?.email || email,
+              full_name: fullName,
+              role: "teacher",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
 
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-          // You might want to handle this error specifically
-          // Consider whether to show this error to the user or handle it silently
+          if (profileError) {
+            console.error("Error creating profile:", profileError);
+          } else {
+            console.log("Profile created successfully");
+          }
+        } catch (e) {
+          console.error("Error in delayed profile creation:", e);
         }
-      } else {
-        console.error("No user returned from sign-up operation");
-      }
+      }, 500); // Small delay to allow auth to fully establish
 
-      if (!error) {
-        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-        router.push(redirectTo);
-      }
+      // Step 4: Redirect regardless of profile creation result
+      // Profile can be created on first login if needed
+      const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+      router.push(redirectTo);
 
-      return { error };
+      return { error: null };
     } catch (error) {
       console.error("Error signing up:", error);
       return { error: error as AuthError };

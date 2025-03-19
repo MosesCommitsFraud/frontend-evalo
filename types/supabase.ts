@@ -18,6 +18,7 @@ export interface Database {
           role: "teacher" | "dean";
           created_at: string;
           updated_at: string;
+          department: string | null; // Add department field
         };
         Insert: {
           id: string;
@@ -26,6 +27,7 @@ export interface Database {
           role: "teacher" | "dean";
           created_at?: string;
           updated_at?: string;
+          department?: string | null; // Add department field
         };
         Update: {
           id?: string;
@@ -34,6 +36,7 @@ export interface Database {
           role?: "teacher" | "dean";
           created_at?: string;
           updated_at?: string;
+          department?: string | null; // Add department field
         };
       };
       courses: {

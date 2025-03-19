@@ -12,25 +12,25 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Mail, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function EmailConfirmationScreen({
-  email = "",
   onResendEmail = null,
 }: {
-  email?: string;
   onResendEmail?: (() => Promise<void>) | null;
 }) {
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Retrieve the email from query params, fallback to empty string if not present.
+  const email = searchParams.get("email") || "";
   const supabase = createClient();
 
   const handleResendEmail = async () => {
     if (onResendEmail) {
-      // Use passed handler if provided
       await onResendEmail();
       return;
     }
@@ -71,7 +71,7 @@ export default function EmailConfirmationScreen({
             Confirm Your Email
           </CardTitle>
           <CardDescription>
-            We&#39;ve sent a confirmation email to{" "}
+            We&apos;ve sent a confirmation email to{" "}
             <span className="font-medium">{email}</span>
           </CardDescription>
         </CardHeader>
@@ -96,7 +96,7 @@ export default function EmailConfirmationScreen({
 
           <div className="pt-2 pb-2">
             <p className="text-sm text-muted-foreground">
-              Didn&#39;t receive the email? Check your spam folder or
+              Didn&apos;t receive the email? Check your spam folder or
             </p>
           </div>
         </CardContent>

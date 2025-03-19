@@ -10,14 +10,20 @@ export default function AuthCallbackPage() {
   const error = searchParams.get("error");
 
   useEffect(() => {
-    // If there's an error, redirect to sign-in page
     if (error) {
       router.push(`/auth/sign-in?error=${error}`);
       return;
     }
+    // Force a reload after a short delay to ensure the new session is detected
+    const timer = setTimeout(() => {
+      // Option 1: Reload the entire page
+      window.location.reload();
 
-    // The actual auth verification is handled by the route.ts handler
-    // This is just a loading page that will be shown briefly
+      // Option 2: Or redirect to a route that initializes AuthContext (uncomment below if you prefer)
+      // router.push("/dashboard");
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [error, router]);
 
   return (

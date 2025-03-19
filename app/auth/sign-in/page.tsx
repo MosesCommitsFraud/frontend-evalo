@@ -26,11 +26,10 @@ export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Extract redirectTo from query parameters
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
   const resetSuccess = searchParams.get("reset") === "success";
 
-  // If user is already logged in, redirect to dashboard
+  // If user is already logged in, redirect
   useEffect(() => {
     if (user) {
       router.push(redirectTo);
@@ -47,10 +46,10 @@ export default function SignInPage() {
       if (error) {
         setErrorMessage(error.message);
       }
-      // No need to redirect here as the auth context will handle it
-    } catch (error) {
+      // The actual redirect is handled in AuthContext after successful signIn
+    } catch (err) {
       setErrorMessage("An unexpected error occurred. Please try again.");
-      console.error(error);
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +63,7 @@ export default function SignInPage() {
             Sign in to your account
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your email and password to sign in to your account
+            Enter your email and password to sign in
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -78,10 +77,7 @@ export default function SignInPage() {
           {resetSuccess && (
             <div className="mb-4 flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400">
               <AlertCircle className="h-4 w-4" />
-              <p>
-                Your password has been reset successfully. Please sign in with
-                your new password.
-              </p>
+              <p>Your password has been reset successfully. Please sign in.</p>
             </div>
           )}
 

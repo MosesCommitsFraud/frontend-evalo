@@ -1,4 +1,4 @@
-// contexts/AuthContext.tsx
+// AuthContext.tsx
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
@@ -24,8 +24,7 @@ type AuthContextType = {
   resetPassword: (password: string) => Promise<{ error: AuthError | null }>;
 };
 
-// Create a default value for the context
-const defaultAuthContext: AuthContextType = {
+const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isLoading: true,
@@ -34,9 +33,7 @@ const defaultAuthContext: AuthContextType = {
   signOut: async () => {},
   forgotPassword: async () => ({ error: null }),
   resetPassword: async () => ({ error: null }),
-};
-
-const AuthContext = createContext<AuthContextType>(defaultAuthContext);
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -44,75 +41,151 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Create the Supabase client
   const supabase = createClient();
 
-  // Initialize auth state
+  // Helper: Ensure the profile exists.
+  async function ensureProfile(currentUser: User) {
+    try {
+      console.log("ensureProfile: checking for user", currentUser.id);
+      const { data: existingProfile, error: selectError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+      if (selectError) {
+        console.error("Error selecting profile:", selectError);
+      }
+      if (!existingProfile) {
+        console.log("No profile found, attempting insert for", currentUser.id);
+        const { error: insertError, data: insertedData } = await supabase
+          .from("profiles")
+          .insert({
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: currentUser.user_metadata?.full_name || "",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select(); // return inserted rows
+        if (insertError) {
+          console.error("Error inserting profile:", insertError);
+        } else {
+          console.log("Profile inserted successfully:", insertedData);
+        }
+      } else {
+        console.log("Profile already exists:", existingProfile);
+      }
+    } catch (err) {
+      console.error("Error in ensureProfile:", err);
+    }
+  }
+
+  // INITIALIZE AND LISTEN FOR AUTH STATE CHANGES
   useEffect(() => {
-    const initializeAuth = async () => {
+    async function initializeAuth() {
       try {
-        // Get initial session
         const {
           data: { session: initialSession },
         } = await supabase.auth.getSession();
-
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
+        if (initialSession?.user) {
+          await ensureProfile(initialSession.user);
+        }
       } catch (error) {
         console.error("Error initializing auth:", error);
       } finally {
         setIsLoading(false);
       }
-    };
-
+    }
     initializeAuth();
 
-    // Subscribe to auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log("Auth state changed:", event);
       setSession(newSession);
       setUser(newSession?.user ?? null);
+      if (newSession?.user) {
+        await ensureProfile(newSession.user);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
-  // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // 1) Attempt to sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (!error) {
-        // If redirectTo param exists, use it, otherwise go to dashboard
-        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-        router.push(redirectTo);
+      if (error) {
+        // Return the error if sign-in fails
+        console.error("Error signing in:", error);
+        return { error };
       }
 
-      return { error };
+      // 2) Fetch the current session to get the signed-in user
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      // If session or user is missing, something went wrong
+      if (!session || !session.user) {
+        return { error: { message: "No user session found." } as AuthError };
+      }
+
+      const user = session.user;
+
+      // 3) Check if the user already has a profile
+      const { data: existingProfile, error: selectError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (selectError) {
+        console.error("Error checking profile:", selectError);
+      }
+
+      // 4) If no profile exists, create it
+      if (!existingProfile) {
+        const { error: insertError } = await supabase.from("profiles").insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || "",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        if (insertError) {
+          console.error("Error creating profile:", insertError);
+        }
+      }
+
+      // 5) Redirect after sign-in (and profile check/creation) is complete
+      const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+      router.push(redirectTo);
+
+      return { error: null };
     } catch (error) {
-      console.error("Error signing in:", error);
+      console.error("Error in signIn:", error);
       return { error: error as AuthError };
     }
   };
 
-  // Sign up with email and password - Improved flow for email confirmation
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      // Step 1: Sign up the user
+      // Create the user – Supabase sends the confirmation email automatically.
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { full_name: fullName },
-        },
+        options: { data: { full_name: fullName } },
       });
 
       if (error) {
@@ -120,33 +193,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
 
-      // Step 2: Create a profile record immediately using the returned user id
-      if (data.user) {
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: data.user.id,
-          email: data.user.email || email,
-          full_name: fullName,
-          role: "teacher",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-        } else {
-          console.log("Profile created successfully");
-        }
-      }
-
-      // Step 3: Redirect based on email confirmation status.
-      // If the user's email is not confirmed, route to the confirm-mail page.
-      if (!data.user?.confirmed_at) {
-        router.push(`/confirm-mail?email=${encodeURIComponent(email)}`);
-      } else {
-        // If email confirmation isn’t required or already confirmed, route to dashboard
-        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-        router.push(redirectTo);
-      }
-
+      // Immediately route to the confirm-mail page.
+      router.push(`/confirm-mail?email=${encodeURIComponent(email)}`);
       return { error: null };
     } catch (error) {
       console.error("Error signing up:", error);
@@ -154,7 +202,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Sign out
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -164,7 +211,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Password reset request
   const forgotPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -172,22 +218,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return { error };
     } catch (error) {
-      console.error("Error requesting password reset:", error);
+      console.error("Error resetting password:", error);
       return { error: error as AuthError };
     }
   };
 
-  // Set new password
   const resetPassword = async (password: string) => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        password,
-      });
-
+      const { error } = await supabase.auth.updateUser({ password });
       if (!error) {
         router.push("/auth/sign-in?reset=success");
       }
-
       return { error };
     } catch (error) {
       console.error("Error resetting password:", error);
@@ -195,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     session,
     isLoading,
@@ -210,6 +251,5 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  return context;
+  return useContext(AuthContext);
 }

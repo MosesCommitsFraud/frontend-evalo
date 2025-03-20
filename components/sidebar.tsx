@@ -12,21 +12,16 @@ import {
   Settings,
   ChartLine,
   HelpCircle,
-  CalendarClock, // Using CalendarClock instead of Calendar1 which might not exist
+  CalendarClock,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import CreateCourseDialog from "@/components/create-course-dialog";
-
-// Mock course data - would come from your API
-const courses = [
-  { id: "course-1", name: "Introduction to Programming", code: "CS101" },
-  { id: "course-2", name: "Data Structures & Algorithms", code: "CS201" },
-  { id: "course-3", name: "Web Development", code: "CS301" },
-  { id: "course-4", name: "Machine Learning Basics", code: "CS401" },
-  { id: "course-5", name: "Database Systems", code: "CS202" },
-];
+import CreateCourseDialog, { Course } from "@/components/create-course-dialog";
+import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { createClient } from "@/lib/supabase/client";
 
 // Explicitly type the props for NavItem
 interface NavItemProps {
@@ -57,7 +52,7 @@ NavItem.displayName = "NavItem";
 
 // Explicitly type the props for CourseItem
 interface CourseItemProps {
-  course: { id: string; name: string; code: string };
+  course: Course;
   pathname?: string | null;
 }
 
@@ -108,6 +103,54 @@ interface SidebarProps {
 export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
   const pathname = usePathname();
   const [isClient, setIsClient] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Fetch courses from Supabase
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!user) return;
+
+      setLoading(true);
+      try {
+        const supabase = createClient();
+
+        // Fetch courses where the current user is either the owner or the teacher
+        const { data, error } = await supabase
+          .from("courses")
+          .select("*")
+          .or(`owner_id.eq.${user.id},teacher.eq.${user.id}`);
+
+        if (error) {
+          console.error("Error fetching courses:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load courses. Please refresh the page.",
+          });
+          return;
+        }
+
+        console.log("Courses loaded:", data);
+        if (data) {
+          setCourses(data as Course[]);
+        }
+      } catch (error) {
+        console.error("Exception fetching courses:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchCourses();
+    }
+  }, [user]);
+
+  // Function to add a new course
+  const handleCourseCreate = (newCourse: Course) => {
+    setCourses((prev) => [...prev, newCourse]);
+  };
 
   // Ensure we're on the client side before rendering pathname-dependent parts
   useEffect(() => {
@@ -191,7 +234,7 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
             <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
               COURSES
             </h3>
-            <CreateCourseDialog>
+            <CreateCourseDialog onCourseCreate={handleCourseCreate}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -203,15 +246,25 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
             </CreateCourseDialog>
           </div>
 
-          {/* Virtualized course list for better performance */}
+          {/* Courses list with loading state */}
           <div className="space-y-1 px-1 overflow-y-auto flex-1 virtualized-list">
-            {courses.map((course) => (
-              <CourseItem
-                key={course.id}
-                course={course}
-                pathname={isClient ? pathname : null}
-              />
-            ))}
+            {loading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                No courses found
+              </div>
+            ) : (
+              courses.map((course) => (
+                <CourseItem
+                  key={course.id}
+                  course={course}
+                  pathname={isClient ? pathname : null}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>

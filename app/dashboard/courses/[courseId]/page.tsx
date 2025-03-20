@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -20,11 +20,12 @@ import {
   Minus,
   Search,
   Filter,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { FeedbackAnalytics } from "@/components/feedback-analytics";
 import CustomTabs from "@/components/custom-tabs";
 import Link from "next/link";
-import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,6 +36,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FeedbackList } from "@/components/feedback-list";
+import { dataService } from "@/lib/data-service";
+import { toast } from "@/components/ui/toast";
+import { Course } from "@/lib/data-service";
 
 interface CoursePageProps {
   params: {
@@ -43,15 +47,52 @@ interface CoursePageProps {
 }
 
 export default function CoursePage({ params }: CoursePageProps) {
-  // Unwrap params with React.use() as recommended by Next.js
-  const unwrappedParams = React.use(params);
   // Store courseId in a variable right away
-  const courseId = unwrappedParams.courseId;
-  const courseName = getCourseNameById(courseId);
+  const courseId = params.courseId;
+
+  // State for course data
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // State for filters on the feedback tab
   const [searchQuery, setSearchQuery] = useState("");
   const [sentimentFilter, setSentimentFilter] = useState("all");
+
+  // Fetch course data on component mount
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await dataService.getCourseById(courseId);
+
+        if (error) {
+          console.error("Error fetching course:", error);
+          setError(
+            "Failed to load course information. Please try again later.",
+          );
+          toast({
+            title: "Error",
+            description: "Failed to load course information",
+          });
+          return;
+        }
+
+        if (data) {
+          setCourse(data);
+        } else {
+          setError("Course not found");
+        }
+      } catch (err) {
+        console.error("Exception fetching course:", err);
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourseData();
+  }, [courseId]);
 
   // Define your dashboard stats card component
   function StatsCard({
@@ -79,88 +120,36 @@ export default function CoursePage({ params }: CoursePageProps) {
     );
   }
 
-  // Mock data for quick stats
-  const quickStats = [
-    { label: "Most Active Time", value: "Tuesdays, 10-12 AM" },
-    { label: "Top Keyword", value: "Assignments" },
-    { label: "Avg. Response Length", value: "3.2 paragraphs" },
-    { label: "Common Feature Request", value: "More practice problems" },
-    { label: "Improvement Area", value: "Assignment clarity" },
-  ];
-
-  // Mock feedback data for this course
-  const courseFeedbackData = [
+  // Empty state stats
+  const emptyStats = [
     {
-      id: "1",
-      content:
-        "The examples in today's lecture were very helpful for understanding the concept.",
-      sentiment: "positive",
-      date: "2025-03-06",
-      keywords: ["examples", "lecture", "helpful"],
+      title: "Total Responses",
+      value: "0",
+      description: "No feedback yet",
+      icon: MessageSquare,
     },
     {
-      id: "2",
-      content:
-        "I'm struggling with the assignment requirements. Could you provide more details?",
-      sentiment: "negative",
-      date: "2025-03-05",
-      keywords: ["assignment", "requirements", "struggling"],
+      title: "Sentiment Score",
+      value: "N/A",
+      description: "Waiting for feedback",
+      icon: BarChart3,
     },
     {
-      id: "3",
-      content:
-        "The pace of the class is good, but I think we need more practice exercises.",
-      sentiment: "neutral",
-      date: "2025-03-04",
-      keywords: ["pace", "practice", "exercises"],
+      title: "Response Rate",
+      value: "0%",
+      description: "No responses yet",
+      icon: BarChart3,
     },
     {
-      id: "4",
-      content:
-        "Really enjoyed the project work today. The hands-on approach helps solidify concepts.",
-      sentiment: "positive",
-      date: "2025-03-03",
-      keywords: ["project", "hands-on", "concepts"],
-    },
-    {
-      id: "5",
-      content:
-        "The quiz was much harder than expected based on the material covered in class.",
-      sentiment: "negative",
-      date: "2025-03-02",
-      keywords: ["quiz", "difficult", "material"],
+      title: "Total Students",
+      value: course?.student_count?.toString() || "0",
+      description: "Currently enrolled",
+      icon: BarChart3,
     },
   ];
 
-  // Filter feedback based on current filters
-  const filteredFeedback = courseFeedbackData.filter((feedback) => {
-    // Search filter
-    if (
-      searchQuery &&
-      !feedback.content.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
-
-    // Sentiment filter
-    if (sentimentFilter !== "all" && feedback.sentiment !== sentimentFilter) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Get sentiment icon based on sentiment
-  const getSentimentIcon = (sentiment: string) => {
-    switch (sentiment) {
-      case "positive":
-        return <ThumbsUp className="h-4 w-4 text-emerald-600" />;
-      case "negative":
-        return <ThumbsDown className="h-4 w-4 text-red-600" />;
-      default:
-        return <Minus className="h-4 w-4 text-gray-600" />;
-    }
-  };
+  // Empty feedback data (will be populated from the events and feedback tables later)
+  const courseFeedbackData: any[] = [];
 
   // Build your tab data array using your existing content from TabsContent
   const tabData = [
@@ -173,68 +162,67 @@ export default function CoursePage({ params }: CoursePageProps) {
       ),
       content: (
         <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatsCard
-              title="Total Responses"
-              value="124"
-              description="+6 this week"
-              icon={MessageSquare}
-            />
-            <StatsCard
-              title="Sentiment Score"
-              value="78%"
-              description="+2% from last week"
-              icon={BarChart3}
-            />
-            <StatsCard
-              title="Response Rate"
-              value="65%"
-              description="Of enrolled students"
-              icon={BarChart3}
-            />
-            <StatsCard
-              title="Total Students"
-              value="42"
-              description="Currently enrolled"
-              icon={BarChart3}
-            />
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Feedback Categories</CardTitle>
-                <CardDescription>
-                  Distribution of feedback by category
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <div className="flex h-full items-center justify-center rounded-md border border-dashed p-8 text-muted-foreground">
-                  Category distribution chart
-                </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
+            </div>
+          ) : error ? (
+            <Card className="border-red-200 dark:border-red-800">
+              <CardContent className="flex flex-col items-center justify-center py-10">
+                <AlertTriangle className="h-10 w-10 text-red-500 mb-4" />
+                <p className="text-lg font-medium">{error}</p>
+                <p className="text-sm text-muted-foreground">
+                  Please try again later
+                </p>
               </CardContent>
             </Card>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {emptyStats.map((stat) => (
+                  <StatsCard
+                    key={stat.title}
+                    title={stat.title}
+                    value={stat.value}
+                    description={stat.description}
+                    icon={stat.icon}
+                  />
+                ))}
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Stats</CardTitle>
-                <CardDescription>At a glance metrics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {quickStats.map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="text-sm">{stat.label}</div>
-                      <div className="font-medium">{stat.value}</div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Feedback Categories</CardTitle>
+                    <CardDescription>
+                      Distribution of feedback by category
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-80">
+                    <div className="flex h-full items-center justify-center rounded-md border border-dashed p-8 text-muted-foreground">
+                      No feedback data available yet
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Stats</CardTitle>
+                    <CardDescription>At a glance metrics</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex h-80 items-center justify-center rounded-md border border-dashed text-muted-foreground">
+                    <div className="text-center">
+                      <p>No statistics available yet</p>
+                      <p className="text-sm mt-2">
+                        Statistics will appear here once students submit
+                        feedback
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
         </div>
       ),
     },
@@ -263,7 +251,8 @@ export default function CoursePage({ params }: CoursePageProps) {
           <CardHeader>
             <CardTitle>Student Feedback</CardTitle>
             <CardDescription>
-              View and analyze all feedback received for {courseName}
+              View and analyze all feedback received for{" "}
+              {course?.name || "this course"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -301,11 +290,32 @@ export default function CoursePage({ params }: CoursePageProps) {
               </div>
             </div>
 
-            {/* Feedback List */}
-            <FeedbackList
-              courseName={courseName}
-              feedbackData={courseFeedbackData}
-            />
+            {/* Empty State when no feedback */}
+            {courseFeedbackData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No feedback yet</h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Feedback from students will appear here once they submit it
+                  using your course feedback code.
+                </p>
+                <Button
+                  asChild
+                  variant="default"
+                  className="mt-4 gap-2 bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Link href={`/dashboard/courses/${courseId}/share`}>
+                    <QrCode className="h-4 w-4" />
+                    Create Feedback Code
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <FeedbackList
+                courseName={course?.name || "this course"}
+                feedbackData={courseFeedbackData}
+              />
+            )}
           </CardContent>
         </Card>
       ),
@@ -326,8 +336,15 @@ export default function CoursePage({ params }: CoursePageProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="min-h-[400px] rounded-md border p-6 text-center text-muted-foreground">
-              Calendar view would go here
+            <div className="min-h-[400px] flex items-center justify-center rounded-md border p-6 text-center text-muted-foreground">
+              <div className="text-center">
+                <CalendarDays className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
+                <p>No events scheduled yet</p>
+                <p className="text-sm mt-2">
+                  Create events to track lectures, assignments, and other course
+                  activities
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -338,20 +355,39 @@ export default function CoursePage({ params }: CoursePageProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{courseName}</h1>
+        {loading ? (
+          <h1 className="text-3xl font-bold tracking-tight flex items-center">
+            <span className="mr-2">Loading course</span>
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </h1>
+        ) : (
+          <h1 className="text-3xl font-bold tracking-tight">
+            {course?.name || "Course Not Found"}
+            {course?.code && (
+              <span className="text-xl ml-2 text-muted-foreground font-normal">
+                {course.code}
+              </span>
+            )}
+          </h1>
+        )}
         <div className="flex gap-2">
-          {/* New QR Code Share Button */}
+          {/* Share Feedback Code Button */}
           <Button
             asChild
             variant="default"
             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            disabled={loading || !!error}
           >
             <Link href={`/dashboard/courses/${courseId}/share`}>
               <QrCode className="h-4 w-4" />
               Share Feedback Code
             </Link>
           </Button>
-          <Button variant="outline" className="gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            disabled={loading || !!error}
+          >
             <Settings className="h-4 w-4" />
             Course Settings
           </Button>
@@ -360,17 +396,4 @@ export default function CoursePage({ params }: CoursePageProps) {
       <CustomTabs tabs={tabData} />
     </div>
   );
-}
-
-// Helper function to get course name by ID
-function getCourseNameById(id: string): string {
-  const courses = {
-    "course-1": "Introduction to Programming",
-    "course-2": "Data Structures & Algorithms",
-    "course-3": "Web Development",
-    "course-4": "Machine Learning Basics",
-    "course-5": "Database Systems",
-  };
-
-  return courses[id as keyof typeof courses] || "Unknown Course";
 }

@@ -26,10 +26,10 @@ import {
   Check,
   Loader2,
   X,
-  Image,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { dataService } from "@/lib/data-service";
+import { dataService, Department } from "@/lib/data-service";
 import {
   Dialog,
   DialogContent,
@@ -70,11 +70,16 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [editForm, setEditForm] = useState({
     full_name: "",
-    department: "",
+    department: "none", // Use "none" instead of "" for the select component
     role: "teacher",
     bio: "",
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  // Departments state
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -86,6 +91,10 @@ export default function ProfilePage() {
 
           if (error) {
             console.error("Error fetching profile:", error);
+            toast({
+              title: "Error",
+              description: "Failed to load profile. Please refresh the page.",
+            });
             return;
           }
 
@@ -95,7 +104,7 @@ export default function ProfilePage() {
             setUser({
               name: data.full_name || "Not set",
               email: data.email || authUser.email || "Not set",
-              department: data.department || "Not set",
+              department: data.department || "", // Keep empty string here for display logic
               joined: data.created_at
                 ? new Date(data.created_at).toLocaleDateString("en-US", {
                     month: "long",
@@ -107,16 +116,21 @@ export default function ProfilePage() {
               avatar_url: data.avatar_url || "",
             });
 
-            // Initialize edit form
+            // Initialize edit form with "none" instead of empty string for department
             setEditForm({
               full_name: data.full_name || "",
-              department: data.department || "",
+              department: data.department || "none", // Use "none" instead of empty string
               role: data.role || "teacher",
               bio: data.bio || "",
             });
           }
         } catch (error) {
           console.error("Error:", error);
+          toast({
+            title: "Error",
+            description:
+              "An unexpected error occurred while loading your profile.",
+          });
         } finally {
           setIsLoading(false);
         }
@@ -126,10 +140,40 @@ export default function ProfilePage() {
     fetchUserProfile();
   }, [authUser]);
 
+  // Fetch departments
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setLoadingDepartments(true);
+      try {
+        const { data, error } = await dataService.getDepartments();
+        if (error) {
+          console.error("Error fetching departments:", error);
+          toast({
+            title: "Warning",
+            description:
+              "Failed to load departments. You may not be able to select a department.",
+          });
+          return;
+        }
+        if (data) {
+          console.log("Departments loaded:", data);
+          setDepartments(data);
+        }
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
   // Handle opening the edit dialog
   const handleEdit = () => {
     setIsEditing(true);
     setSaveSuccess(false);
+    setSaveError("");
   };
 
   // Handle form input changes
@@ -148,7 +192,6 @@ export default function ProfilePage() {
   };
 
   // Handle avatar upload
-  // Modified handleAvatarUpload function with better error handling and debugging
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) {
       return;
@@ -250,17 +293,33 @@ export default function ProfilePage() {
   // Handle saving profile updates
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveError("");
+    console.log("Saving profile with data:", editForm);
+
     try {
-      const { error } = await dataService.updateProfile({
+      // Use the directly updated Supabase client for better error information
+      const supabase = createClient();
+
+      // Convert "none" department to empty string for storage
+      const updateData = {
         full_name: editForm.full_name,
-        department: editForm.department,
+        department: editForm.department === "none" ? "" : editForm.department,
         role: editForm.role as "teacher" | "dean",
         bio: editForm.bio,
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      console.log("Sending update data:", updateData);
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", authUser?.id || "")
+        .select();
 
       if (error) {
         console.error("Error updating profile:", error);
+        setSaveError(`Failed to update profile: ${error.message}`);
         toast({
           title: "Error",
           description: "Failed to update profile. Please try again.",
@@ -268,11 +327,13 @@ export default function ProfilePage() {
         return;
       }
 
+      console.log("Profile updated successfully:", data);
+
       // Update local state
       setUser((prev) => ({
         ...prev,
         name: editForm.full_name,
-        department: editForm.department,
+        department: updateData.department, // Use the converted value
         role: editForm.role,
         bio: editForm.bio,
       }));
@@ -289,14 +350,26 @@ export default function ProfilePage() {
         setSaveSuccess(false);
       }, 1500);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Exception updating profile:", error);
+      setSaveError(
+        `An unexpected error occurred: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description:
+          "An unexpected error occurred while updating your profile.",
       });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Get department name by code
+  const getDepartmentName = (code: string) => {
+    if (!code) return "Not set";
+
+    const department = departments.find((dept) => dept.code === code);
+    return department ? department.name : code;
   };
 
   // Profile Overview Tab Content
@@ -397,7 +470,11 @@ export default function ProfilePage() {
                     <Label className="text-muted-foreground text-sm">
                       Department
                     </Label>
-                    <div className="font-medium">{user.department}</div>
+                    <div className="font-medium">
+                      {user.department
+                        ? getDepartmentName(user.department)
+                        : "Not set"}
+                    </div>
                   </div>
 
                   <div className="grid gap-1">
@@ -465,6 +542,14 @@ export default function ProfilePage() {
               Update your profile information
             </DialogDescription>
           </DialogHeader>
+
+          {saveError && (
+            <div className="bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 p-3 rounded-md flex gap-2 items-start mt-2">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{saveError}</p>
+            </div>
+          )}
+
           <div className="py-4 space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="full_name">Full Name</Label>
@@ -478,12 +563,53 @@ export default function ProfilePage() {
 
             <div className="grid gap-2">
               <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                name="department"
-                value={editForm.department}
-                onChange={handleChange}
-              />
+              {loadingDepartments ? (
+                <div className="flex items-center h-10 px-3 rounded-md border">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <span className="text-muted-foreground">
+                    Loading departments...
+                  </span>
+                </div>
+              ) : departments.length > 0 ? (
+                <Select
+                  value={editForm.department || "none"} // Use "none" instead of empty string
+                  onValueChange={(value) => {
+                    console.log("Selected department:", value);
+                    setEditForm((prev) => ({
+                      ...prev,
+                      department: value, // We'll convert "none" to "" at save time
+                    }));
+                  }}
+                >
+                  <SelectTrigger id="department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None Selected</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.code}>
+                        {dept.name} ({dept.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Input
+                    id="department"
+                    name="department"
+                    value={
+                      editForm.department === "none" ? "" : editForm.department
+                    }
+                    onChange={handleChange}
+                    placeholder="Enter department"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    No departments configured. Contact an administrator to add
+                    departments.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -491,7 +617,7 @@ export default function ProfilePage() {
               <Textarea
                 id="bio"
                 name="bio"
-                value={editForm.bio}
+                value={editForm.bio || ""}
                 onChange={handleChange}
                 rows={4}
                 placeholder="Tell us about yourself"

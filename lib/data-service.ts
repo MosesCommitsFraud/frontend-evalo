@@ -19,6 +19,12 @@ export type Feedback = Database["public"]["Tables"]["feedback"]["Row"];
 export type FeedbackInsert = Database["public"]["Tables"]["feedback"]["Insert"];
 export type FeedbackUpdate = Database["public"]["Tables"]["feedback"]["Update"];
 
+export type Department = Database["public"]["Tables"]["departments"]["Row"];
+export type DepartmentInsert =
+  Database["public"]["Tables"]["departments"]["Insert"];
+export type DepartmentUpdate =
+  Database["public"]["Tables"]["departments"]["Update"];
+
 // Client-side data service
 export const dataService = {
   // Profile Management
@@ -575,5 +581,47 @@ export const dataService = {
       neutralPercentage,
       monthlyTrendData: Object.values(monthlyTrendData),
     };
+  },
+
+  // Add these functions to the dataService object
+  getDepartments: async () => {
+    const supabase = createClient();
+    return supabase
+      .from("departments")
+      .select("*")
+      .order("name", { ascending: true });
+  },
+
+  createDepartment: async (
+    department: Omit<DepartmentInsert, "created_at" | "updated_at">,
+  ) => {
+    const supabase = createClient();
+    return supabase
+      .from("departments")
+      .insert({
+        ...department,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+  },
+
+  updateDepartment: async (id: string, department: DepartmentUpdate) => {
+    const supabase = createClient();
+    return supabase
+      .from("departments")
+      .update({
+        ...department,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+  },
+
+  deleteDepartment: async (id: string) => {
+    const supabase = createClient();
+    return supabase.from("departments").delete().eq("id", id);
   },
 };

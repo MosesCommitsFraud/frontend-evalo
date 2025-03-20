@@ -148,6 +148,29 @@ export interface Database {
           created_at?: string;
         };
       };
+      departments: {
+        Row: {
+          id: string;
+          name: string;
+          code: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          code: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          code?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

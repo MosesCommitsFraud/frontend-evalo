@@ -3,18 +3,25 @@
 import React, { useState } from "react";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AlertTriangle, CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
@@ -142,109 +149,128 @@ export default function CreateEventDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
-          <DialogTitle>Create an Event</DialogTitle>
+          <DialogTitle>Create New Event</DialogTitle>
+          <DialogDescription>
+            Create an event to collect feedback. Students will use the generated
+            code to provide anonymous feedback.
+          </DialogDescription>
         </DialogHeader>
 
         {error && (
-          <div className="bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 p-3 rounded-md text-sm">
-            {error}
+          <div className="bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 p-3 rounded-md flex gap-2 items-start mt-2">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">{error}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Event Name */}
-          <div>
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          <div className="grid gap-2">
             <Label htmlFor="event-name">Event Name</Label>
             <Input
               id="event-name"
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
-              placeholder="Enter event name"
+              placeholder="e.g., Week 3 Lecture, Midterm Review"
               required
               disabled={isSubmitting}
             />
           </div>
-          {/* Short Event Description */}
-          <div>
-            <Label htmlFor="description">Short Description</Label>
+
+          <div className="grid gap-2">
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter a short description"
+              placeholder="Brief description of this event"
               required
               disabled={isSubmitting}
+              className="resize-none"
+              rows={3}
             />
           </div>
-          {/* Event Type Radio Group */}
-          <div>
-            <Label>Event Type</Label>
-            <RadioGroup
+
+          <div className="grid gap-2">
+            <Label htmlFor="event-type">Event Type</Label>
+            <Select
               value={eventType}
               onValueChange={setEventType}
-              className="flex space-x-4"
-            >
-              <div className="flex items-center space-x-1">
-                <RadioGroupItem value="lecture" id="radio-lecture" />
-                <Label htmlFor="radio-lecture">Lecture</Label>
-              </div>
-              <div className="flex items-center space-x-1">
-                <RadioGroupItem value="webinar" id="radio-webinar" />
-                <Label htmlFor="radio-webinar">Webinar</Label>
-              </div>
-              <div className="flex items-center space-x-1">
-                <RadioGroupItem value="exercise" id="radio-exercise" />
-                <Label htmlFor="radio-exercise">Exercise</Label>
-              </div>
-              <div className="flex items-center space-x-1">
-                <RadioGroupItem
-                  value="self-learning"
-                  id="radio-self-learning"
-                />
-                <Label htmlFor="radio-self-learning">Self-learning</Label>
-              </div>
-            </RadioGroup>
-          </div>
-          {/* Date */}
-          <div>
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
               disabled={isSubmitting}
-            />
+            >
+              <SelectTrigger id="event-type">
+                <SelectValue placeholder="Select event type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lecture">Lecture</SelectItem>
+                <SelectItem value="seminar">Seminar</SelectItem>
+                <SelectItem value="lab">Lab Session</SelectItem>
+                <SelectItem value="review">Review Session</SelectItem>
+                <SelectItem value="exam">Exam</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          {/* Timeslot */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Label htmlFor="time-from">From</Label>
+
+          <div className="grid gap-2">
+            <Label htmlFor="date">Date</Label>
+            <div className="relative">
+              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="time-from"
-                type="time"
-                value={timeFrom}
-                onChange={(e) => setTimeFrom(e.target.value)}
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
                 required
                 disabled={isSubmitting}
-              />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="time-until">Until</Label>
-              <Input
-                id="time-until"
-                type="time"
-                value={timeUntil}
-                onChange={(e) => setTimeUntil(e.target.value)}
-                required
-                disabled={isSubmitting}
+                className="pl-10"
               />
             </div>
           </div>
-          <DialogFooter>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="time-from">Start Time</Label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="time-from"
+                  type="time"
+                  value={timeFrom}
+                  onChange={(e) => setTimeFrom(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="time-until">End Time</Label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="time-until"
+                  type="time"
+                  value={timeUntil}
+                  onChange={(e) => setTimeUntil(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>

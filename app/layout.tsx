@@ -11,8 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Evalo - Student Feedback Platform",
-  description:
-    "A platform for teachers to collect and analyze student feedback",
+  description: "A platform for teachers to collect and analyze student share",
   generator: "v0.dev",
   icons: {
     icon: [

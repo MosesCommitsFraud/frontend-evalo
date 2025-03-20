@@ -169,7 +169,7 @@ const BookIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Mock data for upcoming events and recent feedback
+// Mock data for upcoming events and recent share
 const upcomingEvents = [
   {
     id: 1,

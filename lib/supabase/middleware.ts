@@ -79,7 +79,7 @@ export async function updateSession(request: NextRequest) {
     "/auth/forgot-password",
     "/auth/reset-password",
     "/auth/callback",
-    "/student-feedback", // Keep student feedback public
+    "/student-share", // Keep student share public
     "/access-denied", // Access denied page
   ];
 

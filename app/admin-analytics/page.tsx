@@ -133,7 +133,7 @@ export default function AdminAnalyticsPage() {
     { name: "Week 5", positive: 62, negative: 8, neutral: 30 },
   ];
 
-  // Mock data for feedback categories
+  // Mock data for share categories
   const feedbackCategoriesData = [
     { name: "Course Content", value: 38 },
     { name: "Teaching Style", value: 27 },
@@ -207,7 +207,7 @@ export default function AdminAnalyticsPage() {
     ],
   };
 
-  // Mock data for feedback page
+  // Mock data for share page
   const feedbackPageData = {
     sentimentData: [
       { name: "Positive", value: 62, color: "#16a34a" },
@@ -279,7 +279,7 @@ export default function AdminAnalyticsPage() {
     ],
   };
 
-  // Filter feedback based on current filters
+  // Filter share based on current filters
   const filteredFeedback = feedbackPageData.recentFeedback.filter(
     (feedback) => {
       // Search filter

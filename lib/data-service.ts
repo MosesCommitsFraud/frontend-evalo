@@ -273,7 +273,7 @@ export const dataService = {
   ) => {
     const supabase = createClient();
 
-    // Get the event to update feedback counts
+    // Get the event to update share counts
     const { data: event } = await supabase
       .from("events")
       .select("*")
@@ -284,7 +284,7 @@ export const dataService = {
       return { data: null, error: new Error("Event not found") };
     }
 
-    // Insert the feedback
+    // Insert the share
     const { data, error } = await supabase
       .from("feedback")
       .insert({
@@ -297,7 +297,7 @@ export const dataService = {
 
     if (error) return { data, error };
 
-    // Update the feedback counts on the event
+    // Update the share counts on the event
     let positive_feedback_count = event.positive_feedback_count || 0;
     let negative_feedback_count = event.negative_feedback_count || 0;
     let neutral_feedback_count = event.neutral_feedback_count || 0;
@@ -337,7 +337,7 @@ export const dataService = {
   deleteFeedback: async (id: string) => {
     const supabase = createClient();
 
-    // Get the feedback to update the event counts
+    // Get the share to update the event counts
     const { data: feedback } = await supabase
       .from("feedback")
       .select("*")
@@ -348,7 +348,7 @@ export const dataService = {
       return { data: null, error: new Error("Feedback not found") };
     }
 
-    // Get the event to update feedback counts
+    // Get the event to update share counts
     const { data: event } = await supabase
       .from("events")
       .select("*")
@@ -359,7 +359,7 @@ export const dataService = {
       return { data: null, error: new Error("Event not found") };
     }
 
-    // Delete the feedback
+    // Delete the share
     const { data, error } = await supabase
       .from("feedback")
       .delete()
@@ -367,7 +367,7 @@ export const dataService = {
 
     if (error) return { data, error };
 
-    // Update the feedback counts on the event
+    // Update the share counts on the event
     let positive_feedback_count = event.positive_feedback_count || 0;
     let negative_feedback_count = event.negative_feedback_count || 0;
     let neutral_feedback_count = event.neutral_feedback_count || 0;
@@ -485,7 +485,7 @@ export const dataService = {
       .from("events")
       .select("*", { count: "exact", head: true });
 
-    // Get feedback stats
+    // Get share stats
     const { data: events } = await supabase.from("events").select(`
         positive_feedback_count,
         negative_feedback_count,
@@ -527,7 +527,7 @@ export const dataService = {
     const neutralPercentage =
       totalFeedback > 0 ? (neutralFeedback / totalFeedback) * 100 : 0;
 
-    // Get monthly feedback trend data
+    // Get monthly share trend data
     const { data: monthlyEvents } = await supabase
       .from("events")
       .select(

@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-// Define the feedback interface
+// Define the share interface
 interface Feedback {
   id: string;
   content: string;
@@ -46,7 +46,7 @@ export function FeedbackList({ courseName, feedbackData }: FeedbackListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sentimentFilter, setSentimentFilter] = useState("all");
 
-  // Filter feedback based on current filters
+  // Filter share based on current filters
   const filteredFeedback = feedbackData.filter((feedback) => {
     // Search filter
     if (

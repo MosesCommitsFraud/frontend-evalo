@@ -55,7 +55,7 @@ export default function CoursePage({ params }: CoursePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for filters on the feedback tab
+  // State for filters on the share tab
   const [searchQuery, setSearchQuery] = useState("");
   const [sentimentFilter, setSentimentFilter] = useState("all");
 
@@ -125,13 +125,13 @@ export default function CoursePage({ params }: CoursePageProps) {
     {
       title: "Total Responses",
       value: "0",
-      description: "No feedback yet",
+      description: "No share yet",
       icon: MessageSquare,
     },
     {
       title: "Sentiment Score",
       value: "N/A",
-      description: "Waiting for feedback",
+      description: "Waiting for share",
       icon: BarChart3,
     },
     {
@@ -148,7 +148,7 @@ export default function CoursePage({ params }: CoursePageProps) {
     },
   ];
 
-  // Empty feedback data (will be populated from the events and feedback tables later)
+  // Empty share data (will be populated from the events and share tables later)
   const courseFeedbackData: any[] = [];
 
   // Build your tab data array using your existing content from TabsContent
@@ -290,7 +290,7 @@ export default function CoursePage({ params }: CoursePageProps) {
               </div>
             </div>
 
-            {/* Empty State when no feedback */}
+            {/* Empty State when no share */}
             {courseFeedbackData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <MessageSquare className="h-10 w-10 text-muted-foreground mb-4" />

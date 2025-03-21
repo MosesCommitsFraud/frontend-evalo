@@ -14,13 +14,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -32,11 +25,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, ChevronsUpDown, Loader2, User } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Define the interface for a course
 export interface Course {
@@ -125,6 +125,12 @@ const AdminCreateCourseDialog = ({
         }
 
         setTeachers(teachersData || []);
+
+        // Debug log to verify teachers are loaded
+        console.log(
+          `Loaded ${teachersData?.length || 0} teachers:`,
+          teachersData,
+        );
       } catch (err) {
         console.error("Error:", err);
         setError("An unexpected error occurred");
@@ -188,12 +194,12 @@ const AdminCreateCourseDialog = ({
           name: name,
           code: code,
           student_count: studentCount ? parseInt(studentCount, 10) : 0,
-          owner_id: teacherId, // Assign to selected teacher
-          teacher: teacherId, // For backwards compatibility
+          owner_id: teacherId,
+          teacher: teacherId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          cycle: "current", // Default value
-          description: description,
+          cycle: "current",
+          // description removed from here
         })
         .select();
 
@@ -235,6 +241,11 @@ const AdminCreateCourseDialog = ({
       setIsSubmitting(false);
     }
   };
+
+  // For debugging - log when teacher ID changes
+  useEffect(() => {
+    console.log("Selected teacher ID changed:", teacherId);
+  }, [teacherId]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -302,65 +313,36 @@ const AdminCreateCourseDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="teacher">Assign to Teacher</Label>
+              <Label htmlFor="teacher">Teacher</Label>
               {loadingTeachers ? (
                 <div className="flex items-center h-10 px-3 py-2 rounded-md border text-sm">
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Loading teachers...
                 </div>
               ) : (
-                <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={comboboxOpen}
-                      className="w-full justify-between"
-                      disabled={isSubmitting}
-                    >
-                      {teacherId
-                        ? teachers.find((teacher) => teacher.id === teacherId)
-                            ?.full_name
-                        : "Select teacher..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search teacher..." />
-                      <CommandEmpty>No teacher found.</CommandEmpty>
-                      <CommandGroup className="max-h-[300px] overflow-y-auto">
-                        {teachers.map((teacher) => (
-                          <CommandItem
-                            key={teacher.id}
-                            value={teacher.full_name}
-                            onSelect={() => {
-                              setTeacherId(
-                                teacher.id === teacherId ? "" : teacher.id,
-                              );
-                              setComboboxOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                teacherId === teacher.id
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                            <div className="flex flex-col">
-                              <span>{teacher.full_name}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {teacher.email}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Select
+                  value={teacherId}
+                  onValueChange={(value) => {
+                    console.log("Teacher selected:", value);
+                    setTeacherId(value);
+                  }}
+                >
+                  <SelectTrigger id="teacher" className="w-full">
+                    <SelectValue placeholder="Select a teacher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.slice(0, 3).map((teacher) => (
+                      <SelectItem key={teacher.id} value={teacher.id}>
+                        {teacher.full_name}
+                      </SelectItem>
+                    ))}
+                    {teachers.length > 3 && (
+                      <div className="py-2 px-2 text-xs text-muted-foreground">
+                        {teachers.length - 3} more teachers...
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
               )}
             </div>
           </div>
@@ -377,7 +359,7 @@ const AdminCreateCourseDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || !teacherId}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -239,7 +239,7 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
               />
               <NavItem
                 href="/teachers"
-                title="Teacher Management"
+                title="Teachers"
                 icon={<GraduationCap className="h-4 w-4 mr-2" />}
                 pathname={isClient ? pathname : null}
               />

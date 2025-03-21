@@ -1,4 +1,5 @@
-// app/api/sentiment/route.ts
+// pages/api/sentiment.ts or app/api/sentiment/route.ts (depending on your Next.js version)
+
 import { NextRequest, NextResponse } from "next/server";
 
 // URL to your FastAPI sentiment analysis service
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       sentiment: sentimentData.sentiment,
       confidence: sentimentData.confidence,
-      detailedScores: sentimentData.detailed_scores,
+      detailed_scores: sentimentData.detailed_scores,
     });
   } catch (error) {
     console.error("Error calling sentiment analysis service:", error);

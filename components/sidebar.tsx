@@ -14,6 +14,8 @@ import {
   HelpCircle,
   CalendarClock,
   Loader2,
+  Building,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -106,6 +108,34 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) return;
+
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (error) {
+          console.error("Error checking admin status:", error);
+          return;
+        }
+
+        setIsAdmin(data?.role === "dean");
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
 
   // Fetch courses from Supabase
   useEffect(() => {
@@ -116,11 +146,15 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
       try {
         const supabase = createClient();
 
-        // Fetch courses where the current user is either the owner or the teacher
-        const { data, error } = await supabase
-          .from("courses")
-          .select("*")
-          .or(`owner_id.eq.${user.id},teacher.eq.${user.id}`);
+        // If user is admin, fetch all courses
+        // Otherwise, fetch only user's courses
+        let query = supabase.from("courses").select("*");
+
+        if (!isAdmin) {
+          query = query.or(`owner_id.eq.${user.id},teacher.eq.${user.id}`);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error("Error fetching courses:", error);
@@ -145,7 +179,7 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
     if (user) {
       fetchCourses();
     }
-  }, [user]);
+  }, [user, isAdmin]);
 
   // Function to add a new course
   const handleCourseCreate = (newCourse: Course) => {
@@ -194,27 +228,35 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
             />
           </SidebarSection>
 
-          {/* MANAGEMENT Section */}
-          <SidebarSection title="MANAGEMENT">
-            <NavItem
-              href="/admin-analytics"
-              title="Analytics"
-              icon={<ChartLine className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-            <NavItem
-              href="/teachers"
-              title="Teachers"
-              icon={<GraduationCap className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-          </SidebarSection>
+          {/* ADMIN MANAGEMENT Section - Only show for admins */}
+          {isAdmin && (
+            <SidebarSection title="ADMIN">
+              <NavItem
+                href="/admin-analytics"
+                title="Admin Analytics"
+                icon={<ChartLine className="h-4 w-4 mr-2" />}
+                pathname={isClient ? pathname : null}
+              />
+              <NavItem
+                href="/teachers"
+                title="Teacher Management"
+                icon={<GraduationCap className="h-4 w-4 mr-2" />}
+                pathname={isClient ? pathname : null}
+              />
+              <NavItem
+                href="/admin-settings"
+                title="Admin Settings"
+                icon={<ShieldCheck className="h-4 w-4 mr-2" />}
+                pathname={isClient ? pathname : null}
+              />
+            </SidebarSection>
+          )}
 
-          {/* SETTINGS Section */}
+          {/* SETTINGS Section - For all users */}
           <SidebarSection title="SETTINGS">
             <NavItem
-              href="/admin-settings"
-              title="Admin Settings"
+              href="/settings"
+              title="Account Settings"
               icon={<Settings className="h-4 w-4 mr-2" />}
               pathname={isClient ? pathname : null}
             />
@@ -234,16 +276,19 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
             <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
               COURSES
             </h3>
-            <CreateCourseDialog onCourseCreate={handleCourseCreate}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-              >
-                <Plus className="h-3 w-3" />
-                <span className="sr-only">Add Course</span>
-              </Button>
-            </CreateCourseDialog>
+            {/* Only show Create Course button to admins */}
+            {isAdmin && (
+              <CreateCourseDialog onCourseCreate={handleCourseCreate}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span className="sr-only">Add Course</span>
+                </Button>
+              </CreateCourseDialog>
+            )}
           </div>
 
           {/* Courses list with loading state */}

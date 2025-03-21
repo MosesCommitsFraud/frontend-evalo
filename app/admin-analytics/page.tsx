@@ -51,9 +51,20 @@ import {
   Minus,
   AlertTriangle,
   Loader2,
+  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import { dataService } from "@/lib/data-service";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "@/components/ui/toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Type definitions for our data
 interface Course {
@@ -143,6 +154,11 @@ export default function AdminAnalyticsPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
+  // Counter synchronization state
+  const [isSyncingCounters, setIsSyncingCounters] = useState(false);
+  const [syncResults, setSyncResults] = useState<any>(null);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
+
   // Fetch data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -213,6 +229,159 @@ export default function AdminAnalyticsPage() {
   useEffect(() => {
     setActiveTab(0);
   }, []);
+
+  // Function to synchronize feedback counters
+  const syncFeedbackCounters = async () => {
+    setIsSyncingCounters(true);
+    setSyncResults(null);
+
+    try {
+      // Create a fresh Supabase client
+      const supabase = createClient();
+
+      // 1. Get all events
+      const { data: events, error: eventsError } = await supabase
+        .from("events")
+        .select(
+          "id, total_feedback_count, positive_feedback_count, negative_feedback_count, neutral_feedback_count",
+        );
+
+      if (eventsError) {
+        throw new Error(`Error fetching events: ${eventsError.message}`);
+      }
+
+      // 2. Get all feedback
+      const { data: allFeedback, error: feedbackError } = await supabase
+        .from("feedback")
+        .select("id, event_id, tone");
+
+      if (feedbackError) {
+        throw new Error(`Error fetching feedback: ${feedbackError.message}`);
+      }
+
+      // 3. Calculate actual feedback counts per event
+      const feedbackCounts: Record<string, number> = {};
+      const sentimentCounts: Record<
+        string,
+        { positive: number; negative: number; neutral: number }
+      > = {};
+
+      // Initialize counters for all events (even those with zero feedback)
+      events.forEach((event) => {
+        feedbackCounts[event.id] = 0;
+        sentimentCounts[event.id] = { positive: 0, negative: 0, neutral: 0 };
+      });
+
+      // Count feedback by event and sentiment
+      allFeedback.forEach((item) => {
+        if (feedbackCounts[item.event_id] !== undefined) {
+          // Increment total count
+          feedbackCounts[item.event_id]++;
+
+          // Increment sentiment count
+          if (item.tone === "positive")
+            sentimentCounts[item.event_id].positive++;
+          else if (item.tone === "negative")
+            sentimentCounts[item.event_id].negative++;
+          else if (item.tone === "neutral")
+            sentimentCounts[item.event_id].neutral++;
+        }
+      });
+
+      // 4. Identify events with incorrect counters
+      const eventsToFix = events.filter(
+        (event) =>
+          event.total_feedback_count !== feedbackCounts[event.id] ||
+          event.positive_feedback_count !==
+            sentimentCounts[event.id].positive ||
+          event.negative_feedback_count !==
+            sentimentCounts[event.id].negative ||
+          event.neutral_feedback_count !== sentimentCounts[event.id].neutral,
+      );
+
+      // 5. Fix the counters
+      let fixedCount = 0;
+      const fixedEvents = [];
+
+      for (const event of eventsToFix) {
+        const { error: updateError } = await supabase
+          .from("events")
+          .update({
+            total_feedback_count: feedbackCounts[event.id],
+            positive_feedback_count: sentimentCounts[event.id].positive,
+            negative_feedback_count: sentimentCounts[event.id].negative,
+            neutral_feedback_count: sentimentCounts[event.id].neutral,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", event.id);
+
+        if (updateError) {
+          console.error(`Error updating event ${event.id}:`, updateError);
+          fixedEvents.push({
+            id: event.id,
+            success: false,
+            error: updateError.message,
+          });
+        } else {
+          fixedCount++;
+          fixedEvents.push({
+            id: event.id,
+            success: true,
+            before: {
+              total: event.total_feedback_count,
+              positive: event.positive_feedback_count,
+              negative: event.negative_feedback_count,
+              neutral: event.neutral_feedback_count,
+            },
+            after: {
+              total: feedbackCounts[event.id],
+              positive: sentimentCounts[event.id].positive,
+              negative: sentimentCounts[event.id].negative,
+              neutral: sentimentCounts[event.id].neutral,
+            },
+          });
+        }
+      }
+
+      // Save results for display
+      const results = {
+        totalEvents: events.length,
+        totalFeedback: allFeedback.length,
+        eventsNeedingFix: eventsToFix.length,
+        eventsFixed: fixedCount,
+        details: fixedEvents,
+      };
+
+      setSyncResults(results);
+      setShowSyncDialog(true);
+
+      // If we fixed any events, refresh analytics data
+      if (fixedCount > 0) {
+        toast({
+          title: "Counters Synchronized",
+          description: `Fixed counters for ${fixedCount} events. Refreshing data...`,
+        });
+
+        // Fetch updated global analytics
+        const analyticsData = await dataService.getGlobalAnalytics();
+        setAnalytics(analyticsData);
+      } else {
+        toast({
+          title: "Counters Synchronized",
+          description: "All feedback counters are already correct.",
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing feedback counters:", error);
+      toast({
+        title: "Error",
+        description:
+          "Failed to synchronize feedback counters. See console for details.",
+      });
+    } finally {
+      setIsSyncingCounters(false);
+    }
+  };
 
   // Format date for display
   const formatDate = (dateString: string) => {
@@ -1016,10 +1185,10 @@ export default function AdminAnalyticsPage() {
               {/* Filter Bar */}
               <div className="flex flex-col gap-4 sm:flex-row">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search feedback..."
-                    className="pl-8"
+                    className="pl-9"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -1159,7 +1328,7 @@ export default function AdminAnalyticsPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           Admin Analytics Dashboard
         </h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Select value={timePeriod} onValueChange={setTimePeriod}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select time period" />
@@ -1171,6 +1340,24 @@ export default function AdminAnalyticsPage() {
               <SelectItem value="365">Last year</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={syncFeedbackCounters}
+            disabled={isSyncingCounters}
+          >
+            {isSyncingCounters ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Sync Counters
+              </>
+            )}
+          </Button>
           <Button variant="outline" className="gap-2">
             <Settings className="h-4 w-4" />
             Settings
@@ -1184,6 +1371,105 @@ export default function AdminAnalyticsPage() {
         defaultActiveIndex={activeTab}
         onTabChange={handleTabChange}
       />
+
+      {/* Sync Results Dialog */}
+      <Dialog open={showSyncDialog} onOpenChange={setShowSyncDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Feedback Counter Synchronization Results</DialogTitle>
+            <DialogDescription>
+              Comparison between actual feedback entries and counter values in
+              events
+            </DialogDescription>
+          </DialogHeader>
+
+          {syncResults && (
+            <div className="space-y-4 my-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="border rounded-md p-3 text-center">
+                  <div className="text-xs text-muted-foreground">
+                    Total Events
+                  </div>
+                  <div className="text-2xl font-bold mt-1">
+                    {syncResults.totalEvents}
+                  </div>
+                </div>
+                <div className="border rounded-md p-3 text-center">
+                  <div className="text-xs text-muted-foreground">
+                    Total Feedback
+                  </div>
+                  <div className="text-2xl font-bold mt-1">
+                    {syncResults.totalFeedback}
+                  </div>
+                </div>
+                <div className="border rounded-md p-3 text-center">
+                  <div className="text-xs text-muted-foreground">
+                    Events Needing Fix
+                  </div>
+                  <div className="text-2xl font-bold mt-1">
+                    {syncResults.eventsNeedingFix}
+                  </div>
+                </div>
+                <div className="border rounded-md p-3 text-center">
+                  <div className="text-xs text-muted-foreground">
+                    Events Fixed
+                  </div>
+                  <div className="text-2xl font-bold mt-1">
+                    {syncResults.eventsFixed}
+                  </div>
+                </div>
+              </div>
+
+              {syncResults.eventsNeedingFix > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Details:</h3>
+                  <div className="max-h-56 overflow-auto border rounded-md p-3">
+                    {syncResults.details.map((item: any, index: number) => (
+                      <div key={index} className="border-b last:border-0 py-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          {item.success ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          )}
+                          <span className="font-mono text-xs">{item.id}</span>
+                          {!item.success && (
+                            <span className="text-red-500 text-xs">
+                              {item.error}
+                            </span>
+                          )}
+                        </div>
+                        {item.success && (
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pl-6">
+                            <div className="text-muted-foreground">Before:</div>
+                            <div>
+                              Total: {item.before.total}, Positive:{" "}
+                              {item.before.positive}, Negative:{" "}
+                              {item.before.negative}, Neutral:{" "}
+                              {item.before.neutral}
+                            </div>
+                            <div className="text-muted-foreground">After:</div>
+                            <div>
+                              Total: {item.after.total}, Positive:{" "}
+                              {item.after.positive}, Negative:{" "}
+                              {item.after.negative}, Neutral:{" "}
+                              {item.after.neutral}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowSyncDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

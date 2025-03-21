@@ -472,6 +472,8 @@ export const dataService = {
     };
   },
 
+  // Replace the getGlobalAnalytics function in your lib/data-service.ts file
+
   getGlobalAnalytics: async () => {
     const supabase = createClient();
 
@@ -485,41 +487,43 @@ export const dataService = {
       .from("events")
       .select("*", { count: "exact", head: true });
 
-    // Get share stats
-    const { data: events } = await supabase.from("events").select(`
-        positive_feedback_count,
-        negative_feedback_count,
-        neutral_feedback_count,
-        total_feedback_count
-      `);
+    // Get all feedback and calculate stats directly from feedback table (not from event counters)
+    const { data: allFeedback, error: feedbackError } = await supabase
+      .from("feedback")
+      .select("id, tone, created_at, event_id");
 
-    let totalFeedback = 0;
+    if (feedbackError) {
+      console.error("Error fetching feedback:", feedbackError);
+      return {
+        coursesCount: coursesCount || 0,
+        eventsCount: eventsCount || 0,
+        feedbackCount: 0,
+        positiveFeedback: 0,
+        negativeFeedback: 0,
+        neutralFeedback: 0,
+        positivePercentage: 0,
+        negativePercentage: 0,
+        neutralPercentage: 0,
+        monthlyTrendData: [],
+      };
+    }
+
+    // Count total feedback and breakdown by sentiment
+    const totalFeedback = allFeedback ? allFeedback.length : 0;
     let positiveFeedback = 0;
     let negativeFeedback = 0;
     let neutralFeedback = 0;
 
-    if (events && events.length > 0) {
-      totalFeedback = events.reduce(
-        (sum, event) => sum + (event.total_feedback_count || 0),
-        0,
-      );
-
-      positiveFeedback = events.reduce(
-        (sum, event) => sum + (event.positive_feedback_count || 0),
-        0,
-      );
-
-      negativeFeedback = events.reduce(
-        (sum, event) => sum + (event.negative_feedback_count || 0),
-        0,
-      );
-
-      neutralFeedback = events.reduce(
-        (sum, event) => sum + (event.neutral_feedback_count || 0),
-        0,
-      );
+    if (allFeedback && allFeedback.length > 0) {
+      // Count by sentiment
+      allFeedback.forEach((item) => {
+        if (item.tone === "positive") positiveFeedback++;
+        else if (item.tone === "negative") negativeFeedback++;
+        else if (item.tone === "neutral") neutralFeedback++;
+      });
     }
 
+    // Calculate percentages
     const positivePercentage =
       totalFeedback > 0 ? (positiveFeedback / totalFeedback) * 100 : 0;
     const negativePercentage =
@@ -527,26 +531,14 @@ export const dataService = {
     const neutralPercentage =
       totalFeedback > 0 ? (neutralFeedback / totalFeedback) * 100 : 0;
 
-    // Get monthly share trend data
-    const { data: monthlyEvents } = await supabase
-      .from("events")
-      .select(
-        `
-        event_date,
-        positive_feedback_count,
-        negative_feedback_count,
-        neutral_feedback_count,
-        total_feedback_count
-      `,
-      )
-      .order("event_date", { ascending: true });
-
-    // Group by month and year
+    // Group feedback by month
     const monthlyTrendData: Record<string, any> = {};
 
-    if (monthlyEvents && monthlyEvents.length > 0) {
-      monthlyEvents.forEach((event) => {
-        const date = new Date(event.event_date);
+    if (allFeedback && allFeedback.length > 0) {
+      allFeedback.forEach((item) => {
+        if (!item.created_at) return;
+
+        const date = new Date(item.created_at);
         const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
         if (!monthlyTrendData[monthYear]) {
@@ -559,13 +551,14 @@ export const dataService = {
           };
         }
 
-        monthlyTrendData[monthYear].positive +=
-          event.positive_feedback_count || 0;
-        monthlyTrendData[monthYear].negative +=
-          event.negative_feedback_count || 0;
-        monthlyTrendData[monthYear].neutral +=
-          event.neutral_feedback_count || 0;
-        monthlyTrendData[monthYear].total += event.total_feedback_count || 0;
+        // Increment total count
+        monthlyTrendData[monthYear].total++;
+
+        // Increment sentiment count
+        if (item.tone === "positive") monthlyTrendData[monthYear].positive++;
+        else if (item.tone === "negative")
+          monthlyTrendData[monthYear].negative++;
+        else if (item.tone === "neutral") monthlyTrendData[monthYear].neutral++;
       });
     }
 

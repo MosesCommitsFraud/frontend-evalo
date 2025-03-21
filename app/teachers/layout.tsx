@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Sidebar } from "@/components/sidebar";
+import { AdminRouteGuard } from "@/components/admin-route-guard";
 
 export default function TeacherLayout({
   children,
@@ -16,17 +17,19 @@ export default function TeacherLayout({
   };
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <TopNav toggleSidebar={toggleSidebar} />
-      <div className="flex-1 flex">
-        {/* Sidebar with visibility toggle */}
-        <Sidebar isVisible={sidebarVisible} />
+    <AdminRouteGuard>
+      <div className="flex min-h-screen flex-col">
+        <TopNav toggleSidebarAction={toggleSidebar} />
+        <div className="flex-1 flex">
+          {/* Sidebar with visibility toggle */}
+          <Sidebar isVisible={sidebarVisible} />
 
-        {/* Main content area */}
-        <main className="flex-1 p-6 transition-all duration-300 ease-in-out">
-          <div className="max-w-[1200px] mx-auto">{children}</div>
-        </main>
+          {/* Main content area */}
+          <main className="flex-1 p-6 transition-all duration-300 ease-in-out">
+            <div className="max-w-[1200px] mx-auto">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </AdminRouteGuard>
   );
 }

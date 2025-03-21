@@ -4,6 +4,7 @@ import type React from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 
 const inter = Inter({
@@ -25,6 +26,23 @@ export default function ClientLayout({
     setMounted(true);
   }, []);
 
+  if (!mounted) {
+    return (
+      <html lang="en" suppressHydrationWarning>
+        <body className={`font-sans ${inter.variable}`}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+          >
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    );
+  }
+
+  // Ensure AuthProvider is only mounted on the client side
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${inter.variable}`}>
@@ -33,7 +51,7 @@ export default function ClientLayout({
           defaultTheme="light"
           enableSystem={false}
         >
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>

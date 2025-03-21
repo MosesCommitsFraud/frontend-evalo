@@ -11,13 +11,13 @@ export default function DashboardLayout({
 }) {
   const [sidebarVisible, setSidebarVisible] = useState(true);
 
-  const toggleSidebar = () => {
+  const toggleSidebarAction = () => {
     setSidebarVisible(!sidebarVisible);
   };
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopNav toggleSidebar={toggleSidebar} />
+      <TopNav toggleSidebarAction={toggleSidebarAction} />
       <div className="flex-1 flex">
         {/* Sidebar with visibility toggle */}
         <Sidebar isVisible={sidebarVisible} />

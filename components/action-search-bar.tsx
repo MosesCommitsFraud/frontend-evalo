@@ -116,7 +116,7 @@ function ActionSearchBar() {
         "/teachers",
         "/settings",
         "/help",
-        "/student-feedback",
+        "/student-share",
         "/dashboard/courses",
         "/dashboard/events",
         "/dashboard/analytics",

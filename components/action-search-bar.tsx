@@ -19,6 +19,8 @@ import {
 import useDebounce from "@/hooks/use-debounce";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Type for an action item
 interface Action {
@@ -32,6 +34,19 @@ interface Action {
 
 interface SearchResult {
   actions: Action[];
+}
+
+interface Course {
+  id: string;
+  name: string;
+  code: string;
+  owner_id: string;
+}
+
+interface Event {
+  id: string;
+  course_id: string;
+  event_date: string;
 }
 
 // Helper function to get icon based on path pattern
@@ -54,6 +69,8 @@ const getIconForPath = (path: string) => {
     return <HelpCircle className="h-4 w-4 text-gray-500" />;
   if (path.includes("student"))
     return <Users className="h-4 w-4 text-indigo-500" />;
+  if (path.includes("events"))
+    return <CalendarDays className="h-4 w-4 text-purple-500" />;
 
   return <FileText className="h-4 w-4 text-gray-500" />;
 };
@@ -99,135 +116,208 @@ function ActionSearchBar() {
   const [isFocused, setIsFocused] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [allActions, setAllActions] = useState<Action[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const debouncedQuery = useDebounce(query, 200);
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
 
-  // Dynamically generate actions from routes
+  // Fetch courses and events from the database
   useEffect(() => {
-    // Function to scan directory structure and extract routes
+    const fetchData = async () => {
+      if (!user) return;
+
+      setIsLoading(true);
+      try {
+        const supabase = createClient();
+
+        // Check user role first to determine access level
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Error fetching user profile:", profileError);
+          return;
+        }
+
+        const isAdmin = profileData?.role === "dean";
+
+        // Fetch courses - deans see all courses, teachers only see their own
+        let coursesQuery = supabase
+          .from("courses")
+          .select("id, name, code, owner_id");
+
+        if (!isAdmin) {
+          // Teachers can only access their assigned courses
+          coursesQuery = coursesQuery.eq("owner_id", user.id);
+        }
+
+        const { data: coursesData, error: coursesError } = await coursesQuery;
+
+        if (coursesError) {
+          console.error("Error fetching courses:", coursesError);
+          return;
+        }
+
+        setCourses(coursesData || []);
+
+        // Fetch events - deans see all events, teachers only see events for their courses
+        let eventsQuery = supabase
+          .from("events")
+          .select("id, course_id, event_date");
+
+        if (!isAdmin) {
+          // For teachers, we need to get only events for their courses
+          // We can use the course IDs we just fetched
+          const teacherCourseIds =
+            coursesData?.map((course) => course.id) || [];
+
+          if (teacherCourseIds.length > 0) {
+            eventsQuery = eventsQuery.in("course_id", teacherCourseIds);
+          } else {
+            // If teacher has no courses, don't fetch any events
+            setEvents([]);
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        const { data: eventsData, error: eventsError } = await eventsQuery;
+
+        if (eventsError) {
+          console.error("Error fetching events:", eventsError);
+          return;
+        }
+
+        setEvents(eventsData || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
+
+  // Dynamically generate actions from routes and database data
+  useEffect(() => {
+    // Static routes from app structure
     const getRoutesFromAppStructure = () => {
-      // In a real Next.js app, you could use a more automated approach
-      // For now, we'll extract routes from the file structure we can see
+      // Core routes that are always available
       const routes = [
         "/dashboard",
-        "/admin-analytics",
+        "/analytics",
         "/calendar",
-        "/teachers",
         "/settings",
         "/help",
-        "/student-share",
+        "/profile",
         "/dashboard/courses",
         "/dashboard/events",
-        "/dashboard/analytics",
       ];
+
+      // Admin-only routes
+      if (user) {
+        // We could check user.role here, but for simplicity, we'll include these
+        // The server-side permissions will handle access control
+        routes.push("/admin-analytics", "/admin-settings", "/teachers");
+      }
 
       return routes;
     };
 
-    // Generate course-specific routes
-    const generateCourseRoutes = () => {
-      const courseData = [
-        { id: "course-1", name: "Introduction to Programming", code: "CS101" },
-        { id: "course-2", name: "Data Structures & Algorithms", code: "CS201" },
-        { id: "course-3", name: "Web Development", code: "CS301" },
-        { id: "course-4", name: "Machine Learning Basics", code: "CS401" },
-        { id: "course-5", name: "Database Systems", code: "CS202" },
-      ];
+    // Generate actions from all routes
+    const generateActions = () => {
+      const appRoutes = getRoutesFromAppStructure();
 
-      // Map each course to its routes
-      return courseData.flatMap((course) => {
+      // Convert static routes to actions
+      const routeActions = appRoutes.map((route) => ({
+        id: route,
+        label: getLabelFromPath(route),
+        icon: getIconForPath(route),
+        description: `View ${getLabelFromPath(route).toLowerCase()}`,
+        category: getCategoryForPath(route),
+        path: route,
+      }));
+
+      // Generate course actions from database courses
+      const courseActions = courses.map((course) => {
+        const basePath = `/dashboard/courses/${course.id}`;
+        return {
+          id: `course-${course.id}`,
+          label: course.name,
+          icon: getIconForPath(basePath),
+          description: course.code,
+          category: "Course",
+          path: basePath,
+        };
+      });
+
+      // Generate course sub-pages (analytics, feedback, etc.)
+      const courseSubpageActions = courses.flatMap((course) => {
         const basePath = `/dashboard/courses/${course.id}`;
         return [
           {
-            id: `course-${course.id}`,
-            path: basePath,
-            name: course.name,
-            code: course.code,
-          },
-          {
             id: `course-${course.id}-analytics`,
+            label: `${course.name} Analytics`,
+            icon: <BarChart3 className="h-4 w-4 text-blue-500" />,
+            description: course.code,
+            category: "Course",
             path: `${basePath}/analytics`,
-            name: `${course.name} Analytics`,
-            code: course.code,
           },
           {
             id: `course-${course.id}-feedback`,
+            label: `${course.name} Feedback`,
+            icon: <MessageSquare className="h-4 w-4 text-orange-500" />,
+            description: course.code,
+            category: "Course",
             path: `${basePath}/feedback`,
-            name: `${course.name} Feedback`,
-            code: course.code,
           },
           {
-            id: `course-${course.id}-calendar`,
-            path: `${basePath}/calendar`,
-            name: `${course.name} Calendar`,
-            code: course.code,
-          },
-          {
-            id: `course-${course.id}-settings`,
-            path: `${basePath}/settings`,
-            name: `${course.name} Settings`,
-            code: course.code,
+            id: `course-${course.id}-share`,
+            label: `${course.name} Share`,
+            icon: <Users className="h-4 w-4 text-indigo-500" />,
+            description: course.code,
+            category: "Course",
+            path: `${basePath}/share`,
           },
         ];
       });
+
+      // Generate event actions
+      const eventActions = events.map((event) => {
+        const course = courses.find((c) => c.id === event.course_id);
+        const eventPath = `/dashboard/events/${event.id}`;
+        const eventDate = new Date(event.event_date).toLocaleDateString();
+
+        return {
+          id: `event-${event.id}`,
+          label: course
+            ? `${course.code} Event (${eventDate})`
+            : `Event (${eventDate})`,
+          icon: <CalendarDays className="h-4 w-4 text-purple-500" />,
+          description: "Event",
+          category: "Event",
+          path: eventPath,
+        };
+      });
+
+      // Combine all actions
+      return [
+        ...routeActions,
+        ...courseActions,
+        ...courseSubpageActions,
+        ...eventActions,
+      ];
     };
 
-    // Get app routes and course routes
-    const appRoutes = getRoutesFromAppStructure();
-    const courseRoutes = generateCourseRoutes();
-
-    // Convert routes to actions
-    const routeActions = appRoutes.map((route) => ({
-      id: route,
-      label: getLabelFromPath(route),
-      icon: getIconForPath(route),
-      description: `View ${getLabelFromPath(route).toLowerCase()}`,
-      category: getCategoryForPath(route),
-      path: route,
-    }));
-
-    // Convert course routes to actions
-    const courseActions = courseRoutes.map((course) => ({
-      id: course.id,
-      label: course.name,
-      icon: getIconForPath(course.path),
-      description: course.code,
-      category: "Course",
-      path: course.path,
-    }));
-
-    // Add event-specific routes if needed
-    const eventRoutes = [
-      {
-        id: "event-1",
-        name: "Lecture on React",
-        path: "/dashboard/events/event-1",
-      },
-      {
-        id: "event-2",
-        name: "Assignment Deadline",
-        path: "/dashboard/events/event-2",
-      },
-      {
-        id: "event-3",
-        name: "Project Demo",
-        path: "/dashboard/events/event-3",
-      },
-    ];
-
-    const eventActions = eventRoutes.map((event) => ({
-      id: event.id,
-      label: event.name,
-      icon: <CalendarDays className="h-4 w-4 text-purple-500" />,
-      description: "Event",
-      category: "Event",
-      path: event.path,
-    }));
-
-    // Combine all actions
-    setAllActions([...routeActions, ...courseActions, ...eventActions]);
-  }, []);
+    setAllActions(generateActions());
+  }, [courses, events, user]);
 
   // Update search results when query changes
   useEffect(() => {
@@ -370,6 +460,10 @@ function ActionSearchBar() {
             {result.actions.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
                 No results found
+              </div>
+            ) : isLoading ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                Loading results...
               </div>
             ) : (
               <motion.ul className="py-1">

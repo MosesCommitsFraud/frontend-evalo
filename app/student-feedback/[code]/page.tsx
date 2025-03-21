@@ -146,48 +146,6 @@ export default function StudentFeedbackPage({
     }
   };
 
-  // Analyze sentiment (simplified version)
-  const analyzeSentiment = (
-    text: string,
-  ): "positive" | "negative" | "neutral" => {
-    // This is a very basic sentiment analysis
-    // In a real app, you would use a more sophisticated approach
-    const positiveWords = [
-      "good",
-      "great",
-      "excellent",
-      "amazing",
-      "love",
-      "helpful",
-      "clear",
-    ];
-    const negativeWords = [
-      "bad",
-      "confusing",
-      "unclear",
-      "difficult",
-      "hard",
-      "disappointed",
-    ];
-
-    const lowerText = text.toLowerCase();
-
-    let positiveScore = 0;
-    let negativeScore = 0;
-
-    positiveWords.forEach((word) => {
-      if (lowerText.includes(word)) positiveScore++;
-    });
-
-    negativeWords.forEach((word) => {
-      if (lowerText.includes(word)) negativeScore++;
-    });
-
-    if (positiveScore > negativeScore) return "positive";
-    if (negativeScore > positiveScore) return "negative";
-    return "neutral";
-  };
-
   // Handle share submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,7 +156,7 @@ export default function StudentFeedbackPage({
     }
 
     if (!feedback.trim()) {
-      setError("Please enter your share.");
+      setError("Please enter your feedback.");
       return;
     }
 
@@ -208,25 +166,67 @@ export default function StudentFeedbackPage({
     try {
       const supabase = createClient();
 
-      // Analyze sentiment (in a real app, this would be done by an AI model)
-      const sentiment = analyzeSentiment(feedback);
+      // Call sentiment analysis API
+      let sentiment: "positive" | "negative" | "neutral";
+      let apiError = false;
 
-      // Create the share record
+      try {
+        // Call the Next.js API route that interfaces with FastAPI
+        const response = await fetch("/api/sentiment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: feedback }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          sentiment = result.sentiment as "positive" | "negative" | "neutral";
+          console.log(
+            "Sentiment analysis result:",
+            sentiment,
+            "Confidence:",
+            result.confidence,
+          );
+        } else {
+          const errorData = await response.json();
+          console.error("Sentiment analysis API error:", errorData.error);
+          setError(
+            `Sentiment analysis failed: ${errorData.error}. Please try again.`,
+          );
+          apiError = true;
+          return;
+        }
+      } catch (error) {
+        console.error("Error calling sentiment API:", error);
+        setError("Unable to analyze feedback sentiment. Please try again.");
+        apiError = true;
+        return;
+      }
+
+      // If sentiment analysis failed, stop the submission process
+      if (apiError) {
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Create the feedback record with the sentiment from the API
       const { error: insertError } = await supabase.from("feedback").insert({
         event_id: eventInfo.eventId,
         content: feedback,
-        tone: sentiment,
+        tone: sentiment, // Use the result from the sentiment analysis
         is_reviewed: false,
         created_at: new Date().toISOString(),
       });
 
       if (insertError) {
-        console.error("Error submitting share:", insertError);
-        setError("Failed to submit share. Please try again.");
+        console.error("Error submitting feedback:", insertError);
+        setError("Failed to submit feedback. Please try again.");
         return;
       }
 
-      // Update the event's share counts
+      // Update the event's feedback counts
       const { data: eventData, error: eventError } = await supabase
         .from("events")
         .select(
@@ -272,7 +272,7 @@ export default function StudentFeedbackPage({
       // Clear form after submission
       setFeedback("");
     } catch (error) {
-      console.error("Error submitting share:", error);
+      console.error("Error submitting feedback:", error);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);

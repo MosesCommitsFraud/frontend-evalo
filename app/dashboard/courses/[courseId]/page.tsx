@@ -56,6 +56,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 interface Event {
   id: string;
@@ -1108,6 +1109,8 @@ interface EventCardProps {
 }
 
 function EventCard({ event, onStatusChange }: EventCardProps) {
+  const router = useRouter();
+
   const getRelativeTime = (dateString: string) => {
     const eventDate = new Date(dateString);
     const today = new Date();
@@ -1169,8 +1172,16 @@ function EventCard({ event, onStatusChange }: EventCardProps) {
     }
   };
 
+  // Handle click on event card
+  const handleEventClick = () => {
+    router.push(`/dashboard/courses/${event.course_id}/events/${event.id}`);
+  };
+
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer"
+      onClick={handleEventClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -1196,9 +1207,19 @@ function EventCard({ event, onStatusChange }: EventCardProps) {
             </div>
           </div>
 
-          <div>
-            <Button variant="outline" size="sm" onClick={onStatusChange}>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent event card click
+                onStatusChange();
+              }}
+            >
               Change Status
+            </Button>
+            <Button variant="default" size="sm">
+              View Analytics
             </Button>
           </div>
         </div>

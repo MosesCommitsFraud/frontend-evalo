@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Bar,
   BarChart,
+  LineChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -131,6 +134,7 @@ export default function AnalyticsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(0);
 
   // Data state
   const [isLoading, setIsLoading] = useState(true);
@@ -983,48 +987,39 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          {/* Course Comparison (Radar Chart instead of Pie Chart) */}
+          {/* Engagement Trends by Course - More useful than the radar chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Course Performance Comparison</CardTitle>
+              <CardTitle>Engagement Trends by Course</CardTitle>
               <CardDescription>
-                Comparing key metrics across your courses
+                Tracking student participation and feedback rates
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[400px]">
+              <div className="h-[300px]">
                 {courseComparisonData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart
-                      cx="50%"
-                      cy="50%"
-                      outerRadius="80%"
+                    <BarChart
                       data={courseComparisonData}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 50, bottom: 5 }}
                     >
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="name" />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                      <Radar
-                        name="Feedback Sentiment"
-                        dataKey="sentiment"
-                        stroke="#16a34a"
-                        fill="#16a34a"
-                        fillOpacity={0.6}
-                      />
-                      <Radar
-                        name="Response Rate"
-                        dataKey="responseRate"
-                        stroke="#3b82f6"
-                        fill="#3b82f6"
-                        fillOpacity={0.6}
-                      />
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" domain={[0, 100]} />
+                      <YAxis type="category" dataKey="name" />
                       <Tooltip />
                       <Legend />
-                    </RadarChart>
+                      <Bar
+                        dataKey="feedbackCount"
+                        name="Total Feedback"
+                        fill="#10b981"
+                        barSize={20}
+                      />
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
-                    No course data available for comparison
+                    No engagement data available yet
                   </div>
                 )}
               </div>
@@ -1345,65 +1340,103 @@ export default function AnalyticsPage() {
                   No feedback matching your search criteria
                 </div>
               ) : (
-                <div className="space-y-4 mt-4">
-                  {filteredFeedback.slice(0, 10).map((item) => {
-                    // Find the event for this feedback
-                    const event = events.find((e) => e.id === item.event_id);
-                    // Find the course for this event
-                    const course = event
-                      ? teacherCourses.find((c) => c.id === event.course_id)
-                      : null;
+                <>
+                  <div className="space-y-4 mt-4">
+                    {filteredFeedback
+                      .slice(currentPage * 5, currentPage * 5 + 5)
+                      .map((item) => {
+                        // Find the event for this feedback
+                        const event = events.find(
+                          (e) => e.id === item.event_id,
+                        );
+                        // Find the course for this event
+                        const course = event
+                          ? teacherCourses.find((c) => c.id === event.course_id)
+                          : null;
 
-                    return (
-                      <Card key={item.id} className="overflow-hidden">
-                        <CardContent className="p-4">
-                          <div className="mb-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  item.tone === "positive"
-                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                    : item.tone === "negative"
-                                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                      : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                                }
-                              >
-                                <span className="flex items-center gap-1">
-                                  {getSentimentIcon(item.tone)}
-                                  {item.tone.charAt(0).toUpperCase() +
-                                    item.tone.slice(1)}
+                        return (
+                          <Card key={item.id} className="overflow-hidden">
+                            <CardContent className="p-4">
+                              <div className="mb-2 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      item.tone === "positive"
+                                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                        : item.tone === "negative"
+                                          ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                          : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                    }
+                                  >
+                                    <span className="flex items-center gap-1">
+                                      {getSentimentIcon(item.tone)}
+                                      {item.tone.charAt(0).toUpperCase() +
+                                        item.tone.slice(1)}
+                                    </span>
+                                  </Badge>
+                                  {course && (
+                                    <Badge variant="outline">
+                                      {course.code}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {new Date(item.created_at).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="mb-3">{item.content}</p>
+
+                              <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>
+                                  {event
+                                    ? new Date(
+                                        event.event_date,
+                                      ).toLocaleDateString()
+                                    : "Unknown date"}
                                 </span>
-                              </Badge>
-                              {course && (
-                                <Badge variant="outline">{course.code}</Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                {new Date(item.created_at).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
 
-                          <p className="mb-3">{item.content}</p>
-
-                          <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>
-                              {event
-                                ? new Date(
-                                    event.event_date,
-                                  ).toLocaleDateString()
-                                : "Unknown date"}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                  {/* Pagination Controls */}
+                  <div className="flex justify-between items-center mt-6">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {Math.min(filteredFeedback.length, 5)} of{" "}
+                      {filteredFeedback.length} responses
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(0, prev - 1))
+                        }
+                        disabled={currentPage === 0}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => prev + 1)}
+                        disabled={
+                          (currentPage + 1) * 5 >= filteredFeedback.length
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

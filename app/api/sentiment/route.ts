@@ -1,10 +1,7 @@
-// pages/api/sentiment.ts or app/api/sentiment/route.ts (depending on your Next.js version)
-
 import { NextRequest, NextResponse } from "next/server";
 
-// URL to your FastAPI sentiment analysis service
-const SENTIMENT_API_URL =
-  process.env.SENTIMENT_API_URL || "http://localhost:8000/analyze";
+// The correct URL format for your Hugging Face Space
+const API_URL = "https://MosesCommitsFraud-BERTSentiment.hf.space";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,38 +12,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
 
-    // Make a request to the FastAPI sentiment analysis service
-    const response = await fetch(SENTIMENT_API_URL, {
+    console.log("Analyzing text:", text);
+
+    // Call FastAPI endpoint
+    const response = await fetch(`${API_URL}/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        text,
+        show_details: true,
+      }),
     });
 
     if (!response.ok) {
-      // If the FastAPI server returns an error, forward it
-      const errorData = await response.json();
-      console.error("Sentiment API error:", errorData);
+      const errorText = await response.text().catch(() => "Unknown error");
+      console.error(
+        `Error from API: ${response.status}, ${response.statusText}`,
+      );
+      console.error("Error details:", errorText);
 
       return NextResponse.json(
-        { error: errorData.detail || "Error analyzing sentiment" },
-        { status: response.status },
+        {
+          error: `Sentiment analysis failed: ${response.statusText || response.status}`,
+        },
+        { status: 500 },
       );
     }
 
-    // Get the sentiment analysis result
-    const sentimentData = await response.json();
+    // Parse the response
+    const result = await response.json();
+    console.log("Sentiment analysis result:", result);
 
-    return NextResponse.json({
-      sentiment: sentimentData.sentiment,
-      confidence: sentimentData.confidence,
-      detailed_scores: sentimentData.detailed_scores,
-    });
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Error calling sentiment analysis service:", error);
+    console.error("Error in sentiment analysis:", error);
     return NextResponse.json(
-      { error: "Failed to analyze sentiment" },
+      { error: `Failed to analyze sentiment: ${error.message}` },
       { status: 500 },
     );
   }

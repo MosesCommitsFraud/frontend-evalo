@@ -21,43 +21,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Bell,
-  Moon,
-  Sun,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  Shield,
-  Mail,
-  Globe,
-  Smartphone,
-} from "lucide-react";
+import { Bell, Moon, Sun, Shield, Globe, Loader2 } from "lucide-react";
+import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SettingsPage() {
-  // Account settings state
-  const [accountSettings, setAccountSettings] = useState({
+  const { user } = useAuth();
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // App Preferences
+  const [appPreferences, setAppPreferences] = useState({
     defaultLanguage: "en",
-    defaultTheme: "light",
+    defaultTheme: "system",
+    timezone: "UTC",
   });
 
-  // Notification settings state
+  // Notification settings
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
     inAppNotifications: true,
     feedbackUpdates: true,
     courseActivity: true,
     accountAlerts: true,
+    emailDigestFrequency: "daily",
   });
 
-  // Privacy settings state
+  // Privacy settings
   const [privacySettings, setPrivacySettings] = useState({
-    showProfile: true,
+    publicProfile: true,
     showEmail: false,
-    showActivity: true,
     dataCollection: true,
   });
+
+  // Current and new password for password change
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
+
+  // Handle App Preferences changes
+  const handleAppPreferenceChange = (
+    key: keyof typeof appPreferences,
+    value: string,
+  ) => {
+    setAppPreferences((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   // Toggle notification setting
   const toggleNotificationSetting = (
@@ -77,49 +90,156 @@ export default function SettingsPage() {
     }));
   };
 
-  // Account Settings Tab
-  const accountTabContent = (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Settings</CardTitle>
-          <CardDescription>
-            Manage your personal account settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="display-name">Display Name</Label>
-            <Input id="display-name" defaultValue="John Smith" />
-            <p className="text-sm text-muted-foreground">
-              This is how your name will appear throughout the platform.
-            </p>
-          </div>
+  // Handle password form changes
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
 
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              defaultValue="john.smith@university.edu"
-            />
-            <p className="text-sm text-muted-foreground">
-              Your primary email for account communications and notifications.
-            </p>
-          </div>
+    // Clear error when user types
+    if (passwordError) {
+      setPasswordError("");
+    }
+  };
 
+  // Submit password change
+  const handlePasswordSubmit = async () => {
+    // Basic validation
+    if (!passwordForm.currentPassword) {
+      setPasswordError("Current password is required");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New passwords don't match");
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      // This would be replaced with your actual password update logic
+      // Example: await auth.updatePassword(passwordForm.currentPassword, passwordForm.newPassword);
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Clear form after successful update
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      toast({
+        title: "Success",
+        description: "Your password has been updated successfully",
+      });
+    } catch (error) {
+      setPasswordError(
+        "Failed to update password. Please check your current password.",
+      );
+      console.error("Password update error:", error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Save App Preferences
+  const saveAppPreferences = async () => {
+    setIsUpdating(true);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      toast({
+        title: "Preferences Saved",
+        description: "Your application preferences have been updated",
+      });
+
+      // Here you would actually save to your backend
+      // Example: await userService.updatePreferences(user.id, appPreferences);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save preferences",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Save Notification Settings
+  const saveNotificationSettings = async () => {
+    setIsUpdating(true);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      toast({
+        title: "Notification Settings Saved",
+        description: "Your notification preferences have been updated",
+      });
+
+      // Here you would actually save to your backend
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save notification settings",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Save Privacy Settings
+  const savePrivacySettings = async () => {
+    setIsUpdating(true);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      toast({
+        title: "Privacy Settings Saved",
+        description: "Your privacy settings have been updated",
+      });
+
+      // Here you would actually save to your backend
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save privacy settings",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // App Preferences Tab Content
+  const preferencesTabContent = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Application Preferences</CardTitle>
+        <CardDescription>Customize your application experience</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label>Language</Label>
+            <Label htmlFor="language">Language</Label>
             <Select
-              value={accountSettings.defaultLanguage}
+              value={appPreferences.defaultLanguage}
               onValueChange={(value) =>
-                setAccountSettings((prev) => ({
-                  ...prev,
-                  defaultLanguage: value,
-                }))
+                handleAppPreferenceChange("defaultLanguage", value)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="language">
                 <SelectValue placeholder="Select language" />
               </SelectTrigger>
               <SelectContent>
@@ -129,17 +249,20 @@ export default function SettingsPage() {
                 <SelectItem value="de">German</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-sm text-muted-foreground">
+              Choose the language for the user interface
+            </p>
           </div>
 
           <div className="grid gap-2">
-            <Label>Appearance</Label>
+            <Label htmlFor="theme">Theme</Label>
             <Select
-              value={accountSettings.defaultTheme}
+              value={appPreferences.defaultTheme}
               onValueChange={(value) =>
-                setAccountSettings((prev) => ({ ...prev, defaultTheme: value }))
+                handleAppPreferenceChange("defaultTheme", value)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="theme">
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
               <SelectContent>
@@ -158,223 +281,270 @@ export default function SettingsPage() {
                 <SelectItem value="system">System Default</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-sm text-muted-foreground">
+              Choose between light, dark, or system default theme
+            </p>
           </div>
-        </CardContent>
-        <CardFooter>
-          <Button>Save Account Settings</Button>
-        </CardFooter>
-      </Card>
 
+          <div className="grid gap-2">
+            <Label htmlFor="timezone">Time Zone</Label>
+            <Select
+              value={appPreferences.timezone}
+              onValueChange={(value) =>
+                handleAppPreferenceChange("timezone", value)
+              }
+            >
+              <SelectTrigger id="timezone">
+                <SelectValue placeholder="Select time zone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="UTC">
+                  UTC (Coordinated Universal Time)
+                </SelectItem>
+                <SelectItem value="America/New_York">
+                  Eastern Time (ET)
+                </SelectItem>
+                <SelectItem value="America/Chicago">
+                  Central Time (CT)
+                </SelectItem>
+                <SelectItem value="America/Denver">
+                  Mountain Time (MT)
+                </SelectItem>
+                <SelectItem value="America/Los_Angeles">
+                  Pacific Time (PT)
+                </SelectItem>
+                <SelectItem value="Europe/London">
+                  Greenwich Mean Time (GMT)
+                </SelectItem>
+                <SelectItem value="Europe/Paris">
+                  Central European Time (CET)
+                </SelectItem>
+                <SelectItem value="Asia/Tokyo">
+                  Japan Standard Time (JST)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Select your local time zone for accurate time displays
+            </p>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={saveAppPreferences} disabled={isUpdating}>
+          {isUpdating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Preferences"
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+
+  // Notifications Tab Content
+  const notificationsTabContent = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Notification Preferences</CardTitle>
+        <CardDescription>Manage how you receive notifications</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Email Notifications</Label>
+            <p className="text-sm text-muted-foreground">
+              Receive email updates for important events
+            </p>
+          </div>
+          <Switch
+            checked={notificationSettings.emailNotifications}
+            onCheckedChange={() =>
+              toggleNotificationSetting("emailNotifications")
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>In-App Notifications</Label>
+            <p className="text-sm text-muted-foreground">
+              Show notifications within the platform
+            </p>
+          </div>
+          <Switch
+            checked={notificationSettings.inAppNotifications}
+            onCheckedChange={() =>
+              toggleNotificationSetting("inAppNotifications")
+            }
+          />
+        </div>
+
+        <div className="border-t pt-6 space-y-6">
+          <h3 className="text-sm font-medium">Notification Types</h3>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="font-medium">Feedback Updates</div>
+              <p className="text-sm text-muted-foreground">
+                When you receive new student feedback
+              </p>
+            </div>
+            <Switch
+              checked={notificationSettings.feedbackUpdates}
+              onCheckedChange={() =>
+                toggleNotificationSetting("feedbackUpdates")
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="font-medium">Course Activity</div>
+              <p className="text-sm text-muted-foreground">
+                Updates about your courses and events
+              </p>
+            </div>
+            <Switch
+              checked={notificationSettings.courseActivity}
+              onCheckedChange={() =>
+                toggleNotificationSetting("courseActivity")
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="font-medium">Account Alerts</div>
+              <p className="text-sm text-muted-foreground">
+                Security and account-related notifications
+              </p>
+            </div>
+            <Switch
+              checked={notificationSettings.accountAlerts}
+              onCheckedChange={() => toggleNotificationSetting("accountAlerts")}
+            />
+          </div>
+
+          <div className="grid gap-2 pt-4">
+            <Label htmlFor="digest">Email Digest Frequency</Label>
+            <Select
+              value={notificationSettings.emailDigestFrequency}
+              onValueChange={(value) =>
+                setNotificationSettings((prev) => ({
+                  ...prev,
+                  emailDigestFrequency: value,
+                }))
+              }
+              disabled={!notificationSettings.emailNotifications}
+            >
+              <SelectTrigger id="digest">
+                <SelectValue placeholder="Select frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="immediate">Immediate</SelectItem>
+                <SelectItem value="daily">Daily Digest</SelectItem>
+                <SelectItem value="weekly">Weekly Digest</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={saveNotificationSettings} disabled={isUpdating}>
+          {isUpdating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Notification Settings"
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+
+  // Security Tab Content
+  const securityTabContent = (
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Password</CardTitle>
-          <CardDescription>Update your password</CardDescription>
+          <CardDescription>Update your account password</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2">
             <Label htmlFor="current-password">Current Password</Label>
             <div className="relative">
-              <Input id="current-password" type="password" />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
+              <Input
+                id="current-password"
+                name="currentPassword"
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={handlePasswordChange}
+              />
             </div>
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="new-password">New Password</Label>
             <div className="relative">
-              <Input id="new-password" type="password" />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-              >
-                <EyeOff className="h-4 w-4" />
-              </Button>
+              <Input
+                id="new-password"
+                name="newPassword"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={handlePasswordChange}
+              />
             </div>
+            <p className="text-xs text-muted-foreground">
+              Password must be at least 8 characters long
+            </p>
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="confirm-password">Confirm New Password</Label>
             <div className="relative">
-              <Input id="confirm-password" type="password" />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-              >
-                <EyeOff className="h-4 w-4" />
-              </Button>
+              <Input
+                id="confirm-password"
+                name="confirmPassword"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={handlePasswordChange}
+              />
             </div>
           </div>
+
+          {passwordError && (
+            <div className="text-sm text-red-500">{passwordError}</div>
+          )}
         </CardContent>
         <CardFooter>
-          <Button>Update Password</Button>
-        </CardFooter>
-      </Card>
-    </div>
-  );
-
-  // Notifications Tab
-  const notificationsTabContent = (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Notification Preferences</CardTitle>
-          <CardDescription>
-            Manage how you receive notifications
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Email Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive email updates for important events
-              </p>
-            </div>
-            <Switch
-              checked={notificationSettings.emailNotifications}
-              onCheckedChange={() =>
-                toggleNotificationSetting("emailNotifications")
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>In-App Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Show notifications within the platform
-              </p>
-            </div>
-            <Switch
-              checked={notificationSettings.inAppNotifications}
-              onCheckedChange={() =>
-                toggleNotificationSetting("inAppNotifications")
-              }
-            />
-          </div>
-
-          <div className="border-t pt-6 space-y-6">
-            <h3 className="text-sm font-medium">Notification Types</h3>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="font-medium">Feedback Updates</div>
-                <p className="text-sm text-muted-foreground">
-                  When you receive new student feedback
-                </p>
-              </div>
-              <Switch
-                checked={notificationSettings.feedbackUpdates}
-                onCheckedChange={() =>
-                  toggleNotificationSetting("feedbackUpdates")
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="font-medium">Course Activity</div>
-                <p className="text-sm text-muted-foreground">
-                  Updates about your courses and events
-                </p>
-              </div>
-              <Switch
-                checked={notificationSettings.courseActivity}
-                onCheckedChange={() =>
-                  toggleNotificationSetting("courseActivity")
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <div className="font-medium">Account Alerts</div>
-                <p className="text-sm text-muted-foreground">
-                  Security and account-related notifications
-                </p>
-              </div>
-              <Switch
-                checked={notificationSettings.accountAlerts}
-                onCheckedChange={() =>
-                  toggleNotificationSetting("accountAlerts")
-                }
-              />
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button>Save Notification Settings</Button>
+          <Button
+            onClick={handlePasswordSubmit}
+            disabled={
+              isUpdating ||
+              !passwordForm.currentPassword ||
+              !passwordForm.newPassword ||
+              !passwordForm.confirmPassword
+            }
+          >
+            {isUpdating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Update Password"
+            )}
+          </Button>
         </CardFooter>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Communication Channels</CardTitle>
-          <CardDescription>
-            Configure where you receive communications
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center gap-4 pb-4 border-b">
-            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-              <Mail className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <div className="font-medium">Email</div>
-              <div className="text-sm text-muted-foreground">
-                john.smith@university.edu
-              </div>
-            </div>
-            <Button variant="outline" size="sm">
-              Update
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-4 pb-4 border-b">
-            <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
-              <Smartphone className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <div className="font-medium">SMS</div>
-              <div className="text-sm text-muted-foreground">
-                Not configured
-              </div>
-            </div>
-            <Button variant="outline" size="sm">
-              Setup
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-              <Globe className="h-5 w-5 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <div className="font-medium">Web Notifications</div>
-              <div className="text-sm text-muted-foreground">
-                Enabled in Chrome
-              </div>
-            </div>
-            <Button variant="outline" size="sm">
-              Configure
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  // Privacy & Security Tab
-  const privacyTabContent = (
-    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Privacy Settings</CardTitle>
@@ -389,8 +559,8 @@ export default function SettingsPage() {
               </p>
             </div>
             <Switch
-              checked={privacySettings.showProfile}
-              onCheckedChange={() => togglePrivacySetting("showProfile")}
+              checked={privacySettings.publicProfile}
+              onCheckedChange={() => togglePrivacySetting("publicProfile")}
             />
           </div>
 
@@ -409,19 +579,6 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Activity Visibility</Label>
-              <p className="text-sm text-muted-foreground">
-                Show your activity history to colleagues
-              </p>
-            </div>
-            <Switch
-              checked={privacySettings.showActivity}
-              onCheckedChange={() => togglePrivacySetting("showActivity")}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
               <Label>Data Collection</Label>
               <p className="text-sm text-muted-foreground">
                 Allow anonymous usage data collection to improve the platform
@@ -434,76 +591,17 @@ export default function SettingsPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button>Save Privacy Settings</Button>
+          <Button onClick={savePrivacySettings} disabled={isUpdating}>
+            {isUpdating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Privacy Settings"
+            )}
+          </Button>
         </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Security</CardTitle>
-          <CardDescription>
-            Manage security settings for your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="font-medium">Two-Factor Authentication</div>
-              <p className="text-sm text-muted-foreground">
-                Add an extra layer of security to your account
-              </p>
-            </div>
-            <Button variant="outline">Setup 2FA</Button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="font-medium">Active Sessions</div>
-              <p className="text-sm text-muted-foreground">
-                Manage your active login sessions
-              </p>
-            </div>
-            <Button variant="outline">Manage</Button>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="font-medium">Account Recovery</div>
-              <p className="text-sm text-muted-foreground">
-                Setup recovery options for your account
-              </p>
-            </div>
-            <Button variant="outline">Configure</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-red-600 dark:text-red-400">
-            Danger Zone
-          </CardTitle>
-          <CardDescription>
-            Irreversible actions for your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            These actions are permanent and cannot be undone.
-          </p>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button variant="outline" size="sm">
-              Reset Data
-            </Button>
-            <Button
-              variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950/10"
-              size="sm"
-            >
-              Delete Account
-            </Button>
-          </div>
-        </CardContent>
       </Card>
     </div>
   );
@@ -513,11 +611,11 @@ export default function SettingsPage() {
     {
       label: (
         <span className="flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Account
+          <Globe className="h-4 w-4" />
+          Preferences
         </span>
       ),
-      content: accountTabContent,
+      content: preferencesTabContent,
     },
     {
       label: (
@@ -532,17 +630,17 @@ export default function SettingsPage() {
       label: (
         <span className="flex items-center gap-2">
           <Shield className="h-4 w-4" />
-          Privacy & Security
+          Security & Privacy
         </span>
       ),
-      content: privacyTabContent,
+      content: securityTabContent,
     },
   ];
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
       </div>
 
       {/* Use the CustomTabs component */}

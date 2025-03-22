@@ -1,21 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Bar,
   BarChart,
-  LineChart,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  PieChart,
-  Pie,
-  Cell,
   Legend,
+  CartesianGrid,
+  AreaChart,
+  Area,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  Cell,
 } from "recharts";
 import {
   Card,
@@ -114,6 +117,11 @@ interface CoursePageData {
   }[];
 }
 
+interface WeekdayData {
+  name: string;
+  count: number;
+}
+
 export default function AnalyticsPage() {
   const { user } = useAuth();
 
@@ -135,9 +143,13 @@ export default function AnalyticsPage() {
   const [overviewData, setOverviewData] = useState<any[]>([]);
   const [activityData, setActivityData] = useState<any[]>([]);
   const [sentimentData, setSentimentData] = useState<any[]>([]);
+  const [sentimentTrendData, setSentimentTrendData] = useState<any[]>([]);
   const [feedbackCategoriesData, setFeedbackCategoriesData] = useState<any[]>(
     [],
   );
+  const [weekdayData, setWeekdayData] = useState<WeekdayData[]>([]);
+  const [timeOfDayData, setTimeOfDayData] = useState<any[]>([]);
+  const [courseComparisonData, setCourseComparisonData] = useState<any[]>([]);
   const [coursePageData, setCoursePageData] = useState<CoursePageData>({
     teacherCourses: [],
     studentActivityData: [],
@@ -167,52 +179,9 @@ export default function AnalyticsPage() {
         const ownedCourses = coursesData || [];
         setTeacherCourses(ownedCourses);
 
-        console.log("Teacher courses:", ownedCourses.length);
-
         // If no courses are found, set empty data and return early
         if (ownedCourses.length === 0) {
-          // Set default empty data
-          setOverviewData([
-            {
-              name: "Your Courses",
-              value: 0,
-              icon: <Book className="h-4 w-4 text-emerald-600" />,
-              change: "",
-              changeText: "active courses",
-            },
-            {
-              name: "Course Feedback",
-              value: 0,
-              icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
-              change: "",
-              changeText: "total responses",
-            },
-            {
-              name: "Active Students",
-              value: 0,
-              icon: <Users className="h-4 w-4 text-emerald-600" />,
-              change: "",
-              changeText: "enrolled students",
-            },
-            {
-              name: "Response Rate",
-              value: "0",
-              icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
-              change: "",
-              changeText: "avg responses per course",
-            },
-          ]);
-
-          setActivityData([]);
-          setSentimentData([]);
-          setFeedbackCategoriesData([{ name: "No Data", value: 100 }]);
-          setCoursePageData({
-            teacherCourses: [],
-            studentActivityData: [],
-            submissionByDayData: [],
-            upcomingEvents: [],
-          });
-
+          initializeEmptyData();
           setIsLoading(false);
           return;
         }
@@ -235,15 +204,11 @@ export default function AnalyticsPage() {
         }
 
         setEvents(eventsData || []);
-        console.log("Teacher events:", eventsData?.length || 0);
 
         // If there are no events, set empty feedback and return
         if (!eventsData || eventsData.length === 0) {
           setFeedback([]);
-
-          // Calculate teacher analytics with empty events and feedback
           calculateTeacherAnalytics(ownedCourses, [], []);
-
           setIsLoading(false);
           return;
         }
@@ -264,7 +229,6 @@ export default function AnalyticsPage() {
         }
 
         setFeedback(feedbackData || []);
-        console.log("Teacher feedback:", feedbackData?.length || 0);
 
         // Calculate teacher-specific analytics
         calculateTeacherAnalytics(
@@ -282,6 +246,89 @@ export default function AnalyticsPage() {
 
     fetchData();
   }, [user, timePeriod]);
+
+  // Initialize empty data structures when no data is available
+  const initializeEmptyData = () => {
+    setOverviewData([
+      {
+        name: "Your Courses",
+        value: 0,
+        icon: <Book className="h-4 w-4 text-emerald-600" />,
+        change: "",
+        changeText: "active courses",
+      },
+      {
+        name: "Course Feedback",
+        value: 0,
+        icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
+        change: "",
+        changeText: "total responses",
+      },
+      {
+        name: "Active Students",
+        value: 0,
+        icon: <Users className="h-4 w-4 text-emerald-600" />,
+        change: "",
+        changeText: "enrolled students",
+      },
+      {
+        name: "Response Rate",
+        value: "0",
+        icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
+        change: "",
+        changeText: "avg responses per course",
+      },
+    ]);
+
+    setActivityData([
+      { month: "Jan", responses: 0, feedback: 0 },
+      { month: "Feb", responses: 0, feedback: 0 },
+      { month: "Mar", responses: 0, feedback: 0 },
+    ]);
+
+    setSentimentData([
+      { sentiment: "Positive", count: 0, percentage: 0 },
+      { sentiment: "Neutral", count: 0, percentage: 0 },
+      { sentiment: "Negative", count: 0, percentage: 0 },
+    ]);
+
+    setSentimentTrendData([
+      { name: "Week 1", positive: 0, negative: 0, neutral: 0 },
+      { name: "Week 2", positive: 0, negative: 0, neutral: 0 },
+    ]);
+
+    setFeedbackCategoriesData([
+      { name: "Course Content", value: 0 },
+      { name: "Teaching Style", value: 0 },
+      { name: "Materials", value: 0 },
+    ]);
+
+    setWeekdayData([
+      { name: "Mon", count: 0 },
+      { name: "Tue", count: 0 },
+      { name: "Wed", count: 0 },
+      { name: "Thu", count: 0 },
+      { name: "Fri", count: 0 },
+      { name: "Sat", count: 0 },
+      { name: "Sun", count: 0 },
+    ]);
+
+    setTimeOfDayData([
+      { time: "Morning", count: 0 },
+      { time: "Afternoon", count: 0 },
+      { time: "Evening", count: 0 },
+      { time: "Night", count: 0 },
+    ]);
+
+    setCourseComparisonData([]);
+
+    setCoursePageData({
+      teacherCourses: [],
+      studentActivityData: [],
+      submissionByDayData: [],
+      upcomingEvents: [],
+    });
+  };
 
   // Calculate teacher-specific analytics
   const calculateTeacherAnalytics = (
@@ -335,6 +382,82 @@ export default function AnalyticsPage() {
       else if (item.tone === "neutral") monthlyCounts[monthYear].neutral++;
     });
 
+    // Group feedback by day of week
+    const weekdayCounts: Record<string, number> = {
+      Mon: 0,
+      Tue: 0,
+      Wed: 0,
+      Thu: 0,
+      Fri: 0,
+      Sat: 0,
+      Sun: 0,
+    };
+
+    feedback.forEach((item) => {
+      if (!item.created_at) return;
+
+      const date = new Date(item.created_at);
+      const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const weekday = weekdays[date.getDay()];
+
+      weekdayCounts[weekday]++;
+    });
+
+    const weekdayData = Object.entries(weekdayCounts).map(([name, count]) => ({
+      name,
+      count,
+    }));
+
+    // Group feedback by time of day
+    const hourCounts: Record<string, number> = {
+      Morning: 0,
+      Afternoon: 0,
+      Evening: 0,
+      Night: 0,
+    };
+
+    feedback.forEach((item) => {
+      if (!item.created_at) return;
+
+      const date = new Date(item.created_at);
+      const hour = date.getHours();
+
+      if (hour >= 5 && hour < 12) hourCounts.Morning++;
+      else if (hour >= 12 && hour < 17) hourCounts.Afternoon++;
+      else if (hour >= 17 && hour < 22) hourCounts.Evening++;
+      else hourCounts.Night++;
+    });
+
+    const timeOfDayData = Object.entries(hourCounts).map(([time, count]) => ({
+      time,
+      count,
+    }));
+
+    // Course comparison data
+    const courseData = courses.map((course) => {
+      const courseEvents = events.filter((e) => e.course_id === course.id);
+      const courseFeedbackCount = courseEvents.reduce(
+        (sum, event) => sum + (event.total_feedback_count || 0),
+        0,
+      );
+      const coursePositiveFeedback = courseEvents.reduce(
+        (sum, event) => sum + (event.positive_feedback_count || 0),
+        0,
+      );
+
+      return {
+        name: course.code,
+        feedbackCount: courseFeedbackCount,
+        responseRate: course.student_count
+          ? Math.round((courseFeedbackCount / course.student_count) * 100)
+          : 0,
+        sentiment:
+          courseFeedbackCount > 0
+            ? Math.round((coursePositiveFeedback / courseFeedbackCount) * 100)
+            : 0,
+      };
+    });
+
     // Set updated overview data
     setOverviewData([
       {
@@ -383,8 +506,27 @@ export default function AnalyticsPage() {
         })),
     );
 
-    // Update sentiment data
-    setSentimentData(
+    // Update sentiment data for bar chart
+    setSentimentData([
+      {
+        sentiment: "Positive",
+        count: positiveFeedback,
+        percentage: Math.round(positivePercentage),
+      },
+      {
+        sentiment: "Neutral",
+        count: neutralFeedback,
+        percentage: Math.round(neutralPercentage),
+      },
+      {
+        sentiment: "Negative",
+        count: negativeFeedback,
+        percentage: Math.round(negativePercentage),
+      },
+    ]);
+
+    // Update sentiment trend data for line chart
+    setSentimentTrendData(
       Object.values(monthlyCounts)
         .sort((a, b) => a.month.localeCompare(b.month))
         .map((item) => ({
@@ -395,31 +537,30 @@ export default function AnalyticsPage() {
         })),
     );
 
-    // Update feedback categories data
-    setFeedbackCategoriesData(
-      totalFeedback > 0
-        ? [
-            { name: "Positive", value: Math.round(positivePercentage) },
-            { name: "Neutral", value: Math.round(neutralPercentage) },
-            { name: "Negative", value: Math.round(negativePercentage) },
-          ]
-        : [{ name: "No Data", value: 100 }],
-    );
+    // Update weekday distribution data
+    setWeekdayData([...weekdayData]);
+
+    // Update time of day distribution data
+    setTimeOfDayData([...timeOfDayData]);
+
+    // Update course comparison data
+    setCourseComparisonData([...courseData]);
 
     // Update course page data
     setCoursePageData({
       teacherCourses: courses.map((course) => {
-        // Find feedback for these events
-        const courseFeedback = feedback.filter((f) => {
-          const event = events.find((e) => e.id === f.event_id);
-          return event && event.course_id === course.id;
-        });
+        // Find events for this course
+        const courseEvents = events.filter((e) => e.course_id === course.id);
 
         // Calculate totals
-        const feedbackCount = courseFeedback.length;
-        const positiveCount = courseFeedback.filter(
-          (f) => f.tone === "positive",
-        ).length;
+        const feedbackCount = courseEvents.reduce(
+          (sum, e) => sum + (e.total_feedback_count || 0),
+          0,
+        );
+        const positiveCount = courseEvents.reduce(
+          (sum, e) => sum + (e.positive_feedback_count || 0),
+          0,
+        );
         const responseRate =
           course.student_count && course.student_count > 0
             ? Math.round((feedbackCount / course.student_count) * 100)
@@ -439,21 +580,8 @@ export default function AnalyticsPage() {
           avgSentiment,
         };
       }),
-      studentActivityData: [
-        { time: "Morning (6-12)", value: 32 },
-        { time: "Afternoon (12-18)", value: 41 },
-        { time: "Evening (18-24)", value: 52 },
-        { time: "Night (0-6)", value: 18 },
-      ],
-      submissionByDayData: [
-        { day: "Monday", count: 45 },
-        { day: "Tuesday", count: 63 },
-        { day: "Wednesday", count: 58 },
-        { day: "Thursday", count: 72 },
-        { day: "Friday", count: 51 },
-        { day: "Saturday", count: 33 },
-        { day: "Sunday", count: 29 },
-      ],
+      studentActivityData: timeOfDayData,
+      submissionByDayData: weekdayData,
       upcomingEvents: events
         .filter((e) => new Date(e.event_date) > new Date())
         .slice(0, 5)
@@ -502,8 +630,8 @@ export default function AnalyticsPage() {
     }
   };
 
-  // Colors for pie charts
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
+  // Colors for charts
+  const COLORS = ["#10b981", "#6b7280", "#ef4444", "#f59e0b", "#3b82f6"];
 
   // Filter feedback based on search and filters
   const filteredFeedback = feedback.filter((feedback) => {
@@ -597,16 +725,20 @@ export default function AnalyticsPage() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={activityData}>
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
+                      <Legend />
                       <Bar
                         dataKey="responses"
+                        name="Total Responses"
                         fill="#10b981"
                         radius={[4, 4, 0, 0]}
                       />
                       <Bar
                         dataKey="feedback"
+                        name="Total Feedback"
                         fill="#60a5fa"
                         radius={[4, 4, 0, 0]}
                       />
@@ -627,68 +759,93 @@ export default function AnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sentimentData}>
+                    <AreaChart data={sentimentTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
-                      <Line
+                      <Legend />
+                      <Area
                         type="monotone"
                         dataKey="positive"
+                        name="Positive"
                         stroke="#16a34a"
+                        fill="#16a34a"
+                        fillOpacity={0.3}
                         strokeWidth={2}
+                        stackId="1"
                       />
-                      <Line
-                        type="monotone"
-                        dataKey="negative"
-                        stroke="#dc2626"
-                        strokeWidth={2}
-                      />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="neutral"
+                        name="Neutral"
                         stroke="#737373"
+                        fill="#737373"
+                        fillOpacity={0.3}
                         strokeWidth={2}
+                        stackId="1"
                       />
-                    </LineChart>
+                      <Area
+                        type="monotone"
+                        dataKey="negative"
+                        name="Negative"
+                        stroke="#dc2626"
+                        fill="#dc2626"
+                        fillOpacity={0.3}
+                        strokeWidth={2}
+                        stackId="1"
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Feedback Categories */}
+          {/* Feedback Sentiment Distribution (Bar Chart instead of Pie Chart) */}
           <Card>
             <CardHeader>
-              <CardTitle>Feedback Categories</CardTitle>
+              <CardTitle>Feedback Distribution</CardTitle>
               <CardDescription>
-                Distribution of feedback by category
+                Breakdown of feedback by sentiment type
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={feedbackCategoriesData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={(entry) => `${entry.name}: ${entry.value}%`}
+                {sentimentData[0].count > 0 ||
+                sentimentData[1].count > 0 ||
+                sentimentData[2].count > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={sentimentData}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                     >
-                      {feedbackCategoriesData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis type="category" dataKey="sentiment" />
+                      <Tooltip formatter={(value) => [value, "Count"]} />
+                      <Bar dataKey="count" name="Feedback Count" barSize={30}>
+                        {sentimentData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              index === 0
+                                ? "#16a34a"
+                                : index === 1
+                                  ? "#737373"
+                                  : "#dc2626"
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    No feedback data available yet
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -826,6 +983,54 @@ export default function AnalyticsPage() {
             </div>
           )}
 
+          {/* Course Comparison (Radar Chart instead of Pie Chart) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Course Performance Comparison</CardTitle>
+              <CardDescription>
+                Comparing key metrics across your courses
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                {courseComparisonData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart
+                      cx="50%"
+                      cy="50%"
+                      outerRadius="80%"
+                      data={courseComparisonData}
+                    >
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="name" />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                      <Radar
+                        name="Feedback Sentiment"
+                        dataKey="sentiment"
+                        stroke="#16a34a"
+                        fill="#16a34a"
+                        fillOpacity={0.6}
+                      />
+                      <Radar
+                        name="Response Rate"
+                        dataKey="responseRate"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
+                        fillOpacity={0.6}
+                      />
+                      <Tooltip />
+                      <Legend />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    No course data available for comparison
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Activity Charts */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Student Activity Times */}
@@ -840,11 +1045,13 @@ export default function AnalyticsPage() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={coursePageData.studentActivityData}>
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="time" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
                       <Bar
-                        dataKey="value"
+                        dataKey="count"
+                        name="Submissions"
                         fill="#10b981"
                         radius={[4, 4, 0, 0]}
                       />
@@ -866,11 +1073,13 @@ export default function AnalyticsPage() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={coursePageData.submissionByDayData}>
-                      <XAxis dataKey="day" stroke="#888888" />
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
                       <Bar
                         dataKey="count"
+                        name="Submissions"
                         fill="#60a5fa"
                         radius={[4, 4, 0, 0]}
                       />
@@ -946,7 +1155,7 @@ export default function AnalyticsPage() {
         <>
           {/* Feedback Distribution Charts */}
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Sentiment Distribution */}
+            {/* Sentiment Distribution - Bar Chart instead of Pie */}
             <Card>
               <CardHeader>
                 <CardTitle>Sentiment Distribution</CardTitle>
@@ -957,129 +1166,108 @@ export default function AnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          {
-                            name: "Positive",
-                            value: feedback.filter((f) => f.tone === "positive")
-                              .length,
-                            color: "#16a34a",
-                          },
-                          {
-                            name: "Neutral",
-                            value: feedback.filter((f) => f.tone === "neutral")
-                              .length,
-                            color: "#737373",
-                          },
-                          {
-                            name: "Negative",
-                            value: feedback.filter((f) => f.tone === "negative")
-                              .length,
-                            color: "#dc2626",
-                          },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={(entry) => `${entry.name}: ${entry.value}`}
-                      >
-                        {[
-                          {
-                            name: "Positive",
-                            value: feedback.filter((f) => f.tone === "positive")
-                              .length,
-                            color: "#16a34a",
-                          },
-                          {
-                            name: "Neutral",
-                            value: feedback.filter((f) => f.tone === "neutral")
-                              .length,
-                            color: "#737373",
-                          },
-                          {
-                            name: "Negative",
-                            value: feedback.filter((f) => f.tone === "negative")
-                              .length,
-                            color: "#dc2626",
-                          },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
+                    <BarChart
+                      data={[
+                        {
+                          name: "Positive",
+                          count: feedback.filter((f) => f.tone === "positive")
+                            .length,
+                          color: "#16a34a",
+                        },
+                        {
+                          name: "Neutral",
+                          count: feedback.filter((f) => f.tone === "neutral")
+                            .length,
+                          color: "#737373",
+                        },
+                        {
+                          name: "Negative",
+                          count: feedback.filter((f) => f.tone === "negative")
+                            .length,
+                          color: "#dc2626",
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
                       <Tooltip />
-                      <Legend />
-                    </PieChart>
+                      <Bar dataKey="count" name="Feedback Count">
+                        {/* Custom coloring for each bar based on sentiment */}
+                        <Cell fill="#16a34a" />
+                        <Cell fill="#737373" />
+                        <Cell fill="#dc2626" />
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Feedback Type Distribution */}
+            {/* Feedback by Course - Stacked Bar Chart instead of Pie */}
             <Card>
               <CardHeader>
                 <CardTitle>Feedback by Course</CardTitle>
                 <CardDescription>
-                  Distribution of feedback across your courses
+                  Distribution of feedback types across courses
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={teacherCourses
-                          .map((course, index) => {
-                            // Count feedback for this course
-                            const courseFeedback = feedback.filter((f) => {
-                              const event = events.find(
-                                (e) => e.id === f.event_id,
-                              );
-                              return event && event.course_id === course.id;
-                            });
-
-                            return {
-                              name: course.code,
-                              value: courseFeedback.length,
-                              color: COLORS[index % COLORS.length],
-                            };
-                          })
-                          .filter((item) => item.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={(entry) => `${entry.name}: ${entry.value}`}
-                      >
-                        {teacherCourses.map((course, index) => {
-                          // Count feedback for this course
-                          const courseFeedback = feedback.filter((f) => {
-                            const event = events.find(
-                              (e) => e.id === f.event_id,
-                            );
-                            return event && event.course_id === course.id;
-                          });
-
-                          return (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                              style={{
-                                display:
-                                  courseFeedback.length > 0 ? "block" : "none",
-                              }}
-                            />
+                    <BarChart
+                      data={coursePageData.teacherCourses
+                        .filter((c) => c.feedbackCount > 0)
+                        .map((course) => {
+                          // Calculate positive, negative, neutral counts for this course
+                          const courseEvents = events.filter(
+                            (e) => e.course_id === course.id,
                           );
+                          const positiveCount = courseEvents.reduce(
+                            (sum, e) => sum + (e.positive_feedback_count || 0),
+                            0,
+                          );
+                          const negativeCount = courseEvents.reduce(
+                            (sum, e) => sum + (e.negative_feedback_count || 0),
+                            0,
+                          );
+                          const neutralCount = courseEvents.reduce(
+                            (sum, e) => sum + (e.neutral_feedback_count || 0),
+                            0,
+                          );
+
+                          return {
+                            name: course.code,
+                            positive: positiveCount,
+                            negative: negativeCount,
+                            neutral: neutralCount,
+                          };
                         })}
-                      </Pie>
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
                       <Tooltip />
                       <Legend />
-                    </PieChart>
+                      <Bar
+                        dataKey="positive"
+                        name="Positive"
+                        stackId="a"
+                        fill="#16a34a"
+                      />
+                      <Bar
+                        dataKey="neutral"
+                        name="Neutral"
+                        stackId="a"
+                        fill="#737373"
+                      />
+                      <Bar
+                        dataKey="negative"
+                        name="Negative"
+                        stackId="a"
+                        fill="#dc2626"
+                      />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>

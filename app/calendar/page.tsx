@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState, useEffect } from "react";
 import {
   add,
@@ -6,14 +7,12 @@ import {
   endOfMonth,
   format,
   getDay,
-  isEqual,
   isSameDay,
   isSameMonth,
   isToday,
   parse,
   startOfToday,
   parseISO,
-  isWithinInterval,
 } from "date-fns";
 import { ChevronLeft, ChevronRight, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,12 +27,14 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import CreateEventDialog from "@/components/create-event-dialog";
 
 // Type definitions
 interface Course {
   id: string;
   name: string;
   code: string;
+  owner_id: string;
 }
 
 interface CalendarEvent {
@@ -113,7 +114,10 @@ export default function CalendarPage() {
           return;
         }
 
-        setCourses(coursesData || []);
+        setCourses(
+          coursesData?.map((course) => ({ ...course, owner_id: user.id })) ||
+            [],
+        );
 
         // Get course IDs
         const courseIds = coursesData?.map((course) => course.id) || [];
@@ -140,7 +144,6 @@ export default function CalendarPage() {
         const formattedEvents: CalendarEvent[] = (eventsData || []).map(
           (event) => {
             // Determine event type based on status or other factors
-            // In a real app, you might have an event_type field in your database
             const eventType = determineEventType(event);
 
             return {
@@ -213,17 +216,67 @@ export default function CalendarPage() {
     setCurrentMonth(format(firstDayNextMonth, "MMM-yyyy"));
   }
 
+  // Event creation callback
+  const handleEventCreated = (eventId: string, code: string) => {
+    // Refresh events to include the newly created one
+    const fetchEvents = async () => {
+      if (!user) return;
+
+      try {
+        const supabase = createClient();
+        const courseIds = courses.map((course) => course.id);
+
+        const { data: eventsData, error } = await supabase
+          .from("events")
+          .select("*, courses(name, code)")
+          .in("course_id", courseIds);
+
+        if (error) {
+          console.error("Error refreshing events:", error);
+          return;
+        }
+
+        // Format events
+        const formattedEvents: CalendarEvent[] = (eventsData || []).map(
+          (event) => {
+            const eventType = determineEventType(event);
+
+            return {
+              id: event.id,
+              title: `${event.courses?.code} ${determineEventTitle(event)}`,
+              courseId: event.course_id,
+              courseName: event.courses?.name || "Unknown Course",
+              courseCode: event.courses?.code || "Unknown",
+              date: event.event_date,
+              endTime: calculateEndTime(event.event_date),
+              type: eventType,
+              status: event.status,
+              entry_code: event.entry_code || "",
+            };
+          },
+        );
+
+        setEvents(formattedEvents);
+
+        // Set selected day to the day of the new event
+        const newEvent = formattedEvents.find((e) => e.id === eventId);
+        if (newEvent) {
+          setSelectedDay(parseISO(newEvent.date));
+        }
+      } catch (error) {
+        console.error("Error refreshing events:", error);
+      }
+    };
+
+    fetchEvents();
+  };
+
   // Filter events based on selected course and day
   const filteredEvents = events.filter((event) => {
     const eventDate = parseISO(event.date);
-
-    // Always filter by selected day
     const sameDay = isSameDay(eventDate, selectedDay);
-
-    // Filter by course if not "all"
     const matchesCourse =
       selectedCourse === "all" || event.courseId === selectedCourse;
-
     return sameDay && matchesCourse;
   });
 
@@ -234,10 +287,8 @@ export default function CalendarPage() {
       const sameDay = isSameDay(eventDate, day);
       const matchesCourse =
         selectedCourse === "all" || event.courseId === selectedCourse;
-
       return sameDay && matchesCourse;
     });
-
     return dayEvents.length > 0;
   }
 
@@ -246,6 +297,17 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
         <div className="flex gap-2">
+          {/* Create event dialog */}
+          {courses.length > 0 && (
+            <CreateEventDialog
+              courseId={
+                selectedCourse !== "all" ? selectedCourse : courses[0].id
+              }
+              onEventCreated={handleEventCreated}
+            >
+              <Button className="gap-2">Add Event</Button>
+            </CreateEventDialog>
+          )}
           <Select value={selectedCourse} onValueChange={setSelectedCourse}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter by course" />

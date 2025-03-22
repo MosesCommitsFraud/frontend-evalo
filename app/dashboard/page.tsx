@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -16,112 +17,99 @@ import {
   Clock,
   BarChart,
   Users,
+  Book,
+  MessageSquare,
   Loader2,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/toast";
+import { Badge } from "@/components/ui/badge";
 
-// Define proper TypeScript interfaces
-interface CourseType {
+// Type definitions for our data
+interface Course {
   id: string;
   name: string;
   code: string;
   student_count?: number;
   owner_id: string;
-  created_at: string;
-  updated_at: string;
   profiles?: {
-    full_name: string | null;
+    full_name: string;
   };
 }
 
-interface StatsType {
+interface Event {
+  id: string;
+  course_id: string;
+  event_date: string;
+  status: string;
+  entry_code: string;
+  created_at: string;
+  updated_at: string;
+  courses?: {
+    name: string;
+    code: string;
+  };
+}
+
+interface Feedback {
+  id: string;
+  event_id: string;
+  content: string;
+  tone: "positive" | "negative" | "neutral";
+  created_at: string;
+  events?: {
+    course_id: string;
+  };
+}
+
+interface Stats {
   totalCourses: number;
   totalStudents: number;
   responseRate: number;
   avgSentiment: number;
 }
 
-interface FormattedEventType {
-  id: string;
-  title: string;
-  course: string;
-  time: string;
-}
-
-interface FormattedFeedbackType {
-  id: string;
-  course: string;
-  content: string;
-  sentiment: string;
-  time: string;
-}
-
 export default function DashboardPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // State for real data with proper typing
-  const [userRole, setUserRole] = useState<string>("");
-  const [courses, setCourses] = useState<CourseType[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<FormattedEventType[]>(
-    [],
-  );
-  const [recentFeedback, setRecentFeedback] = useState<FormattedFeedbackType[]>(
-    [],
-  );
-  const [stats, setStats] = useState<StatsType>({
+  // State for data
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [stats, setStats] = useState<Stats>({
     totalCourses: 0,
     totalStudents: 0,
     responseRate: 0,
     avgSentiment: 0,
   });
 
-  // Fetch data when component mounts
+  // Fetch data on component mount
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!user) return;
 
       setIsLoading(true);
-      setError("");
+      setError(null);
 
       try {
         const supabase = createClient();
 
-        // Get user role first
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (profileError) {
-          console.error("Error fetching user profile:", profileError);
-          throw new Error("Could not determine user role");
-        }
-
-        setUserRole(profileData?.role || "teacher");
-        const isDean = profileData?.role === "dean";
-
-        // Fetch courses - all courses for dean, just owned courses for teachers
-        const coursesQuery = supabase
+        // Fetch all courses where the current user is the owner
+        const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
           .select("*, profiles(full_name)")
+          .eq("owner_id", user.id)
           .order("created_at", { ascending: false });
-
-        // If not dean, filter to only show own courses
-        if (!isDean) {
-          coursesQuery.eq("owner_id", user.id);
-        }
-
-        const { data: coursesData, error: coursesError } = await coursesQuery;
 
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
-          throw new Error("Failed to load courses");
+          setError("Failed to load your courses");
+          return;
         }
 
         setCourses(coursesData || []);
@@ -132,122 +120,98 @@ export default function DashboardPage() {
           0,
         );
 
-        // Get course IDs for events and feedback queries
-        const courseIds = (coursesData || []).map((course) => course.id);
-
-        // Only proceed if we have courses
-        if (courseIds.length > 0) {
-          // Fetch upcoming events
-          const now = new Date().toISOString();
-          const { data: eventsData, error: eventsError } = await supabase
-            .from("events")
-            .select("id, event_date, course_id, courses:course_id(name, code)")
-            .in("course_id", courseIds)
-            .gt("event_date", now)
-            .order("event_date", { ascending: true })
-            .limit(4);
-
-          if (eventsError) {
-            console.error("Error fetching events:", eventsError);
-          } else {
-            // Format events for display
-            const formattedEvents = (eventsData || []).map((event: any) => ({
-              id: event.id,
-              title: event.courses ? event.courses.name : "Unknown Course",
-              course: event.courses ? event.courses.code : "Unknown",
-              time: formatEventDate(event.event_date),
-            }));
-
-            setUpcomingEvents(formattedEvents);
-          }
-
-          // Fetch recent feedback
-          const { data: feedbackData, error: feedbackError } = await supabase
-            .from("feedback")
-            .select(
-              `
-              id, 
-              content, 
-              tone, 
-              created_at, 
-              events:event_id!inner(
-                course_id, 
-                courses:course_id(name, code)
-              )
-            `,
-            )
-            .in("events.course_id", courseIds)
-            .order("created_at", { ascending: false })
-            .limit(3);
-
-          if (feedbackError) {
-            console.error("Error fetching feedback:", feedbackError);
-          } else {
-            // Format feedback for display
-            const formattedFeedback = (feedbackData || []).map((item: any) => ({
-              id: item.id,
-              course:
-                item.events && item.events.courses
-                  ? item.events.courses.code
-                  : "Unknown",
-              content: item.content,
-              sentiment: item.tone,
-              time: formatRelativeTime(item.created_at),
-            }));
-
-            setRecentFeedback(formattedFeedback);
-          }
-
-          // Calculate stats
-          let totalFeedback = 0;
-          let positiveFeedback = 0;
-
-          const { data: statsData, error: statsError } = await supabase
-            .from("events")
-            .select("total_feedback_count, positive_feedback_count")
-            .in("course_id", courseIds);
-
-          if (!statsError && statsData) {
-            totalFeedback = statsData.reduce(
-              (sum, event) => sum + (event.total_feedback_count || 0),
-              0,
-            );
-
-            positiveFeedback = statsData.reduce(
-              (sum, event) => sum + (event.positive_feedback_count || 0),
-              0,
-            );
-          }
-
-          // Calculate response rate and sentiment
-          const totalPossibleResponses =
-            (coursesData || []).reduce(
-              (sum, course) => sum + (course.student_count || 0),
-              0,
-            ) * (statsData?.length || 0 || 1);
-
-          const responseRate =
-            totalPossibleResponses > 0
-              ? Math.round((totalFeedback / totalPossibleResponses) * 100)
-              : 0;
-
-          const avgSentiment =
-            totalFeedback > 0
-              ? Math.round((positiveFeedback / totalFeedback) * 100)
-              : 0;
-
+        // If no courses are found, set empty data and return early
+        if (!coursesData || coursesData.length === 0) {
           setStats({
-            totalCourses: coursesData?.length || 0,
-            totalStudents,
-            responseRate,
-            avgSentiment,
+            totalCourses: 0,
+            totalStudents: 0,
+            responseRate: 0,
+            avgSentiment: 0,
           });
+          setIsLoading(false);
+          return;
         }
+
+        // Get course IDs for further queries
+        const courseIds = coursesData.map((course) => course.id);
+
+        // Fetch only events for the teacher's courses
+        const { data: eventsData, error: eventsError } = await supabase
+          .from("events")
+          .select("*, courses(name, code)")
+          .in("course_id", courseIds)
+          .order("created_at", { ascending: false });
+
+        if (eventsError) {
+          console.error("Error fetching events:", eventsError);
+          setError("Failed to load events for your courses");
+          return;
+        }
+
+        setEvents(eventsData || []);
+
+        // If there are no events, set empty feedback and return
+        if (!eventsData || eventsData.length === 0) {
+          setFeedback([]);
+
+          // Set stats with available data
+          setStats({
+            totalCourses: coursesData.length,
+            totalStudents,
+            responseRate: 0,
+            avgSentiment: 0,
+          });
+
+          setIsLoading(false);
+          return;
+        }
+
+        // Get event IDs for feedback query
+        const eventIds = eventsData.map((event) => event.id);
+
+        // Fetch only feedback for the teacher's events
+        const { data: feedbackData, error: feedbackError } = await supabase
+          .from("feedback")
+          .select("*, events(course_id)")
+          .in("event_id", eventIds)
+          .order("created_at", { ascending: false });
+
+        if (feedbackError) {
+          console.error("Error fetching feedback:", feedbackError);
+          setError("Failed to load feedback for your courses");
+          return;
+        }
+
+        setFeedback(feedbackData || []);
+
+        // Calculate statistics
+        const totalFeedback = feedbackData?.length || 0;
+        const positiveFeedback =
+          feedbackData?.filter((f) => f.tone === "positive").length || 0;
+
+        // Calculate response rate and sentiment
+        const totalPossibleResponses =
+          totalStudents * (eventsData?.length || 1);
+        const responseRate =
+          totalPossibleResponses > 0
+            ? Math.round((totalFeedback / totalPossibleResponses) * 100)
+            : 0;
+
+        const avgSentiment =
+          totalFeedback > 0
+            ? Math.round((positiveFeedback / totalFeedback) * 100)
+            : 0;
+
+        // Set final stats
+        setStats({
+          totalCourses: coursesData.length,
+          totalStudents,
+          responseRate,
+          avgSentiment,
+        });
       } catch (err) {
-        console.error("Error:", err);
-        setError(
-          err instanceof Error ? err.message : "An unexpected error occurred",
-        );
+        console.error("Error fetching data:", err);
+        setError("An unexpected error occurred. Please refresh the page.");
       } finally {
         setIsLoading(false);
       }
@@ -305,6 +269,45 @@ export default function DashboardPage() {
     }
   };
 
+  // Get upcoming events (next 7 days)
+  const getUpcomingEvents = () => {
+    const now = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(now.getDate() + 7);
+
+    return events
+      .filter((event) => {
+        const eventDate = new Date(event.event_date);
+        return eventDate >= now && eventDate <= nextWeek;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.event_date).getTime() - new Date(b.event_date).getTime(),
+      )
+      .slice(0, 4)
+      .map((event) => ({
+        id: event.id,
+        title: event.courses?.name || "Unknown Course",
+        course: event.courses?.code || "Unknown",
+        time: formatEventDate(event.event_date),
+      }));
+  };
+
+  // Get recent feedback (last 3)
+  const getRecentFeedback = () => {
+    return feedback.slice(0, 3).map((item) => {
+      // Find the corresponding event
+      const event = events.find((e) => e.id === item.event_id);
+      return {
+        id: item.id,
+        course: event?.courses?.code || "Unknown",
+        content: item.content,
+        sentiment: item.tone,
+        time: formatRelativeTime(item.created_at),
+      };
+    });
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -336,6 +339,10 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // Get data for tabs
+  const upcomingEvents = getUpcomingEvents();
+  const recentFeedback = getRecentFeedback();
 
   // Build tab for Upcoming Events
   const upcomingTab = {
@@ -389,8 +396,7 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle>Recent Feedback</CardTitle>
           <CardDescription>
-            Latest student feedback across{" "}
-            {userRole === "dean" ? "all" : "your"} courses
+            Latest student feedback across your courses
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -437,16 +443,13 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {userRole === "dean" ? "Total Courses" : "Your Courses"}
-            </CardTitle>
-            <BookIcon className="h-4 w-4 text-emerald-600" />
+            <CardTitle className="text-sm font-medium">Your Courses</CardTitle>
+            <Book className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalCourses}</div>
             <p className="text-xs text-muted-foreground">
-              Active courses{" "}
-              {userRole === "dean" ? "in the system" : "this semester"}
+              Active courses this semester
             </p>
           </CardContent>
         </Card>
@@ -460,7 +463,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalStudents}</div>
             <p className="text-xs text-muted-foreground">
-              Enrolled across {userRole === "dean" ? "all" : "your"} courses
+              Enrolled across your courses
             </p>
           </CardContent>
         </Card>
@@ -490,20 +493,14 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Use the custom tabs component */}
+      {/* Custom Tabs for Upcoming Events & Recent Feedback */}
       <CustomTabs tabs={tabsData} />
 
-      {/* Course list */}
+      {/* Course List */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            {userRole === "dean" ? "All Courses" : "Your Courses"}
-          </CardTitle>
-          <CardDescription>
-            {userRole === "dean"
-              ? "All courses in the system"
-              : "Courses you're currently teaching"}
-          </CardDescription>
+          <CardTitle>Your Courses</CardTitle>
+          <CardDescription>Courses you're currently teaching</CardDescription>
         </CardHeader>
         <CardContent>
           {courses.length === 0 ? (
@@ -523,11 +520,8 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <div className="font-medium">{course.name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <span>{course.code}</span>
-                        {userRole === "dean" && course.profiles?.full_name && (
-                          <span>• {course.profiles.full_name}</span>
-                        )}
+                      <div className="text-sm text-muted-foreground">
+                        {course.code} • {course.student_count || 0} students
                       </div>
                     </div>
                   </div>
@@ -551,20 +545,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-// BookIcon component used in the dashboard cards
-const BookIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-  </svg>
-);

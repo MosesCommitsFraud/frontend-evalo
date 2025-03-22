@@ -53,16 +53,22 @@ interface Event {
   total_feedback_count: number;
 }
 
+// Custom use function implementation that matches React's behavior
+const use =
+  React.use ||
+  (<T,>(promise: T | Promise<T>): T =>
+    promise instanceof Promise ? (promise as unknown as T) : promise);
+
 // Route: /dashboard/courses/[courseId]/share/page.tsx
 interface CourseShareProps {
-  params: {
-    courseId: string;
-  };
+  params: { courseId: string } | Promise<{ courseId: string }>;
 }
 
-export default function CourseSharePage({ params }: CourseShareProps) {
-  // Use local state for the courseId instead of accessing params directly
-  const [courseId] = useState(() => params.courseId);
+export default function CourseSharePage(props: CourseShareProps) {
+  // Unwrap params using React.use if it's a Promise
+  const params = use(props.params);
+  const courseId = params.courseId;
+
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");
   const [events, setEvents] = useState<Event[]>([]);

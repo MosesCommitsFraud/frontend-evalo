@@ -324,7 +324,7 @@ export default function EventAnalyticsPage({
 
           feedbackData.forEach((item) => {
             const words = item.content.toLowerCase().split(/\W+/);
-            words.forEach((word) => {
+            words.forEach((word: string) => {
               if (word && !stopWords.has(word) && word.length > 2) {
                 wordCounts[word] = (wordCounts[word] || 0) + 1;
               }

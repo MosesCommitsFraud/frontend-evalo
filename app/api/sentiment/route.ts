@@ -49,7 +49,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in sentiment analysis:", error);
     return NextResponse.json(
-      { error: `Failed to analyze sentiment: ${error.message}` },
+      {
+        error: `Failed to analyze sentiment: ${error instanceof Error ? error.message : String(error)}`,
+      },
       { status: 500 },
     );
   }

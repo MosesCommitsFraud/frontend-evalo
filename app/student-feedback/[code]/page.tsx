@@ -21,18 +21,29 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-// Route: /student-share/[code]/page.tsx
+// Import React's native types for the use function if available
+type Usable<T> = T | Promise<T>;
+
+// Custom use function implementation that matches React's behavior
+const use =
+  React.use ||
+  (<T,>(promise: Usable<T>): T => {
+    if (promise instanceof Promise) {
+      throw promise; // This will be caught by React's Suspense
+    }
+    return promise;
+  });
+
 interface StudentFeedbackPageProps {
-  params: {
-    code?: string;
-  };
+  params: { code?: string } | Promise<{ code?: string }>;
 }
 
 export default function StudentFeedbackPage({
   params,
 }: StudentFeedbackPageProps) {
-  // Store code in a variable immediately
-  const codeFromRoute = params.code || "";
+  // Unwrap params using React.use if it's a Promise
+  const unwrappedParams = use(params);
+  const codeFromRoute = unwrappedParams.code || "";
 
   // Event and course information
   const [eventInfo, setEventInfo] = useState<{
@@ -239,7 +250,7 @@ export default function StudentFeedbackPage({
         console.error("Error fetching event data:", eventError);
       } else if (eventData) {
         // Prepare the updated counts
-        const updates: any = {
+        const updates: Record<string, unknown> = {
           total_feedback_count: (eventData.total_feedback_count || 0) + 1,
           updated_at: new Date().toISOString(),
         };

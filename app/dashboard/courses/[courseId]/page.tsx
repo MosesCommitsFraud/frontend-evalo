@@ -1,18 +1,16 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   BarChart3,
-  CalendarDays,
   MessageSquare,
   Settings,
   QrCode,
@@ -27,7 +25,6 @@ import {
   XCircle,
   Clock,
   Calendar,
-  BookOpen,
   Plus,
   Info,
   PieChart as PieChartIcon,
@@ -45,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { dataService } from "@/lib/data-service";
 import { toast } from "@/components/ui/toast";
 import { Course } from "@/lib/data-service";
@@ -60,12 +56,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-interface CoursePageProps {
-  params: {
-    courseId: string;
-  };
-}
 
 interface Event {
   id: string;
@@ -90,8 +80,16 @@ interface FeedbackItem {
   created_at: string;
 }
 
-export default function CoursePage({ params }: CoursePageProps) {
-  // Store courseId in a variable right away
+const use =
+  React.use ||
+  (<T,>(promise: T | Promise<T>): T =>
+    promise instanceof Promise ? (promise as unknown as T) : promise);
+
+export default function CoursePage(props: {
+  params: { courseId: string } | Promise<{ courseId: string }>;
+}) {
+  // Unwrap params using React.use if it's a Promise
+  const params = use(props.params);
   const courseId = params.courseId;
 
   // State for course data
@@ -281,30 +279,6 @@ export default function CoursePage({ params }: CoursePageProps) {
     return new Date(event.event_date) > new Date();
   };
 
-  // Get relative time description
-  const getRelativeTime = (dateString: string) => {
-    const eventDate = new Date(dateString);
-    const today = new Date();
-
-    // Reset time part for accurate day comparison
-    today.setHours(0, 0, 0, 0);
-    const compareDate = new Date(eventDate);
-    compareDate.setHours(0, 0, 0, 0);
-
-    const diffTime = compareDate.getTime() - today.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Tomorrow";
-    if (diffDays > 0 && diffDays < 7) return `In ${diffDays} days`;
-    if (diffDays < 0) {
-      if (diffDays === -1) return "Yesterday";
-      if (diffDays > -7) return `${Math.abs(diffDays)} days ago`;
-      return formatEventDate(dateString);
-    }
-    return formatEventDate(dateString);
-  };
-
   // Get sentiment icon based on sentiment
   const getSentimentIcon = (sentiment: string) => {
     switch (sentiment) {
@@ -447,34 +421,6 @@ export default function CoursePage({ params }: CoursePageProps) {
 
     return true;
   });
-
-  // Get status badge for events
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "open":
-        return (
-          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
-            <CheckCircle2 className="h-3 w-3 mr-1" />
-            Open
-          </Badge>
-        );
-      case "closed":
-        return (
-          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-            <XCircle className="h-3 w-3 mr-1" />
-            Closed
-          </Badge>
-        );
-      case "archived":
-        return (
-          <Badge variant="outline" className="text-muted-foreground">
-            Archived
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
 
   // Dashboard Tab Content
   const dashboardTabContent = (
@@ -1162,8 +1108,6 @@ interface EventCardProps {
 }
 
 function EventCard({ event, onStatusChange }: EventCardProps) {
-  const isUpcoming = new Date(event.event_date) > new Date();
-
   const getRelativeTime = (dateString: string) => {
     const eventDate = new Date(dateString);
     const today = new Date();

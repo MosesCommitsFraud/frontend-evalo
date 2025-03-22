@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -18,15 +17,16 @@ import {
   BarChart,
   Users,
   Book,
-  MessageSquare,
   Loader2,
   AlertTriangle,
+  ThumbsUp,
+  Minus,
+  ThumbsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/components/ui/toast";
-import { Badge } from "@/components/ui/badge";
 
 // Type definitions for our data
 interface Course {
@@ -308,6 +308,18 @@ export default function DashboardPage() {
     });
   };
 
+  // Helper function to get appropriate sentiment icon
+  const getSentimentIcon = (sentiment: string) => {
+    switch (sentiment) {
+      case "positive":
+        return <ThumbsUp className="h-4 w-4 text-emerald-600" />;
+      case "negative":
+        return <ThumbsDown className="h-4 w-4 text-red-600" />;
+      default:
+        return <Minus className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -388,7 +400,6 @@ export default function DashboardPage() {
     ),
   };
 
-  // Build tab for Recent Feedback
   const feedbackTab = {
     label: "Recent Feedback",
     content: (
@@ -407,24 +418,36 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-4">
               {recentFeedback.map((item) => (
-                <div key={item.id} className="space-y-2">
-                  <div className="flex items-center">
-                    <span
-                      className={`mr-2 h-2 w-2 rounded-full ${
-                        item.sentiment === "positive"
-                          ? "bg-emerald-500"
-                          : item.sentiment === "negative"
-                            ? "bg-red-500"
-                            : "bg-gray-500"
-                      }`}
-                    />
-                    <p className="text-sm font-medium">{item.course}</p>
-                    <p className="ml-auto text-xs text-muted-foreground">
-                      {item.time}
-                    </p>
-                  </div>
-                  <p className="text-sm">{item.content}</p>
-                </div>
+                <Card key={item.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={
+                            item.sentiment === "positive"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : item.sentiment === "negative"
+                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                          }
+                        >
+                          <span className="flex items-center gap-1">
+                            {getSentimentIcon(item.sentiment)}
+                            {item.sentiment.charAt(0).toUpperCase() +
+                              item.sentiment.slice(1)}
+                          </span>
+                        </Badge>
+                        <Badge variant="outline">{item.course}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{item.time}</span>
+                      </div>
+                    </div>
+                    <p>{item.content}</p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -500,7 +523,9 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Your Courses</CardTitle>
-          <CardDescription>Courses you're currently teaching</CardDescription>
+          <CardDescription>
+            Courses you&#39;re currently teaching
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {courses.length === 0 ? (

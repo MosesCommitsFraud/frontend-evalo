@@ -115,9 +115,6 @@ interface CoursePageData {
 }
 
 export default function AnalyticsPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
 
   // UI state
@@ -412,9 +409,6 @@ export default function AnalyticsPage() {
     // Update course page data
     setCoursePageData({
       teacherCourses: courses.map((course) => {
-        // Find events for this course
-        const courseEvents = events.filter((e) => e.course_id === course.id);
-
         // Find feedback for these events
         const courseFeedback = feedback.filter((f) => {
           const event = events.find((e) => e.id === f.event_id);
@@ -506,12 +500,6 @@ export default function AnalyticsPage() {
       default:
         return <Minus className="h-4 w-4 text-gray-600" />;
     }
-  };
-
-  // Get course name by ID
-  const getCourseName = (courseId: string) => {
-    const course = teacherCourses.find((c) => c.id === courseId);
-    return course ? `${course.code}: ${course.name}` : "Unknown Course";
   };
 
   // Colors for pie charts
@@ -719,7 +707,7 @@ export default function AnalyticsPage() {
                   <Book className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium mb-2">No courses found</h3>
                   <p className="text-muted-foreground">
-                    You don't have any assigned courses yet
+                    You don&#39;t have any assigned courses yet
                   </p>
                 </div>
               ) : (
@@ -769,7 +757,7 @@ export default function AnalyticsPage() {
               <Book className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No courses found</h3>
               <p className="text-muted-foreground">
-                You don't have any assigned courses yet
+                You don&#39;t have any assigned courses yet
               </p>
             </div>
           ) : (
@@ -827,9 +815,7 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="mt-4 flex justify-end">
                       <Button variant="outline" size="sm" asChild>
-                        <Link
-                          href={`/dashboard/courses/${course.id}/analytics`}
-                        >
+                        <Link href={`/dashboard/courses/${course.id}`}>
                           View Details
                         </Link>
                       </Button>
@@ -1163,7 +1149,7 @@ export default function AnalyticsPage() {
                   <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium mb-2">No feedback yet</h3>
                   <p className="text-muted-foreground">
-                    You haven't received any feedback for your courses yet
+                    You haven&#39;t received any feedback for your courses yet
                   </p>
                 </div>
               ) : filteredFeedback.length === 0 ? (

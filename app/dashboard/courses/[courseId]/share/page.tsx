@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import {
   CopyIcon,
   RefreshCw,
-  Check,
   Info,
   Plus,
   AlertTriangle,
@@ -37,6 +36,7 @@ import { createClient } from "@/lib/supabase/client";
 import CreateEventDialog from "@/components/create-event-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import QRCode from "@/components/qrcode";
 
 // Define the interface for events
 interface Event {
@@ -213,7 +213,7 @@ export default function CourseSharePage({ params }: CourseShareProps) {
   };
 
   // Handle new event created
-  const handleEventCreated = (eventId: string, code: string) => {
+  const handleEventCreated = (eventId: string) => {
     // Refresh the events list to include the new event
     const fetchEvents = async () => {
       try {
@@ -357,73 +357,11 @@ export default function CourseSharePage({ params }: CourseShareProps) {
                     {/* QR Code Display */}
                     <div className="flex flex-col items-center gap-6 p-6 border rounded-xl border-dashed">
                       <div className="h-64 w-64 bg-white border shadow-sm rounded-lg overflow-hidden flex items-center justify-center">
-                        {/* QR code for the share link */}
-                        <svg
-                          viewBox="0 0 200 200"
-                          className="h-56 w-56"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          {/* Simple QR code SVG for demonstration purposes */}
-                          <rect width="200" height="200" fill="white" />
-                          <rect
-                            x="50"
-                            y="50"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="65"
-                            y="50"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="80"
-                            y="50"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="50"
-                            y="65"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="80"
-                            y="65"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="50"
-                            y="80"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="65"
-                            y="80"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          <rect
-                            x="80"
-                            y="80"
-                            width="15"
-                            height="15"
-                            fill="black"
-                          />
-                          {/* Add more rectangles for a more complex QR code look */}
-                        </svg>
+                        <QRCode
+                          text={`${window.location.origin}/student-feedback/${selectedEvent.entry_code}`}
+                          size={224}
+                          level="M"
+                        />
                       </div>
 
                       <div className="flex flex-col items-center">

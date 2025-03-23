@@ -47,11 +47,13 @@ import {
   Key,
   Link as LinkIcon,
   Loader2,
+  Building2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { dataService } from "@/lib/data-service";
 import { toast } from "@/components/ui/toast";
 import { Department } from "@/lib/data-service";
+import InviteCodeManager from "@/components/invite-code-manager";
 
 export default function AdminSettingsPage() {
   // State for system settings
@@ -182,6 +184,23 @@ export default function AdminSettingsPage() {
       });
     }
   };
+
+  // Organizations Tab Content
+  const organizationsTabContent = (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization Management</CardTitle>
+          <CardDescription>
+            Manage your organization and invite users
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InviteCodeManager />
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   // Departments Tab Content
   const departmentsTabContent = (
@@ -678,6 +697,15 @@ export default function AdminSettingsPage() {
         </span>
       ),
       content: systemTabContent,
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Organizations
+        </span>
+      ),
+      content: organizationsTabContent,
     },
     {
       label: (

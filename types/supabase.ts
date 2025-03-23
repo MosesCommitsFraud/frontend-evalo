@@ -21,17 +21,19 @@ export interface Database {
           department: string | null;
           bio: string | null;
           avatar_url: string | null;
+          organization_id: string | null;
         };
         Insert: {
           id: string;
           email: string;
           full_name?: string | null;
-          role: "teacher" | "dean";
+          role?: "teacher" | "dean";
           created_at?: string;
           updated_at?: string;
           department?: string | null;
           bio?: string | null;
           avatar_url?: string | null;
+          organization_id?: string | null;
         };
         Update: {
           id?: string;
@@ -43,9 +45,9 @@ export interface Database {
           department?: string | null;
           bio?: string | null;
           avatar_url?: string | null;
+          organization_id?: string | null;
         };
       };
-      // Rest of the tables remain the same
       courses: {
         Row: {
           id: string;
@@ -56,6 +58,8 @@ export interface Database {
           created_at: string;
           updated_at: string;
           cycle: string | null;
+          teacher: string | null;
+          organization_id: string;
         };
         Insert: {
           id?: string;
@@ -66,6 +70,8 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           cycle?: string | null;
+          teacher?: string | null;
+          organization_id: string;
         };
         Update: {
           id?: string;
@@ -76,6 +82,8 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           cycle?: string | null;
+          teacher?: string | null;
+          organization_id?: string;
         };
       };
       events: {
@@ -91,6 +99,7 @@ export interface Database {
           negative_feedback_count: number;
           neutral_feedback_count: number;
           total_feedback_count: number;
+          organization_id: string;
         };
         Insert: {
           id?: string;
@@ -104,6 +113,7 @@ export interface Database {
           negative_feedback_count?: number;
           neutral_feedback_count?: number;
           total_feedback_count?: number;
+          organization_id: string;
         };
         Update: {
           id?: string;
@@ -117,6 +127,7 @@ export interface Database {
           negative_feedback_count?: number;
           neutral_feedback_count?: number;
           total_feedback_count?: number;
+          organization_id?: string;
         };
       };
       feedback: {
@@ -128,6 +139,7 @@ export interface Database {
           tone: "positive" | "negative" | "neutral";
           is_reviewed: boolean;
           created_at: string;
+          organization_id: string;
         };
         Insert: {
           id?: string;
@@ -137,6 +149,7 @@ export interface Database {
           tone: "positive" | "negative" | "neutral";
           is_reviewed?: boolean;
           created_at?: string;
+          organization_id: string;
         };
         Update: {
           id?: string;
@@ -146,6 +159,7 @@ export interface Database {
           tone?: "positive" | "negative" | "neutral";
           is_reviewed?: boolean;
           created_at?: string;
+          organization_id?: string;
         };
       };
       departments: {
@@ -155,6 +169,7 @@ export interface Database {
           code: string;
           created_at: string;
           updated_at: string;
+          organization_id: string;
         };
         Insert: {
           id?: string;
@@ -162,11 +177,39 @@ export interface Database {
           code: string;
           created_at?: string;
           updated_at?: string;
+          organization_id: string;
         };
         Update: {
           id?: string;
           name?: string;
           code?: string;
+          created_at?: string;
+          updated_at?: string;
+          organization_id?: string;
+        };
+      };
+      organizations: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          invite_code: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          invite_code?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          invite_code?: string | null;
           created_at?: string;
           updated_at?: string;
         };

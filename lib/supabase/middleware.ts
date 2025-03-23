@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
       // Check if profile exists
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("*, organization_id")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -65,6 +65,48 @@ export async function updateSession(request: NextRequest) {
         if (insertError) {
           console.error("Error creating profile:", insertError);
         }
+      }
+
+      // Check for organization membership
+      const hasOrganization = profile && profile.organization_id;
+
+      // Define public routes that don't require authentication
+      const publicRoutes = [
+        "/",
+        "/auth/sign-in",
+        "/auth/sign-up",
+        "/auth/forgot-password",
+        "/auth/reset-password",
+        "/auth/callback",
+        "/student-share", // Keep student share public
+        "/access-denied", // Access denied page
+      ];
+
+      // Define organization routes (require auth but not organization)
+      const organizationRoutes = ["/auth/organization"];
+
+      // Check if current path is a public route
+      const isPublicRoute = publicRoutes.some((route) => {
+        // Handle exact matches and routes that have additional path segments
+        return (
+          route === request.nextUrl.pathname ||
+          (route !== "/" && request.nextUrl.pathname.startsWith(route + "/"))
+        );
+      });
+
+      // Check if current path is an organization route
+      const isOrganizationRoute = organizationRoutes.some((route) => {
+        return (
+          route === request.nextUrl.pathname ||
+          request.nextUrl.pathname.startsWith(route + "/")
+        );
+      });
+
+      // If user has no organization and not on allowed routes, redirect to organization page
+      if (!hasOrganization && !isPublicRoute && !isOrganizationRoute) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/auth/organization";
+        return NextResponse.redirect(url);
       }
     } catch (e) {
       console.error("Error checking/creating profile:", e);

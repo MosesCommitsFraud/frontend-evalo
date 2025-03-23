@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 3) Check if the user already has a profile
       const { data: existingProfile, error: selectError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("*, organization_id")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -133,7 +133,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 5) Redirect after sign-in (and profile check/creation) is complete
+      // 5) Check if user belongs to an organization
+      if (!existingProfile?.organization_id) {
+        // If no organization, redirect to organization page
+        router.push("/auth/organization");
+        return { error: null };
+      }
+
+      // 6) Redirect after sign-in (and profile check/creation) is complete
       const redirectTo = searchParams.get("redirectTo") || "/dashboard";
       router.push(redirectTo);
 
@@ -145,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Sign up with email and password
+  // Modified signUp function for AuthContext.tsx
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
       // First sign up the user
@@ -163,33 +171,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
 
-      // Get the user from the signup response directly (more reliable)
-      const newUser = data.user;
-
-      if (newUser) {
-        console.log("Creating profile for user:", newUser.id);
-
-        // Insert profile record with proper error handling
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: newUser.id,
-          email: newUser.email || email, // Fallback to provided email
-          full_name: fullName,
-          role: "teacher", // Default role
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          department: "", // Make sure to include all required fields
-        });
-
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-          // You might want to handle this error specifically
-          // Consider whether to show this error to the user or handle it silently
-        }
-      } else {
-        console.error("No user returned from sign-up operation");
-      }
+      // Successfully signed up - no need to create profile here
+      // The profile will be created when the user signs in for the first time
+      // or through the middleware after email confirmation
 
       if (!error) {
+        // Show success message or redirect to confirmation page
         const redirectTo = searchParams.get("redirectTo") || "/dashboard";
         router.push(redirectTo);
       }

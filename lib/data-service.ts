@@ -1,4 +1,4 @@
-// lib/data-service.ts - Modified to avoid server client
+// lib/data-service.ts
 import { createClient } from "./supabase/client";
 import { Database } from "@/types/supabase";
 
@@ -25,8 +25,181 @@ export type DepartmentInsert =
 export type DepartmentUpdate =
   Database["public"]["Tables"]["departments"]["Update"];
 
+export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
+export type OrganizationInsert =
+  Database["public"]["Tables"]["organizations"]["Insert"];
+export type OrganizationUpdate =
+  Database["public"]["Tables"]["organizations"]["Update"];
+
 // Client-side data service
 export const dataService = {
+  // Organization Management
+  getUserOrganization: async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Get the user's profile to find their organization
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id, role")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    // Get organization details
+    return supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", profile.organization_id)
+      .single();
+  },
+
+  createOrganization: async (name: string, slug: string) => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Generate a random invite code
+    const inviteCode = Math.random()
+      .toString(36)
+      .substring(2, 10)
+      .toUpperCase();
+
+    // Create the organization
+    const { data: organization, error: orgError } = await supabase
+      .from("organizations")
+      .insert({
+        name,
+        slug,
+        invite_code: inviteCode,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (orgError || !organization) {
+      return {
+        data: null,
+        error: orgError || new Error("Failed to create organization"),
+      };
+    }
+
+    // Update the user's profile to set organization and make them a dean (admin)
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        organization_id: organization.id,
+        role: "dean", // Make the creator a dean
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (profileError) {
+      // Try to rollback by deleting the organization
+      await supabase.from("organizations").delete().eq("id", organization.id);
+      return { data: null, error: profileError };
+    }
+
+    return { data: organization, error: null };
+  },
+
+  joinOrganizationWithCode: async (inviteCode: string) => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Find the organization with this invite code
+    const { data: organization, error: orgError } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("invite_code", inviteCode)
+      .single();
+
+    if (orgError || !organization) {
+      return {
+        data: null,
+        error: orgError || new Error("Invalid invite code"),
+      };
+    }
+
+    // Update the user's profile to join the organization as a teacher (default role)
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        organization_id: organization.id,
+        role: "teacher", // Users join as teachers by default
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id)
+      .select()
+      .single();
+
+    if (profileError) {
+      return { data: null, error: profileError };
+    }
+
+    return { data: profile, error: null };
+  },
+
+  generateNewInviteCode: async (organizationId: string) => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Check if user is a dean
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .eq("organization_id", organizationId)
+      .single();
+
+    if (!profile || profile.role !== "dean") {
+      return {
+        data: null,
+        error: new Error("Only deans can generate invite codes"),
+      };
+    }
+
+    // Generate a new random invite code
+    const inviteCode = Math.random()
+      .toString(36)
+      .substring(2, 10)
+      .toUpperCase();
+
+    return supabase
+      .from("organizations")
+      .update({
+        invite_code: inviteCode,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", organizationId)
+      .select()
+      .single();
+  },
+
+  getOrganizationMembers: async (organizationId: string) => {
+    const supabase = createClient();
+
+    return supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url, role")
+      .eq("organization_id", organizationId);
+  },
+
   // Profile Management
   getProfile: async () => {
     const supabase = createClient();
@@ -58,18 +231,56 @@ export const dataService = {
 
   getAllProfiles: async () => {
     const supabase = createClient();
+
+    // Get the user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    // Only get profiles in the same organization
     return supabase
       .from("profiles")
       .select("*")
+      .eq("organization_id", profile.organization_id)
       .order("full_name", { ascending: true });
   },
 
   getTeachers: async () => {
     const supabase = createClient();
+
+    // Get the user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    // Only get teachers in the same organization
     return supabase
       .from("profiles")
       .select("*")
       .eq("role", "teacher")
+      .eq("organization_id", profile.organization_id)
       .order("full_name", { ascending: true });
   },
 
@@ -94,9 +305,28 @@ export const dataService = {
 
   getAllCourses: async () => {
     const supabase = createClient();
+
+    // Get the user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    // Only get courses in the same organization
     return supabase
       .from("courses")
       .select("*, profiles(full_name)")
+      .eq("organization_id", profile.organization_id)
       .order("created_at", { ascending: false });
   },
 
@@ -110,7 +340,10 @@ export const dataService = {
   },
 
   createCourse: async (
-    course: Omit<CourseInsert, "owner_id" | "created_at" | "updated_at">,
+    course: Omit<
+      CourseInsert,
+      "owner_id" | "created_at" | "updated_at" | "organization_id"
+    >,
   ) => {
     const supabase = createClient();
     const {
@@ -118,11 +351,27 @@ export const dataService = {
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
+    // Get the user's organization_id from their profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile?.organization_id) {
+      return {
+        data: null,
+        error:
+          profileError || new Error("User not associated with an organization"),
+      };
+    }
+
     return supabase
       .from("courses")
       .insert({
         ...course,
         owner_id: user.id,
+        organization_id: profile.organization_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -160,9 +409,28 @@ export const dataService = {
 
   getAllEvents: async () => {
     const supabase = createClient();
+
+    // Get the user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    // Only get events in the same organization
     return supabase
       .from("events")
       .select("*, courses(name, code)")
+      .eq("organization_id", profile.organization_id)
       .order("event_date", { ascending: false });
   },
 
@@ -184,13 +452,30 @@ export const dataService = {
       | "total_feedback_count"
       | "created_at"
       | "updated_at"
+      | "organization_id"
     >,
   ) => {
     const supabase = createClient();
+
+    // Get organization_id from the associated course
+    const { data: course, error: courseError } = await supabase
+      .from("courses")
+      .select("organization_id")
+      .eq("id", event.course_id)
+      .single();
+
+    if (courseError || !course) {
+      return {
+        data: null,
+        error: courseError || new Error("Course not found"),
+      };
+    }
+
     return supabase
       .from("events")
       .insert({
         ...event,
+        organization_id: course.organization_id,
         positive_feedback_count: 0,
         negative_feedback_count: 0,
         neutral_feedback_count: 0,
@@ -269,14 +554,17 @@ export const dataService = {
   },
 
   submitFeedback: async (
-    feedback: Omit<FeedbackInsert, "is_reviewed" | "created_at">,
+    feedback: Omit<
+      FeedbackInsert,
+      "is_reviewed" | "created_at" | "organization_id"
+    >,
   ) => {
     const supabase = createClient();
 
-    // Get the event to update share counts
+    // Get the event to update feedback counts and get organization_id
     const { data: event } = await supabase
       .from("events")
-      .select("*")
+      .select("*, organization_id")
       .eq("id", feedback.event_id)
       .single();
 
@@ -284,11 +572,12 @@ export const dataService = {
       return { data: null, error: new Error("Event not found") };
     }
 
-    // Insert the share
+    // Insert the feedback with organization_id
     const { data, error } = await supabase
       .from("feedback")
       .insert({
         ...feedback,
+        organization_id: event.organization_id,
         is_reviewed: false,
         created_at: new Date().toISOString(),
       })
@@ -297,7 +586,7 @@ export const dataService = {
 
     if (error) return { data, error };
 
-    // Update the share counts on the event
+    // Update the feedback counts on the event
     let positive_feedback_count = event.positive_feedback_count || 0;
     let negative_feedback_count = event.negative_feedback_count || 0;
     let neutral_feedback_count = event.neutral_feedback_count || 0;
@@ -472,25 +761,44 @@ export const dataService = {
     };
   },
 
-  // Replace the getGlobalAnalytics function in your lib/data-service.ts file
-
   getGlobalAnalytics: async () => {
     const supabase = createClient();
 
-    // Get courses count
+    // Get user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    const organizationId = profile.organization_id;
+
+    // Get courses count in the organization
     const { count: coursesCount } = await supabase
       .from("courses")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", organizationId);
 
-    // Get events count
+    // Get events count in the organization
     const { count: eventsCount } = await supabase
       .from("events")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", organizationId);
 
-    // Get all feedback and calculate stats directly from feedback table (not from event counters)
+    // Get all feedback in the organization
     const { data: allFeedback, error: feedbackError } = await supabase
       .from("feedback")
-      .select("id, tone, created_at, event_id");
+      .select("id, tone, created_at, event_id")
+      .eq("organization_id", organizationId);
 
     if (feedbackError) {
       console.error("Error fetching feedback:", feedbackError);
@@ -576,23 +884,65 @@ export const dataService = {
     };
   },
 
-  // Add these functions to the dataService object
+  // Department Management
   getDepartments: async () => {
     const supabase = createClient();
+
+    // Get user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
     return supabase
       .from("departments")
       .select("*")
+      .eq("organization_id", profile.organization_id)
       .order("name", { ascending: true });
   },
 
   createDepartment: async (
-    department: Omit<DepartmentInsert, "created_at" | "updated_at">,
+    department: Omit<
+      DepartmentInsert,
+      "created_at" | "updated_at" | "organization_id"
+    >,
   ) => {
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Get the user's organization_id from their profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile?.organization_id) {
+      return {
+        data: null,
+        error:
+          profileError || new Error("User not associated with an organization"),
+      };
+    }
+
     return supabase
       .from("departments")
       .insert({
         ...department,
+        organization_id: profile.organization_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

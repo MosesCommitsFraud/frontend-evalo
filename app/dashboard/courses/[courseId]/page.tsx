@@ -162,11 +162,23 @@ export default function CoursePage(props: {
         const supabase = createClient();
 
         // Fetch events for this course
+        const { data: course } = await supabase
+          .from("courses")
+          .select("organization_id")
+          .eq("id", courseId)
+          .single();
+
+        if (!course) {
+          console.error("Course not found");
+          return;
+        }
+
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*")
           .eq("course_id", courseId)
-          .order("event_date", { ascending: true });
+          .eq("organization_id", course.organization_id) // <- ADD THIS FILTER
+          .order("created_at", { ascending: false });
 
         if (eventsError) {
           console.error("Error fetching events:", eventsError);

@@ -183,12 +183,8 @@ export default function AdminAnalyticsPage() {
         setTeachers(teachersData?.filter((t) => t.role === "teacher") || []);
 
         // Fetch all events
-        const supabase = createClient();
-        const { data: eventsData, error: eventsError } = await supabase
-          .from("events")
-          .select("*, courses(name, code)")
-          .order("created_at", { ascending: false });
-
+        const { data: eventsData, error: eventsError } =
+          await dataService.getAllEvents();
         if (eventsError) {
           console.error("Error fetching events:", eventsError);
           throw new Error("Failed to load event data");

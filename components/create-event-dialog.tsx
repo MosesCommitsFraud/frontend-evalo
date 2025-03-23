@@ -81,9 +81,23 @@ export default function CreateEventDialog({
       // Generate a unique code for this event
       const entryCode = generateEventCode();
 
+      // MODIFY event creation to include organization_id
       const supabase = createClient();
 
-      // Save the event to Supabase
+      // Get organization_id from the associated course
+      const { data: course, error: courseError } = await supabase
+        .from("courses")
+        .select("organization_id")
+        .eq("id", courseId)
+        .single();
+
+      if (courseError || !course) {
+        console.error("Error getting course:", courseError);
+        setError("Failed to retrieve course information");
+        return;
+      }
+
+      // Save the event to Supabase with organization_id
       const { data, error } = await supabase
         .from("events")
         .insert({
@@ -91,12 +105,13 @@ export default function CreateEventDialog({
           event_date: eventDate.toISOString(),
           status: "open", // Default to open
           entry_code: entryCode,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          organization_id: course.organization_id, // <- ADD THIS
           positive_feedback_count: 0,
           negative_feedback_count: 0,
           neutral_feedback_count: 0,
           total_feedback_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .select();
 

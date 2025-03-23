@@ -130,17 +130,23 @@ export default function TeachersPage() {
         }
 
         // Fetch all teachers and deans (both roles)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("organization_id")
+          .eq("id", user.id)
+          .single();
+
+        if (!profile?.organization_id) {
+          setError("User not part of an organization");
+          return;
+        }
+
         const { data: teachersData, error: teachersError } = await supabase
           .from("profiles")
           .select("*")
+          .eq("organization_id", profile.organization_id)
           .or("role.eq.teacher,role.eq.dean")
           .order("full_name", { ascending: true });
-
-        if (teachersError) {
-          console.error("Error fetching teachers:", teachersError);
-          setError("Failed to load teachers");
-          return;
-        }
 
         setTeachers(teachersData || []);
         console.log("Teachers loaded:", teachersData?.length);

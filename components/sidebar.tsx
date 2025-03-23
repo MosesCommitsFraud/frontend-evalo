@@ -186,7 +186,26 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
 
         // If user is admin, fetch all courses
         // Otherwise, fetch only user's courses
-        let query = supabase.from("courses").select("*");
+        // Get organization_id
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("organization_id")
+          .eq("id", user.id)
+          .single();
+
+        if (!profile?.organization_id) {
+          toast({
+            title: "Error",
+            description: "You don't belong to an organization",
+          });
+          return;
+        }
+
+        // Add organization filter
+        let query = supabase
+          .from("courses")
+          .select("*")
+          .eq("organization_id", profile.organization_id);
 
         if (!isAdmin) {
           query = query.or(`owner_id.eq.${user.id},teacher.eq.${user.id}`);

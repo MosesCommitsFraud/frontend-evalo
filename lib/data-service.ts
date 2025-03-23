@@ -31,6 +31,29 @@ export type OrganizationInsert =
 export type OrganizationUpdate =
   Database["public"]["Tables"]["organizations"]["Update"];
 
+const getUserOrganizationId = async () => {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !profile?.organization_id) {
+    throw new Error("User not in an organization");
+  }
+
+  return profile.organization_id;
+};
+
 // Client-side data service
 export const dataService = {
   // Organization Management
@@ -352,56 +375,80 @@ export const dataService = {
   // Course Management
   getCourses: async (userId?: string) => {
     const supabase = createClient();
+    let currentUserId = userId;
 
-    if (!userId) {
+    if (!currentUserId) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return { data: null, error: new Error("User not found") };
-      userId = user.id;
+      currentUserId = user.id;
     }
 
-    return supabase
-      .from("courses")
-      .select("*")
-      .eq("owner_id", userId)
-      .order("created_at", { ascending: false });
-  },
-
-  getAllCourses: async () => {
-    const supabase = createClient();
-
-    // Get the user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
+    // Get organization_id of the current user
     const { data: profile } = await supabase
       .from("profiles")
       .select("organization_id")
-      .eq("id", user.id)
+      .eq("id", currentUserId)
       .single();
 
     if (!profile?.organization_id) {
       return { data: null, error: new Error("User not in an organization") };
     }
 
-    // Only get courses in the same organization
-    return supabase
+    // Filter by organization_id AND owner_id if requested
+    let query = supabase
       .from("courses")
-      .select("*, profiles(full_name)")
-      .eq("organization_id", profile.organization_id)
-      .order("created_at", { ascending: false });
+      .select("*")
+      .eq("organization_id", profile.organization_id);
+
+    if (userId) {
+      // If specific userId provided, filter by that owner
+      query = query.eq("owner_id", userId);
+    }
+
+    return query.order("created_at", { ascending: false });
+  },
+
+  getAllCourses: async () => {
+    const supabase = createClient();
+
+    try {
+      const organizationId = await getUserOrganizationId();
+
+      return supabase
+        .from("courses")
+        .select("*, profiles(full_name)")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false });
+    } catch (error) {
+      console.error("Error getting courses:", error);
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
   },
 
   getCourseById: async (id: string) => {
     const supabase = createClient();
-    return supabase
-      .from("courses")
-      .select("*, profiles(full_name, email)")
-      .eq("id", id)
-      .single();
+
+    try {
+      const organizationId = await getUserOrganizationId();
+
+      return supabase
+        .from("courses")
+        .select("*, profiles(full_name, email)")
+        .eq("id", id)
+        .eq("organization_id", organizationId)
+        .single();
+    } catch (error) {
+      console.error("Error getting course:", error);
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
   },
 
   createCourse: async (
@@ -597,6 +644,33 @@ export const dataService = {
       .select("*, courses(name, code, owner_id)")
       .eq("entry_code", code)
       .single();
+  },
+
+  getAllFeedback: async () => {
+    const supabase = createClient();
+
+    // Get the user's organization_id
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      return { data: null, error: new Error("User not in an organization") };
+    }
+
+    // Only get feedback for the same organization
+    return supabase
+      .from("feedback")
+      .select("*, events!inner(course_id)")
+      .eq("organization_id", profile.organization_id)
+      .order("created_at", { ascending: false });
   },
 
   // Feedback Management

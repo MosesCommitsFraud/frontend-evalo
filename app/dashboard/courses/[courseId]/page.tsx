@@ -161,7 +161,7 @@ export default function CoursePage(props: {
       try {
         const supabase = createClient();
 
-        // Fetch events for this course
+        // Fetch course to get organization_id
         const { data: course } = await supabase
           .from("courses")
           .select("organization_id")
@@ -170,14 +170,16 @@ export default function CoursePage(props: {
 
         if (!course) {
           console.error("Course not found");
+          setEventError("Failed to load course information");
           return;
         }
 
+        // Fetch events for this course with organization filter
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*")
           .eq("course_id", courseId)
-          .eq("organization_id", course.organization_id) // <- ADD THIS FILTER
+          .eq("organization_id", course.organization_id)
           .order("created_at", { ascending: false });
 
         if (eventsError) {
@@ -194,6 +196,7 @@ export default function CoursePage(props: {
               .from("feedback")
               .select("*")
               .in("event_id", eventIds)
+              .eq("organization_id", course.organization_id)
               .order("created_at", { ascending: false });
 
             if (feedbackError) {

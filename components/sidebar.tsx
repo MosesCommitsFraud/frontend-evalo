@@ -14,7 +14,6 @@ import {
   HelpCircle,
   CalendarClock,
   Loader2,
-  Building,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +23,44 @@ import CreateCourseDialog, { Course } from "@/components/create-course-dialog";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+
+// Skeleton loader component to prevent "popping" effect
+const SidebarSkeleton = memo(() => (
+  <div className="px-4 py-4 space-y-6 animate-pulse">
+    {/* OVERVIEW Section */}
+    <div className="space-y-2">
+      <div className="h-4 w-20 bg-muted rounded"></div>
+      <div className="space-y-1">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-9 bg-muted rounded-md"></div>
+        ))}
+      </div>
+    </div>
+
+    {/* SETTINGS Section */}
+    <div className="space-y-2">
+      <div className="h-4 w-20 bg-muted rounded"></div>
+      <div className="space-y-1">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="h-9 bg-muted rounded-md"></div>
+        ))}
+      </div>
+    </div>
+
+    <div className="h-[1px] bg-border my-2"></div>
+
+    {/* Courses Section */}
+    <div className="space-y-2">
+      <div className="h-4 w-20 bg-muted rounded"></div>
+      <div className="space-y-1">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-9 bg-muted rounded-md"></div>
+        ))}
+      </div>
+    </div>
+  </div>
+));
+SidebarSkeleton.displayName = "SidebarSkeleton";
 
 // Explicitly type the props for NavItem
 interface NavItemProps {
@@ -109,6 +146,7 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [contentReady, setContentReady] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
@@ -173,11 +211,16 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
         console.error("Exception fetching courses:", error);
       } finally {
         setLoading(false);
+        // Mark content as ready when all async operations complete
+        setContentReady(true);
       }
     };
 
     if (user) {
       fetchCourses();
+    } else {
+      // If no user, just mark content as ready
+      setContentReady(true);
     }
   }, [user, isAdmin]);
 
@@ -205,113 +248,120 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
       style={{ contain: "layout" }}
     >
       <div className="w-64 contain-layout">
-        {/* OVERVIEW Section */}
-        <div className="px-4 py-4 space-y-6">
-          <SidebarSection title="OVERVIEW">
-            <NavItem
-              href="/dashboard"
-              title="Dashboard"
-              icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-            <NavItem
-              href="/analytics"
-              title="Analytics"
-              icon={<BarChart3 className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-            <NavItem
-              href="/calendar"
-              title="Calendar"
-              icon={<CalendarClock className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-          </SidebarSection>
-
-          {/* ADMIN MANAGEMENT Section - Only show for admins */}
-          {isAdmin && (
-            <SidebarSection title="ADMIN">
-              <NavItem
-                href="/admin-analytics"
-                title="Admin Analytics"
-                icon={<ChartLine className="h-4 w-4 mr-2" />}
-                pathname={isClient ? pathname : null}
-              />
-              <NavItem
-                href="/teachers"
-                title="Teachers"
-                icon={<GraduationCap className="h-4 w-4 mr-2" />}
-                pathname={isClient ? pathname : null}
-              />
-              <NavItem
-                href="/admin-settings"
-                title="Admin Settings"
-                icon={<ShieldCheck className="h-4 w-4 mr-2" />}
-                pathname={isClient ? pathname : null}
-              />
-            </SidebarSection>
-          )}
-
-          {/* SETTINGS Section - For all users */}
-          <SidebarSection title="SETTINGS">
-            <NavItem
-              href="/settings"
-              title="Account Settings"
-              icon={<Settings className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-            <NavItem
-              href="/help"
-              title="Help & Support"
-              icon={<HelpCircle className="h-4 w-4 mr-2" />}
-              pathname={isClient ? pathname : null}
-            />
-          </SidebarSection>
-        </div>
-        <Separator className="my-2" />
-
-        {/* Courses Section */}
-        <div className="px-3 py-2 flex-1 flex flex-col">
-          <div className="mb-2 px-3 flex items-center justify-between">
-            <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-              COURSES
-            </h3>
-            {/* Only show Create Course button to admins */}
-            {isAdmin && (
-              <CreateCourseDialog onCourseCreate={handleCourseCreate}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                >
-                  <Plus className="h-3 w-3" />
-                  <span className="sr-only">Add Course</span>
-                </Button>
-              </CreateCourseDialog>
-            )}
-          </div>
-
-          {/* Courses list with loading state */}
-          <div className="space-y-1 px-1 overflow-y-auto flex-1 virtualized-list">
-            {loading ? (
-              <div className="flex justify-center items-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : courses.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                No courses found
-              </div>
-            ) : (
-              courses.map((course) => (
-                <CourseItem
-                  key={course.id}
-                  course={course}
+        {/* Show skeleton loader until content is ready */}
+        {!contentReady ? (
+          <SidebarSkeleton />
+        ) : (
+          <>
+            {/* OVERVIEW Section */}
+            <div className="px-4 py-4 space-y-6">
+              <SidebarSection title="OVERVIEW">
+                <NavItem
+                  href="/dashboard"
+                  title="Dashboard"
+                  icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
                   pathname={isClient ? pathname : null}
                 />
-              ))
-            )}
-          </div>
-        </div>
+                <NavItem
+                  href="/analytics"
+                  title="Analytics"
+                  icon={<BarChart3 className="h-4 w-4 mr-2" />}
+                  pathname={isClient ? pathname : null}
+                />
+                <NavItem
+                  href="/calendar"
+                  title="Calendar"
+                  icon={<CalendarClock className="h-4 w-4 mr-2" />}
+                  pathname={isClient ? pathname : null}
+                />
+              </SidebarSection>
+
+              {/* ADMIN MANAGEMENT Section - Only show for admins */}
+              {isAdmin && (
+                <SidebarSection title="ADMIN">
+                  <NavItem
+                    href="/admin-analytics"
+                    title="Admin Analytics"
+                    icon={<ChartLine className="h-4 w-4 mr-2" />}
+                    pathname={isClient ? pathname : null}
+                  />
+                  <NavItem
+                    href="/teachers"
+                    title="Teachers"
+                    icon={<GraduationCap className="h-4 w-4 mr-2" />}
+                    pathname={isClient ? pathname : null}
+                  />
+                  <NavItem
+                    href="/admin-settings"
+                    title="Admin Settings"
+                    icon={<ShieldCheck className="h-4 w-4 mr-2" />}
+                    pathname={isClient ? pathname : null}
+                  />
+                </SidebarSection>
+              )}
+
+              {/* SETTINGS Section - For all users */}
+              <SidebarSection title="SETTINGS">
+                <NavItem
+                  href="/settings"
+                  title="Account Settings"
+                  icon={<Settings className="h-4 w-4 mr-2" />}
+                  pathname={isClient ? pathname : null}
+                />
+                <NavItem
+                  href="/help"
+                  title="Help & Support"
+                  icon={<HelpCircle className="h-4 w-4 mr-2" />}
+                  pathname={isClient ? pathname : null}
+                />
+              </SidebarSection>
+            </div>
+            <Separator className="my-2" />
+
+            {/* Courses Section */}
+            <div className="px-3 py-2 flex-1 flex flex-col">
+              <div className="mb-2 px-3 flex items-center justify-between">
+                <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                  COURSES
+                </h3>
+                {/* Only show Create Course button to admins */}
+                {isAdmin && (
+                  <CreateCourseDialog onCourseCreate={handleCourseCreate}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span className="sr-only">Add Course</span>
+                    </Button>
+                  </CreateCourseDialog>
+                )}
+              </div>
+
+              {/* Courses list with loading state */}
+              <div className="space-y-1 px-1 overflow-y-auto flex-1 virtualized-list">
+                {loading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : courses.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-muted-foreground">
+                    No courses found
+                  </div>
+                ) : (
+                  courses.map((course) => (
+                    <CourseItem
+                      key={course.id}
+                      course={course}
+                      pathname={isClient ? pathname : null}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </aside>
   );

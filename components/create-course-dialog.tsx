@@ -13,23 +13,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -48,6 +35,7 @@ export interface Course {
   owner_id?: string;
   teacher?: string;
   cycle?: string;
+  organization_id?: string;
 }
 
 interface Teacher {
@@ -72,12 +60,12 @@ const AdminCreateCourseDialog = ({
   const [description, setDescription] = useState("");
   const [studentCount, setStudentCount] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [orgId, setOrgId] = useState(""); // new state for organization id
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
-  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   // Check if user is admin and load teachers when dialog opens
   useEffect(() => {
@@ -90,10 +78,10 @@ const AdminCreateCourseDialog = ({
       try {
         const supabase = createClient();
 
-        // Check if user is admin
+        // Check if user is admin and fetch organization_id and full_name
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, organization_id, full_name")
           .eq("id", user.id)
           .single();
 
@@ -106,7 +94,9 @@ const AdminCreateCourseDialog = ({
         const userIsAdmin = profileData?.role === "dean";
         setIsAdmin(userIsAdmin);
 
-        if (!userIsAdmin) {
+        if (userIsAdmin && profileData?.organization_id) {
+          setOrgId(profileData.organization_id);
+        } else {
           setError("Only administrators can create courses");
           return;
         }
@@ -124,12 +114,25 @@ const AdminCreateCourseDialog = ({
           return;
         }
 
-        setTeachers(teachersData || []);
+        // If the current dean isn't in the list (because their role isn't teacher),
+        // add them as an option labeled "(You)"
+        let updatedTeachers: Teacher[] = teachersData || [];
+        const deanOption: Teacher = {
+          id: user.id,
+          full_name: profileData.full_name
+            ? `${profileData.full_name} (You)`
+            : "You (You)",
+          email: user.email || "",
+        };
 
-        // Debug log to verify teachers are loaded
+        if (!updatedTeachers.find((t) => t.id === user.id)) {
+          updatedTeachers = [deanOption, ...updatedTeachers];
+        }
+
+        setTeachers(updatedTeachers);
         console.log(
-          `Loaded ${teachersData?.length || 0} teachers:`,
-          teachersData,
+          `Loaded ${updatedTeachers.length} teachers:`,
+          updatedTeachers,
         );
       } catch (err) {
         console.error("Error:", err);
@@ -154,7 +157,6 @@ const AdminCreateCourseDialog = ({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Validate user is logged in and is admin
     if (!user) {
       setError("You must be logged in to create a course");
       return;
@@ -165,7 +167,6 @@ const AdminCreateCourseDialog = ({
       return;
     }
 
-    // Validate required fields
     if (!name.trim()) {
       setError("Course name is required");
       return;
@@ -181,13 +182,18 @@ const AdminCreateCourseDialog = ({
       return;
     }
 
+    if (!orgId) {
+      setError("Organization information is missing");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
     try {
       const supabase = createClient();
 
-      // Create the new course in Supabase
+      // Create the new course in Supabase, including organization_id
       const { data, error } = await supabase
         .from("courses")
         .insert({
@@ -196,10 +202,11 @@ const AdminCreateCourseDialog = ({
           student_count: studentCount ? parseInt(studentCount, 10) : 0,
           owner_id: teacherId,
           teacher: teacherId,
+          organization_id: orgId, // include organization id here
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           cycle: "current",
-          // description removed from here
+          // description field is omitted as per your previous changes
         })
         .select();
 
@@ -216,17 +223,11 @@ const AdminCreateCourseDialog = ({
       if (data && data.length > 0) {
         const newCourse = data[0] as Course;
         console.log("Course created successfully:", newCourse);
-
-        // Call the onCourseCreate callback
         onCourseCreate(newCourse);
-
-        // Show success message
         toast({
           title: "Success",
           description: `Course "${name}" created successfully`,
         });
-
-        // Reset form and close dialog
         resetForm();
         setOpen(false);
       }
@@ -241,11 +242,6 @@ const AdminCreateCourseDialog = ({
       setIsSubmitting(false);
     }
   };
-
-  // For debugging - log when teacher ID changes
-  useEffect(() => {
-    console.log("Selected teacher ID changed:", teacherId);
-  }, [teacherId]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -331,14 +327,14 @@ const AdminCreateCourseDialog = ({
                     <SelectValue placeholder="Select a teacher" />
                   </SelectTrigger>
                   <SelectContent>
-                    {teachers.slice(0, 3).map((teacher) => (
+                    {teachers.slice(0, 5).map((teacher) => (
                       <SelectItem key={teacher.id} value={teacher.id}>
                         {teacher.full_name}
                       </SelectItem>
                     ))}
-                    {teachers.length > 3 && (
+                    {teachers.length > 5 && (
                       <div className="py-2 px-2 text-xs text-muted-foreground">
-                        {teachers.length - 3} more teachers...
+                        {teachers.length - 5} more teachers...
                       </div>
                     )}
                   </SelectContent>

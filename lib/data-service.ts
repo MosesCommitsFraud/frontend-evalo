@@ -252,7 +252,6 @@ export const dataService = {
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .eq("organization_id", organizationId)
       .single();
 
     if (!profile || profile.role !== "dean") {
@@ -284,8 +283,7 @@ export const dataService = {
 
     return supabase
       .from("profiles")
-      .select("id, full_name, email, avatar_url, role")
-      .eq("organization_id", organizationId);
+      .select("id, full_name, email, avatar_url, role");
   },
 
   // Profile Management
@@ -319,141 +317,59 @@ export const dataService = {
 
   getAllProfiles: async () => {
     const supabase = createClient();
-
-    // Get the user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
-    }
-
-    // Only get profiles in the same organization
     return supabase
       .from("profiles")
       .select("*")
-      .eq("organization_id", profile.organization_id)
       .order("full_name", { ascending: true });
   },
 
   getTeachers: async () => {
     const supabase = createClient();
-
-    // Get the user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
-    }
-
-    // Only get teachers in the same organization
     return supabase
       .from("profiles")
       .select("*")
       .eq("role", "teacher")
-      .eq("organization_id", profile.organization_id)
       .order("full_name", { ascending: true });
   },
 
   // Course Management
   getCourses: async (userId?: string) => {
     const supabase = createClient();
-    let currentUserId = userId;
 
-    if (!currentUserId) {
+    if (!userId) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return { data: null, error: new Error("User not found") };
-      currentUserId = user.id;
+      userId = user.id;
     }
 
-    // Get organization_id of the current user
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", currentUserId)
-      .single();
-
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
-    }
-
-    // Filter by organization_id AND owner_id if requested
-    let query = supabase
+    return supabase
       .from("courses")
       .select("*")
-      .eq("organization_id", profile.organization_id);
-
-    if (userId) {
-      // If specific userId provided, filter by that owner
-      query = query.eq("owner_id", userId);
-    }
-
-    return query.order("created_at", { ascending: false });
+      .eq("owner_id", userId)
+      .order("created_at", { ascending: false });
   },
 
   getAllCourses: async () => {
     const supabase = createClient();
-
-    try {
-      const organizationId = await getUserOrganizationId();
-
-      return supabase
-        .from("courses")
-        .select("*, profiles(full_name)")
-        .eq("organization_id", organizationId)
-        .order("created_at", { ascending: false });
-    } catch (error) {
-      console.error("Error getting courses:", error);
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error(String(error)),
-      };
-    }
+    return supabase
+      .from("courses")
+      .select("*, profiles(full_name)")
+      .order("created_at", { ascending: false });
   },
 
   getCourseById: async (id: string) => {
     const supabase = createClient();
-
-    try {
-      // Simplified query that only filters by course ID
-      return supabase
-        .from("courses")
-        .select("*, profiles(full_name, email)")
-        .eq("id", id)
-        .single();
-    } catch (error) {
-      console.error("Error getting course:", error);
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error(String(error)),
-      };
-    }
+    return supabase
+      .from("courses")
+      .select("*, profiles(full_name, email)")
+      .eq("id", id)
+      .single();
   },
 
   createCourse: async (
-    course: Omit<
-      CourseInsert,
-      "owner_id" | "created_at" | "updated_at" | "organization_id"
-    >,
+    course: Omit<CourseInsert, "owner_id" | "created_at" | "updated_at">,
   ) => {
     const supabase = createClient();
     const {
@@ -461,27 +377,11 @@ export const dataService = {
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
-    // Get the user's organization_id from their profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile?.organization_id) {
-      return {
-        data: null,
-        error:
-          profileError || new Error("User not associated with an organization"),
-      };
-    }
-
     return supabase
       .from("courses")
       .insert({
         ...course,
         owner_id: user.id,
-        organization_id: profile.organization_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -519,28 +419,9 @@ export const dataService = {
 
   getAllEvents: async () => {
     const supabase = createClient();
-
-    // Get the user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
-    }
-
-    // Only get events in the same organization
     return supabase
       .from("events")
       .select("*, courses(name, code)")
-      .eq("organization_id", profile.organization_id)
       .order("event_date", { ascending: false });
   },
 
@@ -562,30 +443,13 @@ export const dataService = {
       | "total_feedback_count"
       | "created_at"
       | "updated_at"
-      | "organization_id"
     >,
   ) => {
     const supabase = createClient();
-
-    // Get organization_id from the associated course
-    const { data: course, error: courseError } = await supabase
-      .from("courses")
-      .select("organization_id")
-      .eq("id", event.course_id)
-      .single();
-
-    if (courseError || !course) {
-      return {
-        data: null,
-        error: courseError || new Error("Course not found"),
-      };
-    }
-
     return supabase
       .from("events")
       .insert({
         ...event,
-        organization_id: course.organization_id,
         positive_feedback_count: 0,
         negative_feedback_count: 0,
         neutral_feedback_count: 0,
@@ -644,33 +508,6 @@ export const dataService = {
       .single();
   },
 
-  getAllFeedback: async () => {
-    const supabase = createClient();
-
-    // Get the user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
-    }
-
-    // Only get feedback for the same organization
-    return supabase
-      .from("feedback")
-      .select("*, events!inner(course_id)")
-      .eq("organization_id", profile.organization_id)
-      .order("created_at", { ascending: false });
-  },
-
   // Feedback Management
   getFeedbackByEventId: async (eventId: string) => {
     const supabase = createClient();
@@ -691,17 +528,14 @@ export const dataService = {
   },
 
   submitFeedback: async (
-    feedback: Omit<
-      FeedbackInsert,
-      "is_reviewed" | "created_at" | "organization_id"
-    >,
+    feedback: Omit<FeedbackInsert, "is_reviewed" | "created_at">,
   ) => {
     const supabase = createClient();
 
-    // Get the event to update feedback counts and get organization_id
+    // Get the event to update share counts
     const { data: event } = await supabase
       .from("events")
-      .select("*, organization_id")
+      .select("*")
       .eq("id", feedback.event_id)
       .single();
 
@@ -709,12 +543,11 @@ export const dataService = {
       return { data: null, error: new Error("Event not found") };
     }
 
-    // Insert the feedback with organization_id
+    // Insert the share
     const { data, error } = await supabase
       .from("feedback")
       .insert({
         ...feedback,
-        organization_id: event.organization_id,
         is_reviewed: false,
         created_at: new Date().toISOString(),
       })
@@ -723,7 +556,7 @@ export const dataService = {
 
     if (error) return { data, error };
 
-    // Update the feedback counts on the event
+    // Update the share counts on the event
     let positive_feedback_count = event.positive_feedback_count || 0;
     let negative_feedback_count = event.negative_feedback_count || 0;
     let neutral_feedback_count = event.neutral_feedback_count || 0;
@@ -824,8 +657,6 @@ export const dataService = {
   // Analytics helpers
   getCourseSummaryStats: async (courseId: string) => {
     const supabase = createClient();
-
-    // Directly fetch events for this course without organization filtering
     const { data: events } = await supabase
       .from("events")
       .select(
@@ -854,7 +685,6 @@ export const dataService = {
       };
     }
 
-    // Rest of the function remains the same - calculation logic
     // Calculate summary stats
     const totalFeedback = events.reduce(
       (sum, event) => sum + (event.total_feedback_count || 0),
@@ -901,46 +731,25 @@ export const dataService = {
     };
   },
 
-  getGlobalAnalytics: async (organizationId?: string) => {
+  // Replace the getGlobalAnalytics function in your lib/data-service.ts file
+
+  getGlobalAnalytics: async () => {
     const supabase = createClient();
 
-    // If organizationId isn't provided, fetch it
-    if (!organizationId) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return { data: null, error: new Error("User not found") };
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.organization_id) {
-        return { data: null, error: new Error("User not in an organization") };
-      }
-
-      organizationId = profile.organization_id;
-    }
-
-    // Get courses count in the organization
+    // Get courses count
     const { count: coursesCount } = await supabase
       .from("courses")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
+      .select("*", { count: "exact", head: true });
 
-    // Get events count in the organization
+    // Get events count
     const { count: eventsCount } = await supabase
       .from("events")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organizationId);
+      .select("*", { count: "exact", head: true });
 
-    // Get all feedback in the organization
+    // Get all feedback and calculate stats directly from feedback table (not from event counters)
     const { data: allFeedback, error: feedbackError } = await supabase
       .from("feedback")
-      .select("id, tone, created_at, event_id")
-      .eq("organization_id", organizationId);
+      .select("id, tone, created_at, event_id");
 
     if (feedbackError) {
       console.error("Error fetching feedback:", feedbackError);
@@ -958,7 +767,6 @@ export const dataService = {
       };
     }
 
-    // Rest of the analytics calculation remains the same
     // Count total feedback and breakdown by sentiment
     const totalFeedback = allFeedback ? allFeedback.length : 0;
     let positiveFeedback = 0;
@@ -1027,65 +835,23 @@ export const dataService = {
     };
   },
 
-  // Department Management
+  // Add these functions to the dataService object
   getDepartments: async () => {
     const supabase = createClient();
-
-    // Get user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
-    }
-
     return supabase
       .from("departments")
       .select("*")
-      .eq("organization_id", profile.organization_id)
       .order("name", { ascending: true });
   },
 
   createDepartment: async (
-    department: Omit<
-      DepartmentInsert,
-      "created_at" | "updated_at" | "organization_id"
-    >,
+    department: Omit<DepartmentInsert, "created_at" | "updated_at">,
   ) => {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
-
-    // Get the user's organization_id from their profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile?.organization_id) {
-      return {
-        data: null,
-        error:
-          profileError || new Error("User not associated with an organization"),
-      };
-    }
-
     return supabase
       .from("departments")
       .insert({
         ...department,
-        organization_id: profile.organization_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

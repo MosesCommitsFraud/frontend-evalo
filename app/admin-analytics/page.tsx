@@ -160,65 +160,34 @@ export default function AdminAnalyticsPage() {
       setError(null);
 
       try {
-        const supabase = createClient();
-
-        // Get user's organization ID first
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          setError("User not authenticated");
-          return;
-        }
-
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("organization_id")
-          .eq("id", user.id)
-          .single();
-
-        if (profileError || !profile?.organization_id) {
-          setError("Failed to identify user organization");
-          return;
-        }
-
-        const organizationId = profile.organization_id;
-
-        // Now pass organizationId to your analytics call
-        const analyticsData =
-          await dataService.getGlobalAnalytics(organizationId);
+        // Fetch global analytics
+        const analyticsData = await dataService.getGlobalAnalytics();
         setAnalytics(analyticsData);
 
-        // Fetch all courses within the organization
-        const { data: coursesData, error: coursesError } = await supabase
-          .from("courses")
-          .select("*, profiles(full_name)")
-          .eq("organization_id", organizationId);
-
+        // Fetch all courses
+        const { data: coursesData, error: coursesError } =
+          await dataService.getAllCourses();
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
           throw new Error("Failed to load courses data");
         }
         setCourses(coursesData || []);
 
-        // Simplification: Fetch all teachers in the organization without additional organization check
-        const { data: teachersData, error: teachersError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("organization_id", organizationId)
-          .or("role.eq.teacher,role.eq.dean");
-
+        // Fetch all teachers
+        const { data: teachersData, error: teachersError } =
+          await dataService.getAllProfiles();
         if (teachersError) {
           console.error("Error fetching teachers:", teachersError);
           throw new Error("Failed to load teacher data");
         }
         setTeachers(teachersData?.filter((t) => t.role === "teacher") || []);
 
-        // Simplification: Fetch all events without additional organization check
+        // Fetch all events
+        const supabase = createClient();
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*, courses(name, code)")
-          .eq("organization_id", organizationId);
+          .order("created_at", { ascending: false });
 
         if (eventsError) {
           console.error("Error fetching events:", eventsError);
@@ -226,11 +195,10 @@ export default function AdminAnalyticsPage() {
         }
         setEvents(eventsData || []);
 
-        // Simplification: Fetch all feedback without additional organization check
+        // Fetch all feedback
         const { data: feedbackData, error: feedbackError } = await supabase
           .from("feedback")
           .select("*, events!inner(course_id)")
-          .eq("organization_id", organizationId)
           .order("created_at", { ascending: false });
 
         if (feedbackError) {
@@ -249,7 +217,7 @@ export default function AdminAnalyticsPage() {
     };
 
     fetchData();
-  }, [timePeriod]);
+  }, [timePeriod]); // Refetch when time period changes
 
   // Set default active tab on component mount
   useEffect(() => {
@@ -265,51 +233,21 @@ export default function AdminAnalyticsPage() {
       // Create a fresh Supabase client
       const supabase = createClient();
 
-      // Get user's organization ID for filtering
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "User not authenticated",
-        });
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError || !profile?.organization_id) {
-        toast({
-          title: "Error",
-          description: "Failed to identify user organization",
-        });
-        return;
-      }
-
-      const organizationId = profile.organization_id;
-
-      // 1. Get all events in the organization
+      // 1. Get all events
       const { data: events, error: eventsError } = await supabase
         .from("events")
         .select(
           "id, total_feedback_count, positive_feedback_count, negative_feedback_count, neutral_feedback_count",
-        )
-        .eq("organization_id", organizationId);
+        );
 
       if (eventsError) {
         throw new Error(`Error fetching events: ${eventsError.message}`);
       }
 
-      // 2. Get all feedback in the organization
+      // 2. Get all feedback
       const { data: allFeedback, error: feedbackError } = await supabase
         .from("feedback")
-        .select("id, event_id, tone")
-        .eq("organization_id", organizationId);
+        .select("id, event_id, tone");
 
       if (feedbackError) {
         throw new Error(`Error fetching feedback: ${feedbackError.message}`);
@@ -369,8 +307,7 @@ export default function AdminAnalyticsPage() {
             neutral_feedback_count: sentimentCounts[event.id].neutral,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", event.id)
-          .eq("organization_id", organizationId); // Add organization check for safety
+          .eq("id", event.id);
 
         if (updateError) {
           console.error(`Error updating event ${event.id}:`, updateError);

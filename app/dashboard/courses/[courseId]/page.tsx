@@ -161,12 +161,12 @@ export default function CoursePage(props: {
       try {
         const supabase = createClient();
 
-        // Simplification: Fetch events for this course without organization filter
+        // Fetch events for this course
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*")
           .eq("course_id", courseId)
-          .order("created_at", { ascending: false });
+          .order("event_date", { ascending: true });
 
         if (eventsError) {
           console.error("Error fetching events:", eventsError);
@@ -178,7 +178,6 @@ export default function CoursePage(props: {
           if (eventsData && eventsData.length > 0) {
             const eventIds = eventsData.map((event) => event.id);
 
-            // Simplification: Fetch feedback for these events without organization filter
             const { data: feedbackData, error: feedbackError } = await supabase
               .from("feedback")
               .select("*")

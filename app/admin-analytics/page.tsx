@@ -1274,7 +1274,7 @@ export default function AdminAnalyticsPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredFeedback.slice(0, 10).map((item) => (
+                  {filteredFeedback.slice(0, 5).map((item) => (
                     <Card key={item.id} className="overflow-hidden">
                       <CardContent className="p-4">
                         <div className="mb-2 flex items-center justify-between">

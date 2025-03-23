@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Sign up with email and password
-  // Modified signUp function for AuthContext.tsx
+  // Sign up with email and password
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
       // First sign up the user
@@ -171,12 +171,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
 
-      // Successfully signed up - no need to create profile here
-      // The profile will be created when the user signs in for the first time
-      // or through the middleware after email confirmation
+      // Get the user from the signup response directly
+      const newUser = data.user;
+
+      if (newUser) {
+        console.log("Creating profile for user:", newUser.id);
+
+        try {
+          // Use service_role (admin) client to bypass RLS policies if possible
+          // This requires server-side implementation with service role key
+          // For now, we'll use what we have and address RLS issues separately
+
+          // First check if profile already exists
+          const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", newUser.id)
+            .maybeSingle();
+
+          if (existingProfile) {
+            console.log("Profile already exists for user:", newUser.id);
+          } else {
+            // Insert profile record with proper error handling
+            const { data: insertedProfile, error: profileError } =
+              await supabase
+                .from("profiles")
+                .insert({
+                  id: newUser.id,
+                  email: newUser.email || email, // Fallback to provided email
+                  full_name: fullName,
+                  role: "teacher", // Default role
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .select();
+
+            if (profileError) {
+              console.error(
+                "Error creating profile - full details:",
+                JSON.stringify(profileError),
+              );
+              // Log more details about what we're trying to insert
+              console.log("Attempted to insert:", {
+                id: newUser.id,
+                email: newUser.email || email,
+                full_name: fullName,
+              });
+            } else {
+              console.log("Profile created successfully:", insertedProfile);
+            }
+          }
+        } catch (err) {
+          console.error("Exception during profile creation:", err);
+        }
+      } else {
+        console.error("No user returned from sign-up operation");
+      }
 
       if (!error) {
-        // Show success message or redirect to confirmation page
+        // On success, inform the user they've been signed up
+        // and redirect them
         const redirectTo = searchParams.get("redirectTo") || "/dashboard";
         router.push(redirectTo);
       }

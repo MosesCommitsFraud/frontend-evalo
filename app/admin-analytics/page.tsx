@@ -1,19 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Bar,
   BarChart,
-  LineChart,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  PieChart,
-  Pie,
   Cell,
   Legend,
   CartesianGrid,
@@ -47,7 +42,6 @@ import {
   Settings,
   Search,
   Filter,
-  Calendar,
   Clock,
   ThumbsUp,
   ThumbsDown,
@@ -138,10 +132,6 @@ interface Teacher {
 }
 
 export default function AdminAnalyticsPage() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   // UI state
   const [timePeriod, setTimePeriod] = useState("30");
   const [activeTab, setActiveTab] = useState(0);
@@ -387,11 +377,6 @@ export default function AdminAnalyticsPage() {
     }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
   // Format month for display
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split("-");
@@ -478,35 +463,6 @@ export default function AdminAnalyticsPage() {
     }));
   };
 
-  // This function is no longer needed as we're using direct data instead of percentage calculations
-  const formatFeedbackCategoriesData = () => {
-    if (!analytics) {
-      return [{ name: "No Data", value: 0 }];
-    }
-
-    return [
-      {
-        name: "Positive",
-        value: analytics.positiveFeedback,
-        color: "#10b981",
-      },
-      {
-        name: "Neutral",
-        value: analytics.neutralFeedback,
-        color: "#6b7280",
-      },
-      {
-        name: "Negative",
-        value: analytics.negativeFeedback,
-        color: "#ef4444",
-      },
-    ];
-  };
-
-  // State for feedback pagination
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 5;
-
   // Filter feedback based on filters
   const filteredFeedback = feedback.filter((item) => {
     // Search filter
@@ -546,14 +502,6 @@ export default function AdminAnalyticsPage() {
       );
       const positiveCount = courseEvents.reduce(
         (sum, e) => sum + (e.positive_feedback_count || 0),
-        0,
-      );
-      const negativeCount = courseEvents.reduce(
-        (sum, e) => sum + (e.negative_feedback_count || 0),
-        0,
-      );
-      const neutralCount = courseEvents.reduce(
-        (sum, e) => sum + (e.neutral_feedback_count || 0),
         0,
       );
 

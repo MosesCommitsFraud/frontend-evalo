@@ -16,6 +16,9 @@ import {
   Pie,
   Cell,
   Legend,
+  CartesianGrid,
+  AreaChart,
+  Area,
 } from "recharts";
 import {
   Card,
@@ -101,6 +104,7 @@ interface Feedback {
   event_id: string;
   content: string;
   tone: "positive" | "negative" | "neutral";
+  is_reviewed: boolean;
   created_at: string;
   events?: {
     course_id: string;
@@ -398,45 +402,41 @@ export default function AdminAnalyticsPage() {
     });
   };
 
-  // Calculate statistics for overview cards
-  const calculateStats = () => {
-    if (!analytics) return [];
+  // Format relative time for feedback
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-    return [
-      {
-        name: "Total Courses",
-        value: analytics.coursesCount.toString(),
-        icon: <Book className="h-4 w-4 text-emerald-600" />,
-        change: "+5%",
-        changeText: "from last month",
-      },
-      {
-        name: "Total Feedback",
-        value: analytics.feedbackCount.toString(),
-        icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
-        change: "+12%",
-        changeText: "from last month",
-      },
-      {
-        name: "Active Teachers",
-        value: teachers.length.toString(),
-        icon: <Users className="h-4 w-4 text-emerald-600" />,
-        change: "+3",
-        changeText: "new this month",
-      },
-      {
-        name: "Sentiment Score",
-        value: analytics.positivePercentage
-          ? `${Math.round(analytics.positivePercentage)}%`
-          : "N/A",
-        icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
-        change: "+2.1%",
-        changeText: "from last month",
-      },
-    ];
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+    } else if (diffDays === 1) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
   };
 
-  // Format course activity data
+  // Get sentiment icon based on sentiment
+  const getSentimentIcon = (sentiment: string) => {
+    switch (sentiment) {
+      case "positive":
+        return <ThumbsUp className="h-4 w-4 text-emerald-600" />;
+      case "negative":
+        return <ThumbsDown className="h-4 w-4 text-red-600" />;
+      default:
+        return <Minus className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  // Format data for charts
   const formatCourseActivityData = () => {
     if (
       !analytics?.monthlyTrendData ||
@@ -457,7 +457,7 @@ export default function AdminAnalyticsPage() {
     }));
   };
 
-  // Format sentiment data
+  // Format sentiment trend data
   const formatSentimentData = () => {
     if (
       !analytics?.monthlyTrendData ||
@@ -478,29 +478,34 @@ export default function AdminAnalyticsPage() {
     }));
   };
 
-  // Format feedback categories data
+  // This function is no longer needed as we're using direct data instead of percentage calculations
   const formatFeedbackCategoriesData = () => {
     if (!analytics) {
-      return [{ name: "No Data", value: 100 }];
+      return [{ name: "No Data", value: 0 }];
     }
-
-    const total = analytics.feedbackCount || 1; // Avoid division by zero
 
     return [
       {
         name: "Positive",
-        value: Math.round((analytics.positiveFeedback / total) * 100),
+        value: analytics.positiveFeedback,
+        color: "#10b981",
       },
       {
         name: "Neutral",
-        value: Math.round((analytics.neutralFeedback / total) * 100),
+        value: analytics.neutralFeedback,
+        color: "#6b7280",
       },
       {
         name: "Negative",
-        value: Math.round((analytics.negativeFeedback / total) * 100),
+        value: analytics.negativeFeedback,
+        color: "#ef4444",
       },
     ];
   };
+
+  // State for feedback pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 5;
 
   // Filter feedback based on filters
   const filteredFeedback = feedback.filter((item) => {
@@ -528,7 +533,7 @@ export default function AdminAnalyticsPage() {
     return true;
   });
 
-  // Format course aggregated data (for course cards)
+  // Format course data
   const formatCourseData = () => {
     return courses.map((course) => {
       // Find events for this course
@@ -562,7 +567,7 @@ export default function AdminAnalyticsPage() {
         course.student_count && course.student_count > 0
           ? Math.round(
               (feedbackCount /
-                (course.student_count * courseEvents.length || 1)) *
+                (course.student_count * (courseEvents.length || 1))) *
                 100,
             )
           : 0;
@@ -580,18 +585,6 @@ export default function AdminAnalyticsPage() {
     });
   };
 
-  // Get sentiment icon based on sentiment
-  const getSentimentIcon = (sentiment: string) => {
-    switch (sentiment) {
-      case "positive":
-        return <ThumbsUp className="h-4 w-4 text-emerald-600" />;
-      case "negative":
-        return <ThumbsDown className="h-4 w-4 text-red-600" />;
-      default:
-        return <Minus className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
   // Get event name by ID
   const getEventName = (eventId: string) => {
     const event = events.find((e) => e.id === eventId);
@@ -602,7 +595,41 @@ export default function AdminAnalyticsPage() {
   };
 
   // Colors for pie charts
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
+  const COLORS = ["#10b981", "#6b7280", "#ef4444", "#f59e0b", "#3b82f6"];
+
+  // Stats Cards for Dashboard
+  const statsCards = [
+    {
+      title: "Total Courses",
+      value: analytics?.coursesCount.toString() || "0",
+      icon: <Book className="h-4 w-4 text-emerald-600" />,
+      change: "+5%",
+      changeText: "from last month",
+    },
+    {
+      title: "Total Feedback",
+      value: analytics?.feedbackCount.toString() || "0",
+      icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
+      change: "+12%",
+      changeText: "from last month",
+    },
+    {
+      title: "Active Teachers",
+      value: teachers.length.toString(),
+      icon: <Users className="h-4 w-4 text-emerald-600" />,
+      change: "+3",
+      changeText: "new this month",
+    },
+    {
+      title: "Sentiment Score",
+      value: analytics?.positivePercentage
+        ? `${Math.round(analytics.positivePercentage)}%`
+        : "N/A",
+      icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
+      change: "+2.1%",
+      changeText: "from last month",
+    },
+  ];
 
   // Loading State Component
   const LoadingState = () => (
@@ -627,53 +654,6 @@ export default function AdminAnalyticsPage() {
     </div>
   );
 
-  // Generate the overview cards data
-  const overviewData = isLoading ? [] : calculateStats();
-
-  // Format data for charts
-  const activityData = isLoading ? [] : formatCourseActivityData();
-  const sentimentData = isLoading ? [] : formatSentimentData();
-  const feedbackCategoriesData = isLoading
-    ? []
-    : formatFeedbackCategoriesData();
-  const coursePageData = isLoading
-    ? { teacherCourses: [] }
-    : { teacherCourses: formatCourseData() };
-
-  // Calculate student activity data (mock data for now, could be real with more DB fields)
-  const studentActivityData = [
-    { time: "Morning (6-12)", value: 32 },
-    { time: "Afternoon (12-18)", value: 41 },
-    { time: "Evening (18-24)", value: 52 },
-    { time: "Night (0-6)", value: 18 },
-  ];
-
-  // Calculate submission by day data (mock data for now, could be real with more analysis)
-  const submissionByDayData = [
-    { day: "Monday", count: 45 },
-    { day: "Tuesday", count: 63 },
-    { day: "Wednesday", count: 58 },
-    { day: "Thursday", count: 72 },
-    { day: "Friday", count: 51 },
-    { day: "Saturday", count: 33 },
-    { day: "Sunday", count: 29 },
-  ];
-
-  // Mock upcoming events (in real application, could filter future events)
-  const upcomingEvents = events
-    .filter((e) => new Date(e.event_date) > new Date())
-    .slice(0, 5)
-    .map((e) => ({
-      id: e.id,
-      courseId: e.course_id,
-      title: e.courses?.name || "Unknown Course",
-      date: formatDate(e.event_date),
-      time: new Date(e.event_date).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    }));
-
   // Content for Overview tab
   const overviewTabContent = (
     <div className="space-y-6">
@@ -685,11 +665,11 @@ export default function AdminAnalyticsPage() {
         <>
           {/* Overview Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {overviewData.map((item) => (
-              <Card key={item.name}>
+            {statsCards.map((item) => (
+              <Card key={item.title}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {item.name}
+                    {item.title}
                   </CardTitle>
                   {item.icon}
                 </CardHeader>
@@ -716,17 +696,21 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={activityData}>
+                    <BarChart data={formatCourseActivityData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
+                      <Legend />
                       <Bar
                         dataKey="responses"
+                        name="Total Responses"
                         fill="#10b981"
                         radius={[4, 4, 0, 0]}
                       />
                       <Bar
                         dataKey="feedback"
+                        name="Total Feedback"
                         fill="#60a5fa"
                         radius={[4, 4, 0, 0]}
                       />
@@ -747,29 +731,43 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sentimentData}>
+                    <AreaChart data={formatSentimentData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
-                      <Line
+                      <Legend />
+                      <Area
                         type="monotone"
                         dataKey="positive"
+                        name="Positive"
                         stroke="#16a34a"
+                        fill="#16a34a"
+                        fillOpacity={0.3}
                         strokeWidth={2}
+                        stackId="1"
                       />
-                      <Line
-                        type="monotone"
-                        dataKey="negative"
-                        stroke="#dc2626"
-                        strokeWidth={2}
-                      />
-                      <Line
+                      <Area
                         type="monotone"
                         dataKey="neutral"
+                        name="Neutral"
                         stroke="#737373"
+                        fill="#737373"
+                        fillOpacity={0.3}
                         strokeWidth={2}
+                        stackId="1"
                       />
-                    </LineChart>
+                      <Area
+                        type="monotone"
+                        dataKey="negative"
+                        name="Negative"
+                        stroke="#dc2626"
+                        fill="#dc2626"
+                        fillOpacity={0.3}
+                        strokeWidth={2}
+                        stackId="1"
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -787,27 +785,43 @@ export default function AdminAnalyticsPage() {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={feedbackCategoriesData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={(entry) => `${entry.name}: ${entry.value}%`}
-                    >
-                      {feedbackCategoriesData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
+                  <BarChart
+                    data={[
+                      {
+                        name: "Positive",
+                        value: analytics?.positiveFeedback || 0,
+                        fill: "#16a34a",
+                      },
+                      {
+                        name: "Neutral",
+                        value: analytics?.neutralFeedback || 0,
+                        fill: "#737373",
+                      },
+                      {
+                        name: "Negative",
+                        value: analytics?.negativeFeedback || 0,
+                        fill: "#dc2626",
+                      },
+                    ]}
+                    layout="vertical"
+                    margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="name" />
+                    <Tooltip formatter={(value) => [value, "Count"]} />
                     <Legend />
-                  </PieChart>
+                    <Bar dataKey="value" name="Feedback Count" barSize={30}>
+                      {/* Use the colors specified in the data */}
+                      {[
+                        { fill: "#16a34a" },
+                        { fill: "#737373" },
+                        { fill: "#dc2626" },
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
@@ -821,7 +835,7 @@ export default function AdminAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {coursePageData.teacherCourses
+                {formatCourseData()
                   .sort((a, b) => b.feedbackCount - a.feedbackCount)
                   .slice(0, 5)
                   .map((course) => (
@@ -877,7 +891,7 @@ export default function AdminAnalyticsPage() {
         <>
           {/* Course Performance Cards */}
           <div className="grid gap-6 md:grid-cols-2">
-            {coursePageData.teacherCourses.map((course) => (
+            {formatCourseData().map((course) => (
               <Card key={course.id} className="overflow-hidden">
                 <div className="h-2 bg-emerald-500"></div>
                 <CardHeader>
@@ -954,12 +968,52 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={studentActivityData}>
+                    <BarChart
+                      data={(() => {
+                        // Process feedback to calculate activity by time of day
+                        const hourCounts = {
+                          Morning: 0,
+                          Afternoon: 0,
+                          Evening: 0,
+                          Night: 0,
+                        };
+
+                        feedback.forEach((item) => {
+                          if (!item.created_at) return;
+
+                          const date = new Date(item.created_at);
+                          const hour = date.getHours();
+
+                          if (hour >= 5 && hour < 12) hourCounts.Morning++;
+                          else if (hour >= 12 && hour < 17)
+                            hourCounts.Afternoon++;
+                          else if (hour >= 17 && hour < 22)
+                            hourCounts.Evening++;
+                          else hourCounts.Night++;
+                        });
+
+                        return [
+                          { time: "Morning (5-12)", count: hourCounts.Morning },
+                          {
+                            time: "Afternoon (12-17)",
+                            count: hourCounts.Afternoon,
+                          },
+                          {
+                            time: "Evening (17-22)",
+                            count: hourCounts.Evening,
+                          },
+                          { time: "Night (22-5)", count: hourCounts.Night },
+                        ];
+                      })()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="time" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
+                      <Legend />
                       <Bar
-                        dataKey="value"
+                        dataKey="count"
+                        name="Student Activity"
                         fill="#10b981"
                         radius={[4, 4, 0, 0]}
                       />
@@ -980,12 +1034,57 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={submissionByDayData}>
+                    <BarChart
+                      data={(() => {
+                        // Process feedback to calculate submissions by day of week
+                        const weekdayCounts = {
+                          Mon: 0,
+                          Tue: 0,
+                          Wed: 0,
+                          Thu: 0,
+                          Fri: 0,
+                          Sat: 0,
+                          Sun: 0,
+                        };
+
+                        feedback.forEach((item) => {
+                          if (!item.created_at) return;
+
+                          const date = new Date(item.created_at);
+                          const weekdays = [
+                            "Sun",
+                            "Mon",
+                            "Tue",
+                            "Wed",
+                            "Thu",
+                            "Fri",
+                            "Sat",
+                          ];
+                          const weekday = weekdays[date.getDay()];
+
+                          weekdayCounts[weekday]++;
+                        });
+
+                        // Convert to array for charting
+                        return [
+                          { day: "Mon", count: weekdayCounts.Mon },
+                          { day: "Tue", count: weekdayCounts.Tue },
+                          { day: "Wed", count: weekdayCounts.Wed },
+                          { day: "Thu", count: weekdayCounts.Thu },
+                          { day: "Fri", count: weekdayCounts.Fri },
+                          { day: "Sat", count: weekdayCounts.Sat },
+                          { day: "Sun", count: weekdayCounts.Sun },
+                        ];
+                      })()}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="day" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
+                      <Legend />
                       <Bar
                         dataKey="count"
+                        name="Submissions"
                         fill="#60a5fa"
                         radius={[4, 4, 0, 0]}
                       />
@@ -995,56 +1094,6 @@ export default function AdminAnalyticsPage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Upcoming Events */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Course Events</CardTitle>
-              <CardDescription>
-                Important dates across all courses
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {upcomingEvents.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  No upcoming events scheduled
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {upcomingEvents.map((event) => {
-                    const course = coursePageData.teacherCourses.find(
-                      (c) => c.id === event.courseId,
-                    );
-
-                    return (
-                      <div
-                        key={event.id}
-                        className="flex items-center border-b pb-4 last:border-0 last:pb-0"
-                      >
-                        <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                          <Calendar className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium leading-none">
-                            {event.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {course?.code}: {course?.name}
-                          </p>
-                        </div>
-                        <div className="ml-auto flex items-center">
-                          <Clock className="mr-1 h-3 w-3 text-muted-foreground" />
-                          <p className="text-xs text-muted-foreground">
-                            {event.date} at {event.time}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </>
       )}
     </div>
@@ -1072,56 +1121,42 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          {
-                            name: "Positive",
-                            value: analytics?.positiveFeedback || 0,
-                            color: "#16a34a",
-                          },
-                          {
-                            name: "Neutral",
-                            value: analytics?.neutralFeedback || 0,
-                            color: "#737373",
-                          },
-                          {
-                            name: "Negative",
-                            value: analytics?.negativeFeedback || 0,
-                            color: "#dc2626",
-                          },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={(entry) => `${entry.name}: ${entry.value}`}
-                      >
-                        {[
-                          {
-                            name: "Positive",
-                            value: analytics?.positiveFeedback || 0,
-                            color: "#16a34a",
-                          },
-                          {
-                            name: "Neutral",
-                            value: analytics?.neutralFeedback || 0,
-                            color: "#737373",
-                          },
-                          {
-                            name: "Negative",
-                            value: analytics?.negativeFeedback || 0,
-                            color: "#dc2626",
-                          },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
+                    <BarChart
+                      data={[
+                        {
+                          name: "Positive",
+                          value: analytics?.positiveFeedback || 0,
+                          fill: "#16a34a",
+                        },
+                        {
+                          name: "Neutral",
+                          value: analytics?.neutralFeedback || 0,
+                          fill: "#737373",
+                        },
+                        {
+                          name: "Negative",
+                          value: analytics?.negativeFeedback || 0,
+                          fill: "#dc2626",
+                        },
+                      ]}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis type="category" dataKey="name" />
+                      <Tooltip formatter={(value) => [value, "Count"]} />
                       <Legend />
-                    </PieChart>
+                      <Bar dataKey="value" name="Feedback Count" barSize={30}>
+                        {[
+                          { fill: "#16a34a" },
+                          { fill: "#737373" },
+                          { fill: "#dc2626" },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -1138,35 +1173,37 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={coursePageData.teacherCourses
+                    <BarChart
+                      data={formatCourseData()
+                        .filter((c) => c.feedbackCount > 0)
+                        .slice(0, 8)
+                        .map((c, index) => ({
+                          name: c.code,
+                          value: c.feedbackCount,
+                          fill: COLORS[index % COLORS.length],
+                        }))}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 80, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis type="category" dataKey="name" width={80} />
+                      <Tooltip
+                        formatter={(value) => [value, "Feedback Count"]}
+                      />
+                      <Legend />
+                      <Bar dataKey="value" name="Feedback" barSize={20}>
+                        {formatCourseData()
                           .filter((c) => c.feedbackCount > 0)
-                          .map((c, index) => ({
-                            name: c.code,
-                            value: c.feedbackCount,
-                            color: COLORS[index % COLORS.length],
-                          }))}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={(entry) => `${entry.name}: ${entry.value}`}
-                      >
-                        {coursePageData.teacherCourses
-                          .filter((c) => c.feedbackCount > 0)
+                          .slice(0, 8)
                           .map((c, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={COLORS[index % COLORS.length]}
                             />
                           ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -1261,9 +1298,7 @@ export default function AdminAnalyticsPage() {
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-3 w-3" />
-                            <span>
-                              {new Date(item.created_at).toLocaleString()}
-                            </span>
+                            <span>{formatRelativeTime(item.created_at)}</span>
                           </div>
                         </div>
 

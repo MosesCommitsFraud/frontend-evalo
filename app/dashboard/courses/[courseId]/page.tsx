@@ -161,25 +161,11 @@ export default function CoursePage(props: {
       try {
         const supabase = createClient();
 
-        // Fetch course to get organization_id
-        const { data: course } = await supabase
-          .from("courses")
-          .select("organization_id")
-          .eq("id", courseId)
-          .single();
-
-        if (!course) {
-          console.error("Course not found");
-          setEventError("Failed to load course information");
-          return;
-        }
-
-        // Fetch events for this course with organization filter
+        // Simplification: Fetch events for this course without organization filter
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*")
           .eq("course_id", courseId)
-          .eq("organization_id", course.organization_id)
           .order("created_at", { ascending: false });
 
         if (eventsError) {
@@ -192,11 +178,11 @@ export default function CoursePage(props: {
           if (eventsData && eventsData.length > 0) {
             const eventIds = eventsData.map((event) => event.id);
 
+            // Simplification: Fetch feedback for these events without organization filter
             const { data: feedbackData, error: feedbackError } = await supabase
               .from("feedback")
               .select("*")
               .in("event_id", eventIds)
-              .eq("organization_id", course.organization_id)
               .order("created_at", { ascending: false });
 
             if (feedbackError) {

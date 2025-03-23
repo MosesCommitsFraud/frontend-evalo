@@ -434,13 +434,11 @@ export const dataService = {
     const supabase = createClient();
 
     try {
-      const organizationId = await getUserOrganizationId();
-
+      // Simplified query that only filters by course ID
       return supabase
         .from("courses")
         .select("*, profiles(full_name, email)")
         .eq("id", id)
-        .eq("organization_id", organizationId)
         .single();
     } catch (error) {
       console.error("Error getting course:", error);
@@ -826,6 +824,8 @@ export const dataService = {
   // Analytics helpers
   getCourseSummaryStats: async (courseId: string) => {
     const supabase = createClient();
+
+    // Directly fetch events for this course without organization filtering
     const { data: events } = await supabase
       .from("events")
       .select(
@@ -854,6 +854,7 @@ export const dataService = {
       };
     }
 
+    // Rest of the function remains the same - calculation logic
     // Calculate summary stats
     const totalFeedback = events.reduce(
       (sum, event) => sum + (event.total_feedback_count || 0),
@@ -900,26 +901,28 @@ export const dataService = {
     };
   },
 
-  getGlobalAnalytics: async () => {
+  getGlobalAnalytics: async (organizationId?: string) => {
     const supabase = createClient();
 
-    // Get user's organization_id
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: null, error: new Error("User not found") };
+    // If organizationId isn't provided, fetch it
+    if (!organizationId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return { data: null, error: new Error("User not found") };
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("id", user.id)
-      .single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
 
-    if (!profile?.organization_id) {
-      return { data: null, error: new Error("User not in an organization") };
+      if (!profile?.organization_id) {
+        return { data: null, error: new Error("User not in an organization") };
+      }
+
+      organizationId = profile.organization_id;
     }
-
-    const organizationId = profile.organization_id;
 
     // Get courses count in the organization
     const { count: coursesCount } = await supabase
@@ -955,6 +958,7 @@ export const dataService = {
       };
     }
 
+    // Rest of the analytics calculation remains the same
     // Count total feedback and breakdown by sentiment
     const totalFeedback = allFeedback ? allFeedback.length : 0;
     let positiveFeedback = 0;

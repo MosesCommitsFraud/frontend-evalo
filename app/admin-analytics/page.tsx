@@ -187,7 +187,6 @@ export default function AdminAnalyticsPage() {
         // Now pass organizationId to your analytics call
         const analyticsData =
           await dataService.getGlobalAnalytics(organizationId);
-
         setAnalytics(analyticsData);
 
         // Fetch all courses within the organization
@@ -202,7 +201,7 @@ export default function AdminAnalyticsPage() {
         }
         setCourses(coursesData || []);
 
-        // Fetch all teachers in the organization
+        // Simplification: Fetch all teachers in the organization without additional organization check
         const { data: teachersData, error: teachersError } = await supabase
           .from("profiles")
           .select("*")
@@ -215,7 +214,7 @@ export default function AdminAnalyticsPage() {
         }
         setTeachers(teachersData?.filter((t) => t.role === "teacher") || []);
 
-        // Fetch all events in the organization
+        // Simplification: Fetch all events without additional organization check
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*, courses(name, code)")
@@ -227,7 +226,7 @@ export default function AdminAnalyticsPage() {
         }
         setEvents(eventsData || []);
 
-        // Fetch all feedback in the organization
+        // Simplification: Fetch all feedback without additional organization check
         const { data: feedbackData, error: feedbackError } = await supabase
           .from("feedback")
           .select("*, events!inner(course_id)")
@@ -250,7 +249,7 @@ export default function AdminAnalyticsPage() {
     };
 
     fetchData();
-  }, [timePeriod]); // Refetch when time period changes
+  }, [timePeriod]);
 
   // Set default active tab on component mount
   useEffect(() => {

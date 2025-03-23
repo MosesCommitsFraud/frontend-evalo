@@ -1,79 +1,60 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
-interface AdminRouteGuardProps {
-  children: React.ReactNode;
-}
-
-export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
-  const { user, isLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+export function AdminRouteGuard({ children }) {
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAdminStatus = async () => {
-      // Skip check if authentication is still loading or user is not authenticated
-      if (isLoading) return;
-      if (!user) {
-        router.push("/auth/sign-in?redirectTo=/admin-analytics");
-        return;
-      }
-
+    const checkAdminAccess = async () => {
       try {
-        // Get the user's profile from the context or make an API call
         const supabase = createClient();
-        const { data, error } = await supabase
+
+        // Get current user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.push("/auth/sign-in");
+          return;
+        }
+
+        // Get user profile
+        const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", user.id)
           .single();
 
-        if (error) {
-          console.error("Error checking user role:", error);
-          setIsAdmin(false);
-          router.push("/access-denied");
-          return;
-        }
-
-        const isUserAdmin = data?.role === "dean"; // Assuming "dean" is your admin role
-        setIsAdmin(isUserAdmin);
-
-        if (!isUserAdmin) {
-          router.push("/access-denied");
+        // Consider both dean and admin roles as admin
+        if (profile && (profile.role === "dean" || profile.role === "admin")) {
+          setIsAdmin(true);
+        } else {
+          router.push("/dashboard");
         }
       } catch (error) {
-        console.error("Error verifying admin status:", error);
-        setIsAdmin(false);
-        router.push("/access-denied");
+        console.error("Error checking admin access:", error);
+        router.push("/dashboard");
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    checkAdminStatus();
-  }, [user, isLoading, router]);
+    checkAdminAccess();
+  }, [router]);
 
-  // Show loading state while checking admin status
-  if (isLoading || isAdmin === null) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <p className="mt-4 text-muted-foreground">Verifying access...</p>
+      <div className="flex justify-center items-center min-h-screen">
+        Loading...
       </div>
     );
   }
 
-  // If user is not admin, the redirection should have already happened
-  // But as a fallback, return null
-  if (!isAdmin) {
-    return null;
-  }
-
-  // User is an admin, show the children
-  return <>{children}</>;
+  return isAdmin ? children : null;
 }
-
-// Import at the top
-import { createClient } from "@/lib/supabase/client";

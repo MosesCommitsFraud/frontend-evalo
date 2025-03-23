@@ -135,7 +135,7 @@ export default function DashboardPage() {
         // Get course IDs for further queries
         const courseIds = coursesData.map((course) => course.id);
 
-        // Fetch only events for the teacher's courses
+        // Simplification: Fetch only events for the teacher's courses without additional organization filtering
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*, courses(name, code)")
@@ -169,7 +169,7 @@ export default function DashboardPage() {
         // Get event IDs for feedback query
         const eventIds = eventsData.map((event) => event.id);
 
-        // Fetch only feedback for the teacher's events
+        // Simplification: Fetch only feedback for the teacher's events without additional organization filtering
         const { data: feedbackData, error: feedbackError } = await supabase
           .from("feedback")
           .select("*, events(course_id)")

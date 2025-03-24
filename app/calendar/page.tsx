@@ -174,7 +174,7 @@ export default function CalendarPage() {
   }, [user]);
 
   // Helper function to determine event type (this would ideally be a field in your database)
-  const determineEventType = (event: any): string => {
+  const determineEventType = (event: { event_date: string }): string => {
     // This is just an example. In a real app, you would have a more sophisticated logic
     // or store the type in the database
     const date = new Date(event.event_date);
@@ -188,7 +188,8 @@ export default function CalendarPage() {
   };
 
   // Helper function to determine event title
-  const determineEventTitle = (event: any): string => {
+  // Helper function to determine event title
+  const determineEventTitle = (event: { status?: string }): string => {
     // This is just an example. In a real app, you would likely have an event_title field
     const status = event.status;
 
@@ -217,7 +218,7 @@ export default function CalendarPage() {
   }
 
   // Event creation callback
-  const handleEventCreated = (eventId: string, code: string) => {
+  const handleEventCreated = (eventId: string) => {
     // Refresh events to include the newly created one
     const fetchEvents = async () => {
       if (!user) return;

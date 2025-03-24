@@ -171,16 +171,6 @@ export default function AnalyticsPage() {
     }>
   >([]);
 
-  interface FeedbackCategory {
-    name: string;
-    value: number;
-  }
-
-  interface TimeOfDay {
-    time: string;
-    count: number;
-  }
-
   interface CourseComparison {
     name: string;
     feedbackCount: number;
@@ -188,11 +178,6 @@ export default function AnalyticsPage() {
     sentiment: number;
   }
 
-  const [feedbackCategoriesData, setFeedbackCategoriesData] = useState<
-    FeedbackCategory[]
-  >([]);
-  const [weekdayData, setWeekdayData] = useState<WeekdayData[]>([]);
-  const [timeOfDayData, setTimeOfDayData] = useState<TimeOfDay[]>([]);
   const [courseComparisonData, setCourseComparisonData] = useState<
     CourseComparison[]
   >([]);
@@ -267,29 +252,6 @@ export default function AnalyticsPage() {
     setSentimentTrendData([
       { name: "Week 1", positive: 0, negative: 0, neutral: 0 },
       { name: "Week 2", positive: 0, negative: 0, neutral: 0 },
-    ]);
-
-    setFeedbackCategoriesData([
-      { name: "Course Content", value: 0 },
-      { name: "Teaching Style", value: 0 },
-      { name: "Materials", value: 0 },
-    ]);
-
-    setWeekdayData([
-      { name: "Mon", count: 0 },
-      { name: "Tue", count: 0 },
-      { name: "Wed", count: 0 },
-      { name: "Thu", count: 0 },
-      { name: "Fri", count: 0 },
-      { name: "Sat", count: 0 },
-      { name: "Sun", count: 0 },
-    ]);
-
-    setTimeOfDayData([
-      { time: "Morning", count: 0 },
-      { time: "Afternoon", count: 0 },
-      { time: "Evening", count: 0 },
-      { time: "Night", count: 0 },
     ]);
 
     setCourseComparisonData([]);
@@ -515,12 +477,6 @@ export default function AnalyticsPage() {
             neutral: item.neutral,
           })),
       );
-
-      // Update weekday distribution data
-      setWeekdayData([...weekdayData]);
-
-      // Update time of day distribution data
-      setTimeOfDayData([...timeOfDayData]);
 
       // Update course comparison data
       setCourseComparisonData([...courseData]);

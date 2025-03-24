@@ -20,35 +20,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useParams } from "next/navigation";
 
-// Import React's built-in types
-import { Usable as ReactUsable } from "react";
-
-// Custom type that matches our usage
-type CustomUsable<T> = T | Promise<T>;
-
-// Custom use function implementation that matches React's behavior
-const use =
-  React.use ||
-  (<T,>(promise: CustomUsable<T> | ReactUsable<T>): T => {
-    if (promise instanceof Promise) {
-      throw promise; // This will be caught by React's Suspense
-    }
-    return promise as T;
-  });
-
-interface StudentFeedbackPageProps {
-  params: { code?: string } | Promise<{ code?: string }>;
-}
-
-export default function StudentFeedbackPage({
-  params,
-}: StudentFeedbackPageProps) {
-  // Type assertion to make TypeScript happy while preserving functionality
-  const unwrappedParams = use(params as ReactUsable<{ code?: string }>) as {
-    code?: string;
-  };
-  const codeFromRoute = unwrappedParams.code || "";
+export default function StudentFeedbackPage() {
+  const { code } = useParams() as { code?: string };
+  const codeFromRoute = code || "";
 
   // Event and course information
   const [eventInfo, setEventInfo] = useState<{

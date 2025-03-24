@@ -42,11 +42,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     // Handle asChild manually instead of using Slot
     if (asChild && React.isValidElement(children)) {
       // Clone the child element and add the button styles
-      return React.cloneElement(children as React.ReactElement, {
-        className: cn(buttonVariants({ variant, size, className })),
-        ref,
-        ...props,
-      });
+      return React.cloneElement(
+        children as React.ReactElement<{
+          className?: string;
+          ref?: React.Ref<unknown>;
+        }>,
+        {
+          className: cn(buttonVariants({ variant, size, className })),
+          ref,
+          ...props,
+        },
+      );
     }
 
     return (

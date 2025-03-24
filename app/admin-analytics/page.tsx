@@ -131,6 +131,33 @@ interface Teacher {
   role: string;
 }
 
+// Add these interfaces before the component function
+interface SyncResultDetail {
+  id: string;
+  success: boolean;
+  error?: string;
+  before?: {
+    total: number;
+    positive: number;
+    negative: number;
+    neutral: number;
+  };
+  after?: {
+    total: number;
+    positive: number;
+    negative: number;
+    neutral: number;
+  };
+}
+
+interface SyncResults {
+  totalEvents: number;
+  totalFeedback: number;
+  eventsNeedingFix: number;
+  eventsFixed: number;
+  details: SyncResultDetail[];
+}
+
 export default function AdminAnalyticsPage() {
   // UI state
   const [timePeriod, setTimePeriod] = useState("30");
@@ -150,7 +177,7 @@ export default function AdminAnalyticsPage() {
 
   // Counter synchronization state
   const [isSyncingCounters, setIsSyncingCounters] = useState(false);
-  const [syncResults, setSyncResults] = useState<any>(null);
+  const [syncResults, setSyncResults] = useState<SyncResults | null>(null);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   // Fetch data on component mount
@@ -999,6 +1026,27 @@ export default function AdminAnalyticsPage() {
                           if (!item.created_at) return;
 
                           const date = new Date(item.created_at);
+                          // Define a type for the weekday keys
+                          type WeekdayKey =
+                            | "Mon"
+                            | "Tue"
+                            | "Wed"
+                            | "Thu"
+                            | "Fri"
+                            | "Sat"
+                            | "Sun";
+
+                          const weekdayCounts: Record<WeekdayKey, number> = {
+                            Mon: 0,
+                            Tue: 0,
+                            Wed: 0,
+                            Thu: 0,
+                            Fri: 0,
+                            Sat: 0,
+                            Sun: 0,
+                          };
+
+                          // Later in the code
                           const weekdays = [
                             "Sun",
                             "Mon",
@@ -1009,8 +1057,7 @@ export default function AdminAnalyticsPage() {
                             "Sat",
                           ];
                           const weekday = weekdays[date.getDay()];
-
-                          weekdayCounts[weekday]++;
+                          weekdayCounts[weekday as WeekdayKey]++; // Add type assertion
                         });
 
                         // Convert to array for charting
@@ -1407,41 +1454,50 @@ export default function AdminAnalyticsPage() {
                 <div>
                   <h3 className="text-sm font-medium mb-2">Details:</h3>
                   <div className="max-h-56 overflow-auto border rounded-md p-3">
-                    {syncResults.details.map((item: any, index: number) => (
-                      <div key={index} className="border-b last:border-0 py-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          {item.success ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                          )}
-                          <span className="font-mono text-xs">{item.id}</span>
-                          {!item.success && (
-                            <span className="text-red-500 text-xs">
-                              {item.error}
-                            </span>
+                    {syncResults.details.map(
+                      (item: SyncResultDetail, index: number) => (
+                        <div
+                          key={index}
+                          className="border-b last:border-0 py-2"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            {item.success ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            )}
+                            <span className="font-mono text-xs">{item.id}</span>
+                            {!item.success && (
+                              <span className="text-red-500 text-xs">
+                                {item.error}
+                              </span>
+                            )}
+                          </div>
+                          {item.success && (
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pl-6">
+                              <div className="text-muted-foreground">
+                                Before:
+                              </div>
+                              <div>
+                                Total: {item.before?.total ?? 0}, Positive:{" "}
+                                {item.before?.positive ?? 0}, Negative:{" "}
+                                {item.before?.negative ?? 0}, Neutral:{" "}
+                                {item.before?.neutral ?? 0}
+                              </div>
+                              <div className="text-muted-foreground">
+                                After:
+                              </div>
+                              <div>
+                                Total: {item.after?.total ?? 0}, Positive:{" "}
+                                {item.after?.positive ?? 0}, Negative:{" "}
+                                {item.after?.negative ?? 0}, Neutral:{" "}
+                                {item.after?.neutral ?? 0}
+                              </div>
+                            </div>
                           )}
                         </div>
-                        {item.success && (
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pl-6">
-                            <div className="text-muted-foreground">Before:</div>
-                            <div>
-                              Total: {item.before.total}, Positive:{" "}
-                              {item.before.positive}, Negative:{" "}
-                              {item.before.negative}, Neutral:{" "}
-                              {item.before.neutral}
-                            </div>
-                            <div className="text-muted-foreground">After:</div>
-                            <div>
-                              Total: {item.after.total}, Positive:{" "}
-                              {item.after.positive}, Negative:{" "}
-                              {item.after.negative}, Neutral:{" "}
-                              {item.after.neutral}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 </div>
               )}

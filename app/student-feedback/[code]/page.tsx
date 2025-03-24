@@ -58,9 +58,11 @@ export default function StudentFeedbackPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("events")
-        .select("*, courses(name, code, organization_id)")
+        .select(
+          "id, event_date, status, entry_code, course_id, organization_id",
+        )
         .eq("entry_code", code.toUpperCase())
-        .eq("status", "open") // Only get open events
+        .eq("status", "open")
         .single();
 
       if (error) {
@@ -71,15 +73,18 @@ export default function StudentFeedbackPage() {
       }
 
       if (data) {
-        const organizationId =
-          data.organization_id || data.courses?.organization_id;
+        const { data: courseData } = await supabase
+          .from("courses")
+          .select("name, code")
+          .eq("id", data.course_id)
+          .single();
 
         setEventInfo({
           eventId: data.id,
           courseId: data.course_id,
-          courseName: data.courses?.name || "Unknown Course",
-          courseCode: data.courses?.code || "Unknown",
-          organizationId: organizationId, // Store the organization_id
+          courseName: courseData?.name || "Unknown Course",
+          courseCode: courseData?.code || "Unknown",
+          organizationId: data.organization_id,
         });
         setIsCodeValid(true);
         return true;
@@ -207,24 +212,13 @@ export default function StudentFeedbackPage() {
         return;
       }
 
-      // First check if the organization_id is available
-      if (!eventInfo.organizationId) {
-        console.error("Missing organization ID for feedback submission");
-        setError(
-          "Unable to submit feedback. Missing organization information.",
-        );
-        setIsSubmitting(false);
-        return;
-      }
-
       // Create the feedback record with the sentiment from the API
       const { error: insertError } = await supabase.from("feedback").insert({
         event_id: eventInfo.eventId,
         content: feedback,
-        tone: sentiment, // Use the result from the sentiment analysis
+        tone: sentiment,
         is_reviewed: false,
         created_at: new Date().toISOString(),
-        organization_id: eventInfo.organizationId,
       });
 
       if (insertError) {

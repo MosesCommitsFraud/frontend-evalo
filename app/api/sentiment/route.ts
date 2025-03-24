@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// The correct URL format for your Hugging Face Space
-const API_URL = "https://MosesCommitsFraud-BERTSentiment.hf.space";
-
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
@@ -15,16 +12,19 @@ export async function POST(request: NextRequest) {
     console.log("Analyzing text:", text);
 
     // Call FastAPI endpoint
-    const response = await fetch(`${API_URL}/analyze`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${process.env.HUGGING_FACE_API_URL}/analyze`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text,
+          show_details: true,
+        }),
       },
-      body: JSON.stringify({
-        text,
-        show_details: true,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");

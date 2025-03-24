@@ -112,11 +112,6 @@ interface CoursePageData {
   }[];
 }
 
-interface WeekdayData {
-  name: string;
-  count: number;
-}
-
 export default function AnalyticsPage() {
   const { user } = useAuth();
 

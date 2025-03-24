@@ -18,30 +18,6 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 // Custom Button component for BackgroundPaths
-const Button = ({
-  children,
-  className,
-  variant = "ghost",
-  ...props
-}: {
-  children: React.ReactNode;
-  className?: string;
-  variant?: string;
-  [key: string]: any;
-}) => {
-  return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background",
-        variant === "ghost" && "hover:bg-accent hover:text-accent-foreground",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-};
 
 // FloatingPaths component for BackgroundPaths
 function FloatingPaths({ position }: { position: number }) {
@@ -134,7 +110,7 @@ function LinkButton({
     | "link";
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }) {
   return (
     <Link

@@ -84,17 +84,16 @@ interface EventAnalytics {
   commonWords: { text: string; value: number }[];
 }
 
-// Update the interface to match Next.js client component expectations
 interface EventAnalyticsPageProps {
   params: {
     courseId: string;
     eventId: string;
   };
-  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function EventAnalyticsPage(props: any) {
-  const params = props.params;
+export default function EventAnalyticsPage({
+  params,
+}: EventAnalyticsPageProps) {
   const courseId = params.courseId;
   const eventId = params.eventId;
 

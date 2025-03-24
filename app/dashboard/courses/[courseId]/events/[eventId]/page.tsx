@@ -93,14 +93,18 @@ interface EventAnalyticsPageProps {
 
 const use =
   React.use ||
-  (<T,>(promise: T | Promise<T>): T =>
-    promise instanceof Promise ? (promise as unknown as T) : promise);
+  (<T,>(promise: Promise<T> | T): T => {
+    if (promise instanceof Promise) {
+      throw new Error("React.use() is not available in this environment");
+    }
+    return promise as T;
+  });
 
 export default function EventAnalyticsPage({
   params,
 }: EventAnalyticsPageProps) {
   // Unwrap params using React.use if it's a Promise
-  const unwrappedParams = use(params);
+  const unwrappedParams = params instanceof Promise ? use(params) : params;
   const courseId = unwrappedParams.courseId;
   const eventId = unwrappedParams.eventId;
 

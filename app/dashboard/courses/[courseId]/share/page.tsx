@@ -66,7 +66,8 @@ interface CourseShareProps {
 
 export default function CourseSharePage(props: CourseShareProps) {
   // Unwrap params using React.use if it's a Promise
-  const params = use(props.params);
+  const params =
+    props.params instanceof Promise ? use(props.params) : props.params;
   const courseId = params.courseId;
 
   const [courseName, setCourseName] = useState("");

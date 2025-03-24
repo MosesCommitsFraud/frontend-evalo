@@ -97,16 +97,20 @@ interface FeedbackItem {
   created_at: string;
 }
 
+type Usable<T> = T | Promise<T>;
+
 const use =
   React.use ||
-  (<T,>(promise: T | Promise<T>): T =>
+  (<T,>(promise: Usable<T>): T =>
     promise instanceof Promise ? (promise as unknown as T) : promise);
 
 export default function CoursePage(props: {
   params: { courseId: string } | Promise<{ courseId: string }>;
 }) {
   // Unwrap params using React.use if it's a Promise
-  const params = use(props.params);
+  const params = use(
+    props.params as unknown as React.Usable<{ courseId: string }>,
+  );
   const courseId = params.courseId;
 
   // State for course data

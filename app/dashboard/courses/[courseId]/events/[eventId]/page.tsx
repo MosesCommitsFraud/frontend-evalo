@@ -84,19 +84,11 @@ interface EventAnalytics {
   commonWords: { text: string; value: number }[];
 }
 
-interface EventAnalyticsPageProps {
-  params: {
-    courseId: string;
-    eventId: string;
-  };
-}
-
 export default function EventAnalyticsPage({
-  params,
-}: EventAnalyticsPageProps) {
-  const courseId = params.courseId;
-  const eventId = params.eventId;
-
+  params: { courseId, eventId },
+}: {
+  params: { courseId: string; eventId: string };
+}) {
   // State for event and course data
   const [event, setEvent] = useState<Event | null>(null);
   const [courseName, setCourseName] = useState("");

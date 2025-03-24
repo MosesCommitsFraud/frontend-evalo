@@ -85,7 +85,7 @@ interface EventAnalytics {
   commonWords: { text: string; value: number }[];
 }
 
-// Update the interface to match Next.js page props structure
+// Update the interface to match Next.js client component expectations
 interface EventAnalyticsPageProps {
   params: {
     courseId: string;
@@ -94,22 +94,12 @@ interface EventAnalyticsPageProps {
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-const use =
-  React.use ||
-  (<T,>(promise: Promise<T> | T): T => {
-    if (promise instanceof Promise) {
-      throw new Error("React.use() is not available in this environment");
-    }
-    return promise as T;
-  });
-
 export default function EventAnalyticsPage({
   params,
 }: EventAnalyticsPageProps) {
-  // Unwrap params using React.use if it's a Promise
-  const unwrappedParams = params instanceof Promise ? use(params) : params;
-  const courseId = unwrappedParams.courseId;
-  const eventId = unwrappedParams.eventId;
+  // No need to unwrap params as a Promise in a client component
+  const courseId = params.courseId;
+  const eventId = params.eventId;
 
   // State for event and course data
   const [event, setEvent] = useState<Event | null>(null);

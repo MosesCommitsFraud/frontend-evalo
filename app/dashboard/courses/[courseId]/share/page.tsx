@@ -37,6 +37,7 @@ import CreateEventDialog from "@/components/create-event-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import QRCode from "@/components/qrcode";
+import { useParams } from "next/navigation";
 
 // Define the interface for events
 interface Event {
@@ -53,22 +54,8 @@ interface Event {
   total_feedback_count: number;
 }
 
-// Custom use function implementation that matches React's behavior
-const use =
-  React.use ||
-  (<T,>(promise: T | Promise<T>): T =>
-    promise instanceof Promise ? (promise as unknown as T) : promise);
-
-// Route: /dashboard/courses/[courseId]/share/page.tsx
-interface CourseShareProps {
-  params: { courseId: string } | Promise<{ courseId: string }>;
-}
-
-export default function CourseSharePage(props: CourseShareProps) {
-  // Unwrap params using React.use if it's a Promise
-  const params =
-    props.params instanceof Promise ? use(props.params) : props.params;
-  const courseId = params.courseId;
+export default function CourseSharePage() {
+  const { courseId } = useParams() as { courseId: string };
 
   const [courseName, setCourseName] = useState("");
   const [courseCode, setCourseCode] = useState("");

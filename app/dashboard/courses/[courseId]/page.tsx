@@ -42,9 +42,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { dataService } from "@/lib/data-service";
+import { Course, dataService } from "@/lib/data-service";
 import { toast } from "@/components/ui/toast";
-import { Course } from "@/lib/data-service";
 import CreateEventDialog from "@/components/create-event-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -56,7 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   Area,
   Bar,
@@ -96,24 +95,9 @@ interface FeedbackItem {
   is_reviewed: boolean;
   created_at: string;
 }
+export default function CoursePage() {
+  const { courseId } = useParams() as { courseId: string };
 
-type Usable<T> = T | Promise<T>;
-
-const use =
-  React.use ||
-  (<T,>(promise: Usable<T>): T =>
-    promise instanceof Promise ? (promise as unknown as T) : promise);
-
-export default function CoursePage(props: {
-  params: { courseId: string } | Promise<{ courseId: string }>;
-}) {
-  // Unwrap params using React.use if it's a Promise
-  const params = use(
-    props.params as unknown as React.Usable<{ courseId: string }>,
-  );
-  const courseId = params.courseId;
-
-  // State for course data
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

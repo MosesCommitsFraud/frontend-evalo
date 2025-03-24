@@ -169,40 +169,46 @@ export default function StudentFeedbackPage() {
 
       // Call sentiment analysis API
       let sentiment: "positive" | "negative" | "neutral";
-      let apiError = false;
-
+      const apiError = false;
       try {
-        // Call the Next.js API route that interfaces with FastAPI
-        const response = await fetch("/api/sentiment", {
+        // Use absolute URL instead of relative URL
+        const apiUrl = `${window.location.origin}/api/sentiment`;
+        console.log("Calling sentiment API at:", apiUrl);
+
+        // Call with proper headers and longer timeout
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({ text: feedback }),
+          // Increase timeout for slower mobile connections
+          signal: AbortSignal.timeout(10000), // 10 second timeout
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          sentiment = result.sentiment as "positive" | "negative" | "neutral";
-          console.log(
-            "Sentiment analysis result:",
-            sentiment,
-            "Confidence:",
-            result.confidence,
+        // More detailed error handling for debugging
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("API response not OK:", {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText,
+          });
+          throw new Error(
+            `API error ${response.status}: ${errorText || response.statusText}`,
           );
-        } else {
-          const errorData = await response.json();
-          console.error("Sentiment analysis API error:", errorData.error);
-          setError(
-            `Sentiment analysis failed: ${errorData.error}. Please try again.`,
-          );
-          apiError = true;
-          return;
         }
+
+        const result = await response.json();
+        console.log("API response success:", result);
+        sentiment = result.sentiment;
       } catch (error) {
-        console.error("Error calling sentiment API:", error);
-        setError("Unable to analyze feedback sentiment. Please try again.");
-        apiError = true;
+        console.error("Full sentiment API error:", error);
+        setError(
+          `Unable to analyze feedback: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        setIsSubmitting(false);
         return;
       }
 

@@ -171,43 +171,47 @@ export default function StudentFeedbackPage() {
       let sentiment: "positive" | "negative" | "neutral";
       const apiError = false;
       try {
-        // Use absolute URL instead of relative URL
+        // Use absolute URL to ensure proper routing on mobile
         const apiUrl = `${window.location.origin}/api/sentiment`;
-        console.log("Calling sentiment API at:", apiUrl);
 
-        // Call with proper headers and longer timeout
+        // Add more verbose console logging for debugging
+        console.log(
+          "Calling sentiment API at:",
+          apiUrl,
+          "with text:",
+          feedback.substring(0, 20) + "...",
+        );
+
         const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Accept: "application/json",
           },
           body: JSON.stringify({ text: feedback }),
-          // Increase timeout for slower mobile connections
-          signal: AbortSignal.timeout(10000), // 10 second timeout
+          // Make sure the credentials mode is appropriate
+          credentials: "same-origin",
         });
 
-        // More detailed error handling for debugging
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("API response not OK:", {
+          console.error("Sentiment API error:", {
             status: response.status,
             statusText: response.statusText,
-            body: errorText,
+            errorText,
           });
-          throw new Error(
-            `API error ${response.status}: ${errorText || response.statusText}`,
+          setError(
+            `Sentiment analysis failed: ${response.status} ${response.statusText}`,
           );
+          setIsSubmitting(false);
+          return;
         }
 
         const result = await response.json();
-        console.log("API response success:", result);
         sentiment = result.sentiment;
+        console.log("Sentiment result:", sentiment);
       } catch (error) {
-        console.error("Full sentiment API error:", error);
-        setError(
-          `Unable to analyze feedback: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        console.error("Error calling sentiment API:", error);
+        setError("Unable to analyze feedback sentiment. Please try again.");
         setIsSubmitting(false);
         return;
       }

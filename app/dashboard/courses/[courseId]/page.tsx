@@ -57,6 +57,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import {
+  Area,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  AreaChart,
+} from "recharts";
 
 interface Event {
   id: string;
@@ -500,17 +516,30 @@ export default function CoursePage(props: {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 flex items-start gap-2">
-            <Info className="h-5 w-5 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium">No analytics data available yet</p>
-              <p className="text-sm mt-1">
-                Analytics will be displayed here once students start submitting
-                feedback for your course events. Create an event and share the
-                feedback code to start collecting data.
-              </p>
+          {feedback.length === 0 ? (
+            <div className="mb-6 p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 flex items-start gap-2">
+              <Info className="h-5 w-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">No analytics data available yet</p>
+                <p className="text-sm mt-1">
+                  Analytics will be displayed here once students start
+                  submitting feedback for your course events. Create an event
+                  and share the feedback code to start collecting data.
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="mb-6 p-4 border rounded-lg bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+              <Info className="h-5 w-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Feedback Analysis</p>
+                <p className="text-sm mt-1">
+                  Below are analytics based on {feedback.length} feedback
+                  submissions across {events.length} course events.
+                </p>
+              </div>
+            </div>
+          )}
 
           <Tabs defaultValue="overview">
             <TabsList className="mb-4">
@@ -520,7 +549,7 @@ export default function CoursePage(props: {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
-              {/* Overview Placeholder */}
+              {/* Overview Charts */}
               <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                   <CardHeader>
@@ -528,11 +557,60 @@ export default function CoursePage(props: {
                       Feedback Distribution
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex flex-col items-center justify-center h-60">
-                    <PieChartIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-sm text-muted-foreground">
-                      No data to display yet
-                    </p>
+                  <CardContent className="h-60">
+                    {feedback.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <PieChartIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-sm text-muted-foreground">
+                          No data to display yet
+                        </p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              {
+                                name: "Positive",
+                                value: feedback.filter(
+                                  (f) => f.tone === "positive",
+                                ).length,
+                                fill: "#10b981",
+                              },
+                              {
+                                name: "Neutral",
+                                value: feedback.filter(
+                                  (f) => f.tone === "neutral",
+                                ).length,
+                                fill: "#6b7280",
+                              },
+                              {
+                                name: "Negative",
+                                value: feedback.filter(
+                                  (f) => f.tone === "negative",
+                                ).length,
+                                fill: "#ef4444",
+                              },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            label={(entry) =>
+                              `${entry.name}: ${((entry.value / feedback.length) * 100).toFixed(0)}%`
+                            }
+                            dataKey="value"
+                          />
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value} feedback items`,
+                              "Count",
+                            ]}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -542,11 +620,85 @@ export default function CoursePage(props: {
                       Feedback Over Time
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex flex-col items-center justify-center h-60">
-                    <LineChartIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-sm text-muted-foreground">
-                      No data to display yet
-                    </p>
+                  <CardContent className="h-60">
+                    {feedback.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <LineChartIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-sm text-muted-foreground">
+                          No data to display yet
+                        </p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={(() => {
+                            const groupedByDate: {
+                              [key: string]: {
+                                date: string;
+                                positive: number;
+                                neutral: number;
+                                negative: number;
+                              };
+                            } = {};
+
+                            feedback.forEach((item) => {
+                              const date = new Date(
+                                item.created_at,
+                              ).toLocaleDateString();
+                              if (!groupedByDate[date]) {
+                                groupedByDate[date] = {
+                                  date,
+                                  positive: 0,
+                                  neutral: 0,
+                                  negative: 0,
+                                };
+                              }
+                              if (item.tone === "positive") {
+                                groupedByDate[date].positive += 1;
+                              } else if (item.tone === "neutral") {
+                                groupedByDate[date].neutral += 1;
+                              } else if (item.tone === "negative") {
+                                groupedByDate[date].negative += 1;
+                              }
+                            });
+
+                            // Convert to array sorted by date
+                            return Object.values(groupedByDate).sort(
+                              (a, b) =>
+                                new Date(a.date).getTime() -
+                                new Date(b.date).getTime(),
+                            );
+                          })()}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Area
+                            type="monotone"
+                            dataKey="positive"
+                            stackId="1"
+                            stroke="#10b981"
+                            fill="#10b981"
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="neutral"
+                            stackId="1"
+                            stroke="#6b7280"
+                            fill="#6b7280"
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="negative"
+                            stackId="1"
+                            stroke="#ef4444"
+                            fill="#ef4444"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -562,7 +714,9 @@ export default function CoursePage(props: {
                         <p className="text-sm text-muted-foreground">
                           Total Feedback
                         </p>
-                        <p className="text-2xl font-bold mt-1">-</p>
+                        <p className="text-2xl font-bold mt-1">
+                          {feedback.length}
+                        </p>
                       </CardContent>
                     </Card>
 
@@ -571,7 +725,14 @@ export default function CoursePage(props: {
                         <p className="text-sm text-muted-foreground">
                           Positive Feedback
                         </p>
-                        <p className="text-2xl font-bold mt-1">-</p>
+                        <p className="text-2xl font-bold mt-1 text-emerald-600">
+                          {feedback.filter((f) => f.tone === "positive").length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {feedback.length > 0
+                            ? `${Math.round((feedback.filter((f) => f.tone === "positive").length / feedback.length) * 100)}%`
+                            : "0%"}
+                        </p>
                       </CardContent>
                     </Card>
 
@@ -580,7 +741,14 @@ export default function CoursePage(props: {
                         <p className="text-sm text-muted-foreground">
                           Neutral Feedback
                         </p>
-                        <p className="text-2xl font-bold mt-1">-</p>
+                        <p className="text-2xl font-bold mt-1 text-gray-600">
+                          {feedback.filter((f) => f.tone === "neutral").length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {feedback.length > 0
+                            ? `${Math.round((feedback.filter((f) => f.tone === "neutral").length / feedback.length) * 100)}%`
+                            : "0%"}
+                        </p>
                       </CardContent>
                     </Card>
 
@@ -589,7 +757,14 @@ export default function CoursePage(props: {
                         <p className="text-sm text-muted-foreground">
                           Negative Feedback
                         </p>
-                        <p className="text-2xl font-bold mt-1">-</p>
+                        <p className="text-2xl font-bold mt-1 text-red-600">
+                          {feedback.filter((f) => f.tone === "negative").length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {feedback.length > 0
+                            ? `${Math.round((feedback.filter((f) => f.tone === "negative").length / feedback.length) * 100)}%`
+                            : "0%"}
+                        </p>
                       </CardContent>
                     </Card>
                   </div>
@@ -598,45 +773,440 @@ export default function CoursePage(props: {
             </TabsContent>
 
             <TabsContent value="trends" className="space-y-6">
-              {/* Trends Placeholder */}
+              {/* Trends Charts */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Sentiment Trends</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-80">
-                  <LineChartIcon className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    No trend data available yet
-                  </p>
+                <CardContent className="h-80">
+                  {feedback.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <LineChartIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-sm text-muted-foreground">
+                        No trend data available yet
+                      </p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={(() => {
+                          // Group by event and get sentiment percentages
+                          const eventData = events.map((event) => {
+                            const eventFeedback = feedback.filter(
+                              (f) => f.event_id === event.id,
+                            );
+                            const eventDate = new Date(
+                              event.event_date,
+                            ).toLocaleDateString();
+
+                            // Find course code
+                            const eventCode = "Event";
+                            // Build event name
+                            const eventName = `${eventCode} (${eventDate})`;
+
+                            const positive = eventFeedback.filter(
+                              (f) => f.tone === "positive",
+                            ).length;
+                            const neutral = eventFeedback.filter(
+                              (f) => f.tone === "neutral",
+                            ).length;
+                            const negative = eventFeedback.filter(
+                              (f) => f.tone === "negative",
+                            ).length;
+                            const total = eventFeedback.length;
+
+                            return {
+                              date: eventDate,
+                              eventName,
+                              positive:
+                                total > 0 ? (positive / total) * 100 : 0,
+                              neutral: total > 0 ? (neutral / total) * 100 : 0,
+                              negative:
+                                total > 0 ? (negative / total) * 100 : 0,
+                              total,
+                            };
+                          });
+
+                          // Return as array sorted by date and only include events with feedback
+                          return eventData
+                            .filter((item) => item.total > 0) // Only events with feedback
+                            .sort(
+                              (a, b) =>
+                                new Date(a.date).getTime() -
+                                new Date(b.date).getTime(),
+                            );
+                        })()}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="eventName" />
+                        <YAxis
+                          label={{
+                            value: "Percentage",
+                            angle: -90,
+                            position: "insideLeft",
+                          }}
+                        />
+                        <Tooltip
+                          formatter={(value) => [
+                            `${typeof value === "number" ? value.toFixed(1) : value}%`,
+                            "",
+                          ]}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="positive"
+                          name="Positive"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          dot={{ r: 5 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="neutral"
+                          name="Neutral"
+                          stroke="#6b7280"
+                          strokeWidth={2}
+                          dot={{ r: 5 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="negative"
+                          name="Negative"
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                          dot={{ r: 5 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Popular Topics</CardTitle>
+                  <CardTitle className="text-lg">Event Comparison</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-60">
-                  <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    No topic data available yet
-                  </p>
+                <CardContent className="h-80">
+                  {events.length <= 1 ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <BarChart3 className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-sm text-muted-foreground">
+                        Need at least two events with feedback for comparison
+                      </p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={(() => {
+                          return events
+                            .map((event) => {
+                              const eventFeedback = feedback.filter(
+                                (f) => f.event_id === event.id,
+                              );
+                              const total = eventFeedback.length;
+                              const eventDate = new Date(
+                                event.event_date,
+                              ).toLocaleDateString();
+                              return {
+                                name: `Event (${eventDate})`,
+                                feedbackCount: total,
+                                responseRate: course?.student_count
+                                  ? Math.round(
+                                      (total / course.student_count) * 100,
+                                    )
+                                  : 0,
+                              };
+                            })
+                            .sort((a, b) => b.feedbackCount - a.feedbackCount);
+                        })()}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis
+                          yAxisId="left"
+                          orientation="left"
+                          stroke="#10b981"
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          stroke="#60a5fa"
+                        />
+                        <Tooltip />
+                        <Legend />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="feedbackCount"
+                          name="Feedback Count"
+                          fill="#10b981"
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar
+                          yAxisId="right"
+                          dataKey="responseRate"
+                          name="Response Rate (%)"
+                          fill="#60a5fa"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="sentiment" className="space-y-6">
-              {/* Sentiment Placeholder */}
+              {/* Sentiment Analysis */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Sentiment Analysis</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-80">
-                  <ThumbsUp className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    No sentiment data available yet
-                  </p>
+                <CardContent className="h-80">
+                  {feedback.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <ThumbsUp className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-sm text-muted-foreground">
+                        No sentiment data available yet
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="h-full">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-full">
+                        <div className="flex flex-col justify-center">
+                          <div className="text-center mb-6">
+                            <span className="text-6xl font-bold text-emerald-600">
+                              {feedback.length > 0
+                                ? `${Math.round((feedback.filter((f) => f.tone === "positive").length / feedback.length) * 100)}%`
+                                : "0%"}
+                            </span>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Overall Positive Sentiment
+                            </p>
+                          </div>
+
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-medium">
+                              Positive
+                            </span>
+                            <span className="text-sm font-medium text-emerald-600">
+                              {
+                                feedback.filter((f) => f.tone === "positive")
+                                  .length
+                              }
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                            <div
+                              className="bg-emerald-600 h-2.5 rounded-full"
+                              style={{
+                                width: `${
+                                  feedback.length > 0
+                                    ? Math.round(
+                                        (feedback.filter(
+                                          (f) => f.tone === "positive",
+                                        ).length /
+                                          feedback.length) *
+                                          100,
+                                      )
+                                    : 0
+                                }%`,
+                              }}
+                            ></div>
+                          </div>
+
+                          <div className="flex justify-between items-center mb-2 mt-4">
+                            <span className="text-sm font-medium">Neutral</span>
+                            <span className="text-sm font-medium text-gray-600">
+                              {
+                                feedback.filter((f) => f.tone === "neutral")
+                                  .length
+                              }
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                            <div
+                              className="bg-gray-600 h-2.5 rounded-full"
+                              style={{
+                                width: `${
+                                  feedback.length > 0
+                                    ? Math.round(
+                                        (feedback.filter(
+                                          (f) => f.tone === "neutral",
+                                        ).length /
+                                          feedback.length) *
+                                          100,
+                                      )
+                                    : 0
+                                }%`,
+                              }}
+                            ></div>
+                          </div>
+
+                          <div className="flex justify-between items-center mb-2 mt-4">
+                            <span className="text-sm font-medium">
+                              Negative
+                            </span>
+                            <span className="text-sm font-medium text-red-600">
+                              {
+                                feedback.filter((f) => f.tone === "negative")
+                                  .length
+                              }
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                            <div
+                              className="bg-red-600 h-2.5 rounded-full"
+                              style={{
+                                width: `${
+                                  feedback.length > 0
+                                    ? Math.round(
+                                        (feedback.filter(
+                                          (f) => f.tone === "negative",
+                                        ).length /
+                                          feedback.length) *
+                                          100,
+                                      )
+                                    : 0
+                                }%`,
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 border-l pl-8">
+                          <h3 className="font-medium mb-4">
+                            Top Feedback Samples
+                          </h3>
+
+                          <div
+                            className="space-y-3 overflow-y-auto"
+                            style={{ maxHeight: "250px" }}
+                          >
+                            {feedback
+                              .sort(
+                                (a, b) =>
+                                  new Date(b.created_at).getTime() -
+                                  new Date(a.created_at).getTime(),
+                              )
+                              .slice(0, 3)
+                              .map((item, index) => (
+                                <div
+                                  key={index}
+                                  className="p-3 border rounded-md"
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge
+                                      variant="outline"
+                                      className={
+                                        item.tone === "positive"
+                                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                          : item.tone === "negative"
+                                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                      }
+                                    >
+                                      <span className="flex items-center gap-1">
+                                        {getSentimentIcon(item.tone)}
+                                        {item.tone.charAt(0).toUpperCase() +
+                                          item.tone.slice(1)}
+                                      </span>
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(
+                                        item.created_at,
+                                      ).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm">{item.content}</p>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {feedback.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Key Insights</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 border rounded-lg">
+                        <h3 className="font-medium text-lg mb-2">
+                          Sentiment Summary
+                        </h3>
+                        <p>
+                          {feedback.filter((f) => f.tone === "positive")
+                            .length >
+                          feedback.filter((f) => f.tone === "negative").length
+                            ? "Students overall have a positive sentiment towards this course. Focus on maintaining the aspects they appreciate while addressing specific negative feedback."
+                            : feedback.filter((f) => f.tone === "negative")
+                                  .length >
+                                feedback.filter((f) => f.tone === "positive")
+                                  .length
+                              ? "There are more negative sentiments than positive ones. Consider reviewing the negative feedback carefully to identify areas for improvement."
+                              : "The sentiment is mixed or mostly neutral. Look for specific comments to understand what aspects need improvement and which are working well."}
+                        </p>
+                      </div>
+
+                      <div className="p-4 border rounded-lg">
+                        <h3 className="font-medium text-lg mb-2">
+                          Engagement Analysis
+                        </h3>
+                        <p>
+                          {events.length > 0 && course?.student_count
+                            ? `Average response rate is ${Math.round((feedback.length / (events.length * course.student_count)) * 100)}% of students.`
+                            : "Insufficient data to analyze engagement patterns."}
+                          {feedback.length < 10
+                            ? " Consider implementing strategies to increase participation in feedback collection."
+                            : feedback.length >= 10 && feedback.length < 30
+                              ? " You have a moderate amount of feedback. More responses would provide even more reliable insights."
+                              : " You have a good sample size of feedback which should provide reliable insights."}
+                        </p>
+                      </div>
+
+                      <div className="p-4 border rounded-lg">
+                        <h3 className="font-medium text-lg mb-2">
+                          Recommended Actions
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {feedback.filter((f) => f.tone === "negative")
+                            .length > 5 && (
+                            <li>
+                              Address common negative themes in your next class
+                              session
+                            </li>
+                          )}
+                          {feedback.length / (events.length || 1) < 10 && (
+                            <li>
+                              Encourage more students to provide feedback by
+                              explaining its importance
+                            </li>
+                          )}
+                          {feedback.filter((f) => f.tone === "positive")
+                            .length >
+                            feedback.filter((f) => f.tone === "negative")
+                              .length && (
+                            <li>
+                              Highlight and continue effective teaching methods
+                              that are receiving positive feedback
+                            </li>
+                          )}
+                          <li>
+                            Review individual comments for specific suggestions
+                            that may not be captured in the sentiment analysis
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

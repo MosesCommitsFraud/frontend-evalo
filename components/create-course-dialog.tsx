@@ -200,13 +200,12 @@ const AdminCreateCourseDialog = ({
           name: name,
           code: code,
           student_count: studentCount ? parseInt(studentCount, 10) : 0,
-          owner_id: teacherId,
+          owner_id: teacherId, // This allows multiple courses per teacher
           teacher: teacherId,
-          organization_id: orgId, // include organization id here
+          organization_id: orgId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           cycle: "current",
-          // description field is omitted as per your previous changes
         })
         .select();
 
@@ -329,19 +328,17 @@ const AdminCreateCourseDialog = ({
                     <SelectValue placeholder="Select a teacher" />
                   </SelectTrigger>
                   <SelectContent>
-                    {teachers.slice(0, 5).map((teacher) => (
+                    {teachers.map((teacher) => (
                       <SelectItem key={teacher.id} value={teacher.id}>
                         {teacher.full_name}
                       </SelectItem>
                     ))}
-                    {teachers.length > 5 && (
-                      <div className="py-2 px-2 text-xs text-muted-foreground">
-                        {teachers.length - 5} more teachers...
-                      </div>
-                    )}
                   </SelectContent>
                 </Select>
               )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Teachers can have multiple courses assigned to them
+              </p>
             </div>
           </div>
 

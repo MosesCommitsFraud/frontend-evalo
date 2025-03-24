@@ -347,7 +347,7 @@ export const dataService = {
     const supabase = createClient();
     return supabase
       .from("courses")
-      .select("*")
+      .select("*, profiles!owner_id(full_name)")
       .order("created_at", { ascending: false });
   },
 

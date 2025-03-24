@@ -168,20 +168,23 @@ export default function TeachersPage() {
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
         } else {
+          console.log("Fetched courses:", coursesData);
           setCourses(coursesData || []);
 
           // Group courses by teacher
           const coursesByTeacher: { [key: string]: Course[] } = {};
 
           for (const course of coursesData || []) {
-            if (course.owner_id) {
-              if (!coursesByTeacher[course.owner_id]) {
-                coursesByTeacher[course.owner_id] = [];
+            // Use teacher field instead of owner_id
+            if (course.teacher) {
+              if (!coursesByTeacher[course.teacher]) {
+                coursesByTeacher[course.teacher] = [];
               }
-              coursesByTeacher[course.owner_id].push(course);
+              coursesByTeacher[course.teacher].push(course);
             }
           }
 
+          console.log("Courses by teacher:", coursesByTeacher);
           setTeacherCourses(coursesByTeacher);
         }
       } catch (err) {
@@ -204,71 +207,116 @@ export default function TeachersPage() {
     try {
       const supabase = createClient();
 
-      // Update the course's owner_id to assign it to the selected teacher
-      const { error } = await supabase
-        .from("courses")
-        .update({ owner_id: selectedTeacher.id })
-        .eq("id", selectedCourseToAssign);
+      console.log("Starting course assignment process:", {
+        courseId: selectedCourseToAssign,
+        newTeacherId: selectedTeacher.id,
+        teacherName: selectedTeacher.full_name,
+      });
 
-      if (error) {
-        console.error("Error assigning course:", error);
+      // Get the selected course first
+      const { data: courseData, error: courseError } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("id", selectedCourseToAssign)
+        .single();
+
+      if (courseError) {
+        console.error("Error getting course:", courseError);
         toast({
           title: "Error",
-          description: "Failed to assign course to teacher",
+          description: "Failed to get course details",
         });
+        setAssigningCourse(false);
         return;
       }
 
-      // Update local state
-      const updatedCourse = courses.find(
-        (c) => c.id === selectedCourseToAssign,
-      );
+      const previousTeacherId = courseData.teacher;
 
+      console.log("Course details:", {
+        course: courseData,
+        previousTeacherId,
+        courseName: courseData.name,
+        courseCode: courseData.code,
+      });
+
+      // Update primarily the teacher field, but also owner_id to maintain consistency
+      const updates = {
+        teacher: selectedTeacher.id,
+        owner_id: selectedTeacher.id, // Keep this for consistency if your schema uses both
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log("Updating course with:", updates);
+
+      // Update the course's teacher to assign it to the selected teacher
+      const { data: updatedCourse, error: updateError } = await supabase
+        .from("courses")
+        .update(updates)
+        .eq("id", selectedCourseToAssign)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Error updating course:", updateError);
+        toast({
+          title: "Error",
+          description: `Failed to assign course: ${updateError.message}`,
+        });
+        setAssigningCourse(false);
+        return;
+      }
+
+      console.log("Course updated successfully:", updatedCourse);
+
+      // Update local state
       if (updatedCourse) {
         // Update the courses list
         setCourses(
           courses.map((c) =>
             c.id === selectedCourseToAssign
-              ? { ...c, owner_id: selectedTeacher.id }
+              ? {
+                  ...c,
+                  teacher: selectedTeacher.id,
+                  owner_id: selectedTeacher.id,
+                }
               : c,
           ),
         );
 
-        // Update the teacherCourses state
+        // Update the teacherCourses state - using teacher field as the key
         setTeacherCourses((prev) => {
           const newTeacherCourses = { ...prev };
 
-          // Remove from previous owner if exists
-          Object.keys(newTeacherCourses).forEach((teacherId) => {
-            newTeacherCourses[teacherId] = newTeacherCourses[teacherId].filter(
-              (c) => c.id !== selectedCourseToAssign,
-            );
-          });
+          // Remove course from previous teacher if it exists
+          if (previousTeacherId && newTeacherCourses[previousTeacherId]) {
+            newTeacherCourses[previousTeacherId] = newTeacherCourses[
+              previousTeacherId
+            ].filter((c) => c.id !== selectedCourseToAssign);
+          }
 
-          // Add to new owner
+          // Initialize array for new teacher if needed
           if (!newTeacherCourses[selectedTeacher.id]) {
             newTeacherCourses[selectedTeacher.id] = [];
           }
 
-          newTeacherCourses[selectedTeacher.id].push({
-            ...updatedCourse,
-            owner_id: selectedTeacher.id,
-          });
+          // Add course to new teacher
+          newTeacherCourses[selectedTeacher.id].push(updatedCourse);
 
+          console.log("Updated teacherCourses state:", newTeacherCourses);
           return newTeacherCourses;
         });
-      }
 
-      toast({
-        title: "Success",
-        description: "Course assigned successfully",
-      });
+        toast({
+          title: "Success",
+          description: "Course assigned successfully",
+        });
+      }
 
       // Reset and close dialog
       setSelectedCourseToAssign("");
       setAssignCourseDialogOpen(false);
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Exception during course assignment:", err);
       toast({
         title: "Error",
         description: "An unexpected error occurred",
@@ -630,6 +678,7 @@ export default function TeachersPage() {
       </Card>
 
       {/* Assign Course Dialog */}
+      {/* Updated Assign Course Dialog */}
       <Dialog
         open={assignCourseDialogOpen}
         onOpenChange={setAssignCourseDialogOpen}
@@ -666,17 +715,41 @@ export default function TeachersPage() {
                       .map((course) => (
                         <SelectItem key={course.id} value={course.id}>
                           {course.name} ({course.code})
+                          {course.owner_id &&
+                          course.owner_id !== selectedTeacher?.id ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              - Currently assigned to another teacher
+                            </span>
+                          ) : (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              - Unassigned
+                            </span>
+                          )}
                         </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
+                {selectedCourseToAssign &&
+                  courses.find((c) => c.id === selectedCourseToAssign)
+                    ?.owner_id &&
+                  courses.find((c) => c.id === selectedCourseToAssign)
+                    ?.owner_id !== selectedTeacher?.id && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      <AlertTriangle className="h-3 w-3 inline mr-1" />
+                      This course is currently assigned to another teacher.
+                      Reassigning it will remove it from their course load.
+                    </p>
+                  )}
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setAssignCourseDialogOpen(false)}
+              onClick={() => {
+                setAssignCourseDialogOpen(false);
+                setSelectedCourseToAssign("");
+              }}
               disabled={assigningCourse}
             >
               Cancel

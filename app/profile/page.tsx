@@ -25,7 +25,6 @@ import {
   Pencil,
   Check,
   Loader2,
-  X,
   AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";

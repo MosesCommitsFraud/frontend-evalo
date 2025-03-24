@@ -23,10 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Bell, Moon, Sun, Shield, Globe, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // App Preferences
@@ -166,7 +164,7 @@ export default function SettingsPage() {
 
       // Here you would actually save to your backend
       // Example: await userService.updatePreferences(user.id, appPreferences);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to save preferences",
@@ -189,7 +187,7 @@ export default function SettingsPage() {
       });
 
       // Here you would actually save to your backend
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to save notification settings",
@@ -213,6 +211,7 @@ export default function SettingsPage() {
 
       // Here you would actually save to your backend
     } catch (error) {
+      console.error("Privacy settings update error:", error);
       toast({
         title: "Error",
         description: "Failed to save privacy settings",

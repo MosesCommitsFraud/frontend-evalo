@@ -37,6 +37,7 @@ export default function StudentFeedbackPage() {
     courseId: string;
     courseName: string;
     courseCode: string;
+    organizationId: string; // Added organizationId field
   } | null>(null);
 
   // State for the form and submission
@@ -62,7 +63,7 @@ export default function StudentFeedbackPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("events")
-        .select("*, courses(name, code)")
+        .select("*, courses(name, code), organization_id") // Added organization_id to the query
         .eq("entry_code", code.toUpperCase())
         .eq("status", "open") // Only get open events
         .single();
@@ -80,6 +81,7 @@ export default function StudentFeedbackPage() {
           courseId: data.course_id,
           courseName: data.courses?.name || "Unknown Course",
           courseCode: data.courses?.code || "Unknown",
+          organizationId: data.organization_id, // Store organization_id
         });
         setIsCodeValid(true);
         return true;
@@ -209,6 +211,7 @@ export default function StudentFeedbackPage() {
         tone: sentiment,
         is_reviewed: false,
         created_at: new Date().toISOString(),
+        organization_id: eventInfo.organizationId, // Include the organization_id
       });
 
       if (insertError) {

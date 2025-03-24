@@ -93,10 +93,8 @@ interface EventAnalyticsPageProps {
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function EventAnalyticsPage({
-  params,
-}: EventAnalyticsPageProps) {
-  // No need to unwrap params as a Promise in a client component
+export default function EventAnalyticsPage(props: any) {
+  const params = props.params;
   const courseId = params.courseId;
   const eventId = params.eventId;
 

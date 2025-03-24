@@ -46,7 +46,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Type definitions
 interface Event {
   id: string;
   course_id: string;

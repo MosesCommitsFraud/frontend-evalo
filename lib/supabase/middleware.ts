@@ -1,3 +1,4 @@
+// lib/supabase/middleware.ts
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -42,7 +43,7 @@ export async function updateSession(request: NextRequest) {
     "/auth/forgot-password",
     "/auth/reset-password",
     "/auth/callback",
-    "/student-feedback",
+    "/student-feedback", // Base student feedback path
     "/access-denied",
   ];
 
@@ -50,8 +51,14 @@ export async function updateSession(request: NextRequest) {
   const authOnlyRoutes = [
     "/auth/organization",
     "/auth/confirm-mail",
-    "/auth/profile-setup", // Add any other auth-only routes
+    "/auth/profile-setup",
   ];
+
+  // Special handling for student feedback routes
+  if (request.nextUrl.pathname.startsWith("/student-feedback/")) {
+    // Always allow student feedback paths with codes
+    return supabaseResponse;
+  }
 
   // Check if current path matches any of the defined routes
   const isPublicRoute = publicRoutes.some((route) => {

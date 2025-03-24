@@ -50,7 +50,6 @@ export default function StudentFeedbackPage() {
     return regex.test(code.toUpperCase());
   };
 
-  // Check if the code is valid in the database
   const checkCodeValidity = async (code: string) => {
     setIsCheckingCode(true);
     setError("");
@@ -59,7 +58,7 @@ export default function StudentFeedbackPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("events")
-        .select("*, courses(name, code), organization_id") // Make sure to select organization_id
+        .select("*, courses(name, code, organization_id)")
         .eq("entry_code", code.toUpperCase())
         .eq("status", "open") // Only get open events
         .single();
@@ -72,12 +71,15 @@ export default function StudentFeedbackPage() {
       }
 
       if (data) {
+        const organizationId =
+          data.organization_id || data.courses?.organization_id;
+
         setEventInfo({
           eventId: data.id,
           courseId: data.course_id,
           courseName: data.courses?.name || "Unknown Course",
           courseCode: data.courses?.code || "Unknown",
-          organizationId: data.organization_id, // Store the organization_id
+          organizationId: organizationId, // Store the organization_id
         });
         setIsCodeValid(true);
         return true;
@@ -205,6 +207,16 @@ export default function StudentFeedbackPage() {
         return;
       }
 
+      // First check if the organization_id is available
+      if (!eventInfo.organizationId) {
+        console.error("Missing organization ID for feedback submission");
+        setError(
+          "Unable to submit feedback. Missing organization information.",
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       // Create the feedback record with the sentiment from the API
       const { error: insertError } = await supabase.from("feedback").insert({
         event_id: eventInfo.eventId,
@@ -217,7 +229,9 @@ export default function StudentFeedbackPage() {
 
       if (insertError) {
         console.error("Error submitting feedback:", insertError);
-        setError("Failed to submit feedback. Please try again.");
+        setError(
+          `Failed to submit feedback: ${insertError.message}. Please try again.`,
+        );
         return;
       }
 

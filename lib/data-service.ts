@@ -31,7 +31,7 @@ export type OrganizationInsert =
 export type OrganizationUpdate =
   Database["public"]["Tables"]["organizations"]["Update"];
 
-const getUserOrganizationId = async () => {
+export const getUserOrganizationId = async () => {
   const supabase = createClient();
   const {
     data: { user },
@@ -276,14 +276,6 @@ export const dataService = {
       .eq("id", organizationId)
       .select()
       .single();
-  },
-
-  getOrganizationMembers: async (organizationId: string) => {
-    const supabase = createClient();
-
-    return supabase
-      .from("profiles")
-      .select("id, full_name, email, avatar_url, role");
   },
 
   // Profile Management
@@ -787,7 +779,16 @@ export const dataService = {
       totalFeedback > 0 ? (neutralFeedback / totalFeedback) * 100 : 0;
 
     // Group feedback by month
-    const monthlyTrendData: Record<string, any> = {};
+    // Group feedback by month
+    interface MonthlyTrendItem {
+      month: string;
+      positive: number;
+      negative: number;
+      neutral: number;
+      total: number;
+    }
+
+    const monthlyTrendData: Record<string, MonthlyTrendItem> = {};
 
     if (allFeedback && allFeedback.length > 0) {
       allFeedback.forEach((item) => {

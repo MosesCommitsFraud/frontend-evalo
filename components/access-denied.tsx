@@ -25,7 +25,7 @@ export default function AccessDeniedPage() {
           <CardTitle className="text-2xl font-bold">Access Denied</CardTitle>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          <p>You don't have permission to access this page.</p>
+          <p>You don&#39;t have permission to access this page.</p>
           <p className="text-sm text-muted-foreground">
             Please sign in with the appropriate account or contact your
             administrator if you believe this is an error.

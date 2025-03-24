@@ -9,7 +9,7 @@ const QRCode = ({
   size?: number;
   level?: "L" | "M" | "Q" | "H";
 }) => {
-  const [qrCodeData, setQrCodeData] = useState(null);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
 
   useEffect(() => {
     // Generate QR code when text changes

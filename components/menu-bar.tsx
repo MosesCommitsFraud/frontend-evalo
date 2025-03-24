@@ -1,16 +1,16 @@
-"use client"
+"use client";
 
-import type * as React from "react"
-import { motion } from "framer-motion"
-import { Home, BookOpen, BarChart, MessageCircle } from "lucide-react"
-import { useTheme } from "next-themes"
+import type * as React from "react";
+import { motion } from "framer-motion";
+import { Home, BookOpen, BarChart, MessageCircle } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface MenuItem {
-  icon: React.ReactNode
-  label: string
-  href: string
-  gradient: string
-  iconColor: string
+  icon: React.ReactNode;
+  label: string;
+  href: string;
+  gradient: string;
+  iconColor: string;
 }
 
 const menuItems: MenuItem[] = [
@@ -18,41 +18,45 @@ const menuItems: MenuItem[] = [
     icon: <Home className="h-5 w-5" />,
     label: "Home",
     href: "#",
-    gradient: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
+    gradient:
+      "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
     iconColor: "text-emerald-600",
   },
   {
     icon: <BookOpen className="h-5 w-5" />,
     label: "Features",
     href: "#features",
-    gradient: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
+    gradient:
+      "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
     iconColor: "text-emerald-600",
   },
   {
     icon: <BarChart className="h-5 w-5" />,
     label: "About",
     href: "#about",
-    gradient: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
+    gradient:
+      "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
     iconColor: "text-emerald-600",
   },
   {
     icon: <MessageCircle className="h-5 w-5" />,
     label: "Contact",
     href: "#contact",
-    gradient: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
+    gradient:
+      "radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.06) 50%, rgba(4,120,87,0) 100%)",
     iconColor: "text-emerald-600",
   },
-]
+];
 
 const itemVariants = {
   initial: { rotateX: 0, opacity: 1 },
   hover: { rotateX: -90, opacity: 0 },
-}
+};
 
 const backVariants = {
   initial: { rotateX: 90, opacity: 0 },
   hover: { rotateX: 0, opacity: 1 },
-}
+};
 
 const glowVariants = {
   initial: { opacity: 0, scale: 0.8 },
@@ -64,7 +68,7 @@ const glowVariants = {
       scale: { duration: 0.5, type: "spring", stiffness: 300, damping: 25 },
     },
   },
-}
+};
 
 const navGlowVariants = {
   initial: { opacity: 0 },
@@ -75,19 +79,19 @@ const navGlowVariants = {
       ease: [0.4, 0, 0.2, 1],
     },
   },
-}
+};
 
 const sharedTransition = {
   type: "spring",
   stiffness: 100,
   damping: 20,
   duration: 0.5,
-}
+};
 
 export function MenuBar() {
-  const { theme } = useTheme()
+  const { theme } = useTheme();
 
-  const isDarkTheme = theme === "dark"
+  const isDarkTheme = theme === "dark";
 
   return (
     <motion.nav
@@ -104,7 +108,7 @@ export function MenuBar() {
         variants={navGlowVariants}
       />
       <ul className="flex items-center gap-2 relative z-10">
-        {menuItems.map((item, index) => (
+        {menuItems.map((item) => (
           <motion.li key={item.label} className="relative">
             <motion.div
               className="block rounded-xl overflow-visible group relative"
@@ -126,9 +130,14 @@ export function MenuBar() {
                 className="flex items-center gap-2 px-4 py-2 relative z-10 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl"
                 variants={itemVariants}
                 transition={sharedTransition}
-                style={{ transformStyle: "preserve-3d", transformOrigin: "center bottom" }}
+                style={{
+                  transformStyle: "preserve-3d",
+                  transformOrigin: "center bottom",
+                }}
               >
-                <span className={`transition-colors duration-300 group-hover:${item.iconColor} text-foreground`}>
+                <span
+                  className={`transition-colors duration-300 group-hover:${item.iconColor} text-foreground`}
+                >
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -138,9 +147,15 @@ export function MenuBar() {
                 className="flex items-center gap-2 px-4 py-2 absolute inset-0 z-10 bg-transparent text-muted-foreground group-hover:text-foreground transition-colors rounded-xl"
                 variants={backVariants}
                 transition={sharedTransition}
-                style={{ transformStyle: "preserve-3d", transformOrigin: "center top", rotateX: 90 }}
+                style={{
+                  transformStyle: "preserve-3d",
+                  transformOrigin: "center top",
+                  rotateX: 90,
+                }}
               >
-                <span className={`transition-colors duration-300 group-hover:${item.iconColor} text-foreground`}>
+                <span
+                  className={`transition-colors duration-300 group-hover:${item.iconColor} text-foreground`}
+                >
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -150,6 +165,5 @@ export function MenuBar() {
         ))}
       </ul>
     </motion.nav>
-  )
+  );
 }
-

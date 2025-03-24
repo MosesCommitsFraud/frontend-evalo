@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 // Custom button component that doesn't depend on @radix-ui/react-slot
-const Button = ({
+export const Button = ({
   children,
   className,
   variant = "ghost",
@@ -13,7 +13,7 @@ const Button = ({
   children: React.ReactNode;
   className?: string;
   variant?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }) => {
   return (
     <button

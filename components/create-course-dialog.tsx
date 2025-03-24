@@ -231,9 +231,11 @@ const AdminCreateCourseDialog = ({
         resetForm();
         setOpen(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating course:", error);
-      setError(error.message || "An unexpected error occurred");
+      setError(
+        error instanceof Error ? error.message : "An unexpected error occurred",
+      );
       toast({
         title: "Error",
         description: "Failed to create course. Please try again.",

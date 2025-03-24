@@ -88,13 +88,6 @@ const events = [
   },
 ];
 
-// Type definitions for TypeScript
-interface Course {
-  id: string;
-  name: string;
-  code: string;
-}
-
 interface CalendarEvent {
   id: string;
   title: string;

@@ -76,7 +76,6 @@ export default function CreateEventDialog({
     try {
       // Create event date from the form inputs
       const eventDate = new Date(`${date}T${timeFrom}`);
-      const eventEndDate = new Date(`${date}T${timeUntil}`);
 
       // Generate a unique code for this event
       const entryCode = generateEventCode();
@@ -149,9 +148,11 @@ export default function CreateEventDialog({
         setTimeUntil("");
         setOpen(false);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating event:", error);
-      setError(error.message || "An unexpected error occurred");
+      setError(
+        error instanceof Error ? error.message : "An unexpected error occurred",
+      );
       toast({
         title: "Error",
         description: "Failed to create event. Please try again.",

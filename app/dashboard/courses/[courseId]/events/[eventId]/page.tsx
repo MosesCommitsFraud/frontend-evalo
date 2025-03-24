@@ -45,6 +45,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { useParams } from "next/navigation";
 
 interface Event {
   id: string;
@@ -84,11 +85,11 @@ interface EventAnalytics {
   commonWords: { text: string; value: number }[];
 }
 
-export default function EventAnalyticsPage({
-  params: { courseId, eventId },
-}: {
-  params: { courseId: string; eventId: string };
-}) {
+export default function EventAnalyticsPage() {
+  const { courseId, eventId } = useParams() as {
+    courseId: string;
+    eventId: string;
+  };
   // State for event and course data
   const [event, setEvent] = useState<Event | null>(null);
   const [courseName, setCourseName] = useState("");

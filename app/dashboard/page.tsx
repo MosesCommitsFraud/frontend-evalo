@@ -102,8 +102,8 @@ export default function DashboardPage() {
         // Fetch all courses where the current user is the owner
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
-          .select("*, profiles(full_name)")
-          .eq("owner_id", user.id)
+          .select("*")
+          .eq("teacher", user.id)
           .order("created_at", { ascending: false });
 
         if (coursesError) {

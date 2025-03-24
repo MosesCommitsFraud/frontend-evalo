@@ -355,17 +355,13 @@ export const dataService = {
     const supabase = createClient();
     return supabase
       .from("courses")
-      .select("*, profiles(full_name)")
+      .select("*")
       .order("created_at", { ascending: false });
   },
 
   getCourseById: async (id: string) => {
     const supabase = createClient();
-    return supabase
-      .from("courses")
-      .select("*, profiles(full_name, email)")
-      .eq("id", id)
-      .single();
+    return supabase.from("courses").select("*").eq("id", id).single();
   },
 
   createCourse: async (

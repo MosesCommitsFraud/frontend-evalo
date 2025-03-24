@@ -281,7 +281,7 @@ export default function HomePage() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <LinkButton
-              href="/dashboard"
+              href="/auth/sign-in"
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white"
             >
               Teacher Login

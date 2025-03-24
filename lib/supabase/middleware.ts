@@ -30,13 +30,71 @@ export async function updateSession(request: NextRequest) {
   );
 
   // IMPORTANT: Do not add code between createServerClient and supabase.auth.getUser()
-  // Otherwise, you might get unexpected auth behavior
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // If user is authenticated, ensure they have a profile
+  // Define routes that are always accessible regardless of auth state or organization
+  const publicRoutes = [
+    "/",
+    "/auth/sign-in",
+    "/auth/sign-up",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/callback",
+    "/student-feedback",
+    "/access-denied",
+  ];
+
+  // Define authentication-only routes (require auth but exempt from organization checks)
+  const authOnlyRoutes = [
+    "/auth/organization",
+    "/auth/confirm-mail",
+    "/auth/profile-setup", // Add any other auth-only routes
+  ];
+
+  // Check if current path matches any of the defined routes
+  const isPublicRoute = publicRoutes.some((route) => {
+    return (
+      route === request.nextUrl.pathname ||
+      (route !== "/" && request.nextUrl.pathname.startsWith(route + "/"))
+    );
+  });
+
+  const isAuthOnlyRoute = authOnlyRoutes.some((route) => {
+    return (
+      route === request.nextUrl.pathname ||
+      request.nextUrl.pathname.startsWith(route + "/")
+    );
+  });
+
+  // FIRST CHECK: Authentication Check
+  // If no user and not on a public route, redirect to sign-in or access denied
+  if (!user && !isPublicRoute) {
+    // Check if coming from homepage/login button or direct access
+    const loginIntent = request.nextUrl.searchParams.get("login") === "true";
+    const referer = request.headers.get("referer") || "";
+    const fromHomepage = referer.includes(request.nextUrl.origin + "/");
+
+    if (loginIntent || fromHomepage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/sign-in";
+      url.searchParams.set("redirectTo", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    } else {
+      const url = request.nextUrl.clone();
+      url.pathname = "/access-denied";
+      url.searchParams.set("from", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // If we're on a public or auth-only route, don't do organization checks
+  if (isPublicRoute || isAuthOnlyRoute) {
+    return supabaseResponse;
+  }
+
+  // SECOND CHECK: If user is authenticated, create/verify profile
   if (user) {
     try {
       // Check if profile exists
@@ -49,7 +107,6 @@ export async function updateSession(request: NextRequest) {
       // If no profile found and no error, create one
       if (!profile && !error) {
         console.log(`Creating profile for user ${user.id}`);
-
         const { error: insertError } = await supabase.from("profiles").insert({
           id: user.id,
           email: user.email,
@@ -67,93 +124,19 @@ export async function updateSession(request: NextRequest) {
         }
       }
 
-      // Check for organization membership
+      // THIRD CHECK: Organization Membership
+      // Skip organization check for auth-related pages
       const hasOrganization = profile && profile.organization_id;
 
-      // Define public routes that don't require authentication
-      const publicRoutes = [
-        "/",
-        "/auth/sign-in",
-        "/auth/sign-up",
-        "/auth/forgot-password",
-        "/auth/reset-password",
-        "/auth/callback",
-        "/student-share", // Keep student share public
-        "/access-denied", // Access denied page
-      ];
-
-      // Define organization routes (require auth but not organization)
-      const organizationRoutes = ["/auth/organization"];
-
-      // Check if current path is a public route
-      const isPublicRoute = publicRoutes.some((route) => {
-        // Handle exact matches and routes that have additional path segments
-        return (
-          route === request.nextUrl.pathname ||
-          (route !== "/" && request.nextUrl.pathname.startsWith(route + "/"))
-        );
-      });
-
-      // Check if current path is an organization route
-      const isOrganizationRoute = organizationRoutes.some((route) => {
-        return (
-          route === request.nextUrl.pathname ||
-          request.nextUrl.pathname.startsWith(route + "/")
-        );
-      });
-
-      // If user has no organization and not on allowed routes, redirect to organization page
-      if (!hasOrganization && !isPublicRoute && !isOrganizationRoute) {
+      // Only apply organization check to dashboard and protected routes
+      if (!hasOrganization) {
+        // We could be more specific here if needed
         const url = request.nextUrl.clone();
         url.pathname = "/auth/organization";
         return NextResponse.redirect(url);
       }
     } catch (e) {
       console.error("Error checking/creating profile:", e);
-    }
-  }
-
-  // Define public routes that don't require authentication
-  const publicRoutes = [
-    "/",
-    "/auth/sign-in",
-    "/auth/sign-up",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-    "/auth/callback",
-    "/student-share", // Keep student share public
-    "/access-denied", // Access denied page
-  ];
-
-  // Check if current path is a public route
-  const isPublicRoute = publicRoutes.some((route) => {
-    // Handle exact matches and routes that have additional path segments
-    return (
-      route === request.nextUrl.pathname ||
-      (route !== "/" && request.nextUrl.pathname.startsWith(route + "/"))
-    );
-  });
-
-  // Check for login intent - source of navigation
-  const loginIntent = request.nextUrl.searchParams.get("login") === "true";
-  const referer = request.headers.get("referer") || "";
-
-  // If no user and not on a public route
-  if (!user && !isPublicRoute) {
-    // If there's login intent or they're coming from the homepage, go directly to sign-in
-    // This handles the "Teacher Login" button click case
-    if (loginIntent || referer.includes(request.nextUrl.origin + "/")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/auth/sign-in";
-      url.searchParams.set("redirectTo", request.nextUrl.pathname);
-      return NextResponse.redirect(url);
-    }
-    // Otherwise (direct URL access), show access denied page
-    else {
-      const url = request.nextUrl.clone();
-      url.pathname = "/access-denied";
-      url.searchParams.set("from", request.nextUrl.pathname);
-      return NextResponse.redirect(url);
     }
   }
 

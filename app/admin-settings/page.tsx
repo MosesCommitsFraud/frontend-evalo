@@ -40,16 +40,10 @@ import {
   Edit,
   Shield,
   Globe,
-  Palette,
-  Database,
-  ScrollText,
-  FileText,
   Key,
-  Link as LinkIcon,
   Loader2,
   Building2,
 } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
 import { dataService } from "@/lib/data-service";
 import { toast } from "@/components/ui/toast";
 import { Department } from "@/lib/data-service";
@@ -125,6 +119,7 @@ export default function AdminSettingsPage() {
       const { data, error } = await dataService.createDepartment({
         name: newDepartment.name,
         code: newDepartment.code.toUpperCase(),
+        organization_id: "your-organization-id", // Add the required organization_id
       });
 
       if (error) {

@@ -171,12 +171,31 @@ export default function AnalyticsPage() {
     }>
   >([]);
 
-  const [feedbackCategoriesData, setFeedbackCategoriesData] = useState<any[]>(
-    [],
-  );
+  interface FeedbackCategory {
+    name: string;
+    value: number;
+  }
+
+  interface TimeOfDay {
+    time: string;
+    count: number;
+  }
+
+  interface CourseComparison {
+    name: string;
+    feedbackCount: number;
+    responseRate: number;
+    sentiment: number;
+  }
+
+  const [feedbackCategoriesData, setFeedbackCategoriesData] = useState<
+    FeedbackCategory[]
+  >([]);
   const [weekdayData, setWeekdayData] = useState<WeekdayData[]>([]);
-  const [timeOfDayData, setTimeOfDayData] = useState<any[]>([]);
-  const [courseComparisonData, setCourseComparisonData] = useState<any[]>([]);
+  const [timeOfDayData, setTimeOfDayData] = useState<TimeOfDay[]>([]);
+  const [courseComparisonData, setCourseComparisonData] = useState<
+    CourseComparison[]
+  >([]);
   const [coursePageData, setCoursePageData] = useState<CoursePageData>({
     teacherCourses: [],
     studentActivityData: [],
@@ -307,8 +326,16 @@ export default function AnalyticsPage() {
         totalFeedback > 0 ? (neutralFeedback / totalFeedback) * 100 : 0;
 
       // Group feedback by month for trend data
-      const monthlyCounts: Record<string, any> = {};
-
+      const monthlyCounts: Record<
+        string,
+        {
+          month: string;
+          positive: number;
+          negative: number;
+          neutral: number;
+          total: number;
+        }
+      > = {};
       feedback.forEach((item) => {
         if (!item.created_at) return;
 

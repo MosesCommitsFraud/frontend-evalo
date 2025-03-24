@@ -22,6 +22,11 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 
+// Define environment variable - must add this to your .env file
+const HUGGING_FACE_API_URL =
+  process.env.NEXT_PUBLIC_HUGGING_FACE_API_URL ||
+  "https://your-huggingface-api-url.com";
+
 export default function StudentFeedbackPage() {
   const { code } = useParams() as { code?: string };
   const codeFromRoute = code || "";
@@ -32,7 +37,6 @@ export default function StudentFeedbackPage() {
     courseId: string;
     courseName: string;
     courseCode: string;
-    organizationId: string;
   } | null>(null);
 
   // State for the form and submission
@@ -58,11 +62,9 @@ export default function StudentFeedbackPage() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("events")
-        .select(
-          "id, event_date, status, entry_code, course_id, organization_id",
-        )
+        .select("*, courses(name, code)")
         .eq("entry_code", code.toUpperCase())
-        .eq("status", "open")
+        .eq("status", "open") // Only get open events
         .single();
 
       if (error) {
@@ -73,18 +75,11 @@ export default function StudentFeedbackPage() {
       }
 
       if (data) {
-        const { data: courseData } = await supabase
-          .from("courses")
-          .select("name, code")
-          .eq("id", data.course_id)
-          .single();
-
         setEventInfo({
           eventId: data.id,
           courseId: data.course_id,
-          courseName: courseData?.name || "Unknown Course",
-          courseCode: courseData?.code || "Unknown",
-          organizationId: data.organization_id,
+          courseName: data.courses?.name || "Unknown Course",
+          courseCode: data.courses?.code || "Unknown",
         });
         setIsCodeValid(true);
         return true;
@@ -147,7 +142,7 @@ export default function StudentFeedbackPage() {
     }
   };
 
-  // Handle share submission
+  // Handle feedback submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -165,64 +160,49 @@ export default function StudentFeedbackPage() {
     setError("");
 
     try {
-      const supabase = createClient();
+      // DIRECT APPROACH: Call Hugging Face API directly from client
+      console.log("Calling Hugging Face API directly from client");
+      console.log("API URL:", HUGGING_FACE_API_URL);
 
-      // Call sentiment analysis API
-      let sentiment: "positive" | "negative" | "neutral";
-      const apiError = false;
-      try {
-        // Use absolute URL to ensure proper routing on mobile
-        const apiUrl = `${window.location.origin}/api/sentiment`;
+      // Make the direct API call to Hugging Face
+      const sentimentResponse = await fetch(`${HUGGING_FACE_API_URL}/analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: feedback,
+          show_details: true,
+        }),
+      });
 
-        // Add more verbose console logging for debugging
-        console.log(
-          "Calling sentiment API at:",
-          apiUrl,
-          "with text:",
-          feedback.substring(0, 20) + "...",
-        );
-
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ text: feedback }),
-          // Make sure the credentials mode is appropriate
-          credentials: "same-origin",
+      if (!sentimentResponse.ok) {
+        const errorText = await sentimentResponse
+          .text()
+          .catch(() => "Unknown error");
+        console.error("Sentiment API error:", {
+          status: sentimentResponse.status,
+          statusText: sentimentResponse.statusText,
+          error: errorText,
         });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Sentiment API error:", {
-            status: response.status,
-            statusText: response.statusText,
-            errorText,
-          });
-          setError(
-            `Sentiment analysis failed: ${response.status} ${response.statusText}`,
-          );
-          setIsSubmitting(false);
-          return;
-        }
-
-        const result = await response.json();
-        sentiment = result.sentiment;
-        console.log("Sentiment result:", sentiment);
-      } catch (error) {
-        console.error("Error calling sentiment API:", error);
-        setError("Unable to analyze feedback sentiment. Please try again.");
-        setIsSubmitting(false);
-        return;
+        throw new Error(`Sentiment analysis failed: ${errorText}`);
       }
 
-      // If sentiment analysis failed, stop the submission process
-      if (apiError) {
-        setIsSubmitting(false);
-        return;
-      }
+      // Get the sentiment result
+      const sentimentResult = await sentimentResponse.json();
+      const sentiment = sentimentResult.sentiment as
+        | "positive"
+        | "negative"
+        | "neutral";
+      console.log(
+        "Sentiment result:",
+        sentiment,
+        "Confidence:",
+        sentimentResult.confidence,
+      );
 
-      // Create the feedback record with the sentiment from the API
+      // Submit the feedback with the determined sentiment
+      const supabase = createClient();
       const { error: insertError } = await supabase.from("feedback").insert({
         event_id: eventInfo.eventId,
         content: feedback,
@@ -286,7 +266,9 @@ export default function StudentFeedbackPage() {
       setFeedback("");
     } catch (error) {
       console.error("Error submitting feedback:", error);
-      setError("An unexpected error occurred. Please try again.");
+      setError(
+        `An error occurred: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`,
+      );
     } finally {
       setIsSubmitting(false);
     }

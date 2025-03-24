@@ -85,10 +85,13 @@ interface EventAnalytics {
   commonWords: { text: string; value: number }[];
 }
 
+// Update the interface to match Next.js page props structure
 interface EventAnalyticsPageProps {
-  params:
-    | { courseId: string; eventId: string }
-    | Promise<{ courseId: string; eventId: string }>;
+  params: {
+    courseId: string;
+    eventId: string;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
 const use =

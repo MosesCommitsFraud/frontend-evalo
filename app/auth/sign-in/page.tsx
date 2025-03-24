@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-export default function SignInPage() {
+function SignInContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -137,5 +137,13 @@ export default function SignInPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   );
 }

@@ -47,13 +47,21 @@ export default function SignUpPage() {
     }
 
     try {
-      const { error } = await signUp(email, password, fullName);
+      const { error, emailConfirmationRequired } = await signUp(
+        email,
+        password,
+        fullName,
+      );
 
       if (error) {
         setErrorMessage(error.message);
+      } else if (emailConfirmationRequired) {
+        setSuccessMessage(
+          "Account created successfully! Please check your email to verify your account before signing in.",
+        );
       } else {
         setSuccessMessage(
-          "Account created successfully! You are now logged in.",
+          "Account created successfully! You are being redirected to the dashboard.",
         );
       }
     } catch (error) {
@@ -100,6 +108,7 @@ export default function SignUpPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
+                disabled={isLoading || !!successMessage}
               />
             </div>
             <div className="space-y-2">
@@ -111,6 +120,7 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading || !!successMessage}
               />
             </div>
             <div className="space-y-2">
@@ -122,6 +132,7 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading || !!successMessage}
               />
             </div>
             <div className="space-y-2">
@@ -133,9 +144,14 @@ export default function SignUpPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
+                disabled={isLoading || !!successMessage}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading || !!successMessage}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

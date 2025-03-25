@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Session, User, AuthError } from "@supabase/supabase-js";
 
@@ -17,7 +17,10 @@ type AuthContextType = {
     email: string,
     password: string,
     fullName: string,
-  ) => Promise<{ error: AuthError | null }>;
+  ) => Promise<{
+    error: AuthError | null;
+    emailConfirmationRequired?: boolean;
+  }>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: AuthError | null }>;
   resetPassword: (password: string) => Promise<{ error: AuthError | null }>;
@@ -41,7 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Create the Supabase client
@@ -136,15 +138,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 5) Check if user belongs to an organization
       if (!existingProfile?.organization_id) {
         // If no organization, redirect to organization page
-        router.push("/auth/organization");
+        window.location.href = "/auth/organization";
         return { error: null };
       }
 
       // 6) Redirect after sign-in (and profile check/creation) is complete
       const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-      setTimeout(() => {
-        router.push(redirectTo);
-      }, 500);
+      // Use direct browser navigation instead of router.push
+      window.location.href = redirectTo;
 
       return { error: null };
     } catch (error) {
@@ -153,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Sign up with email and password
   // Sign up with email and password
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
@@ -176,14 +176,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Get the user from the signup response directly
       const newUser = data.user;
 
+      // Check if email confirmation is needed
+      // This checks if the identity requires confirmation
+      const needsEmailConfirmation =
+        newUser?.identities?.some(
+          (identity) => !identity.identity_data?.email_confirmed_at,
+        ) ?? true;
+
       if (newUser) {
         console.log("Creating profile for user:", newUser.id);
 
         try {
-          // Use service_role (admin) client to bypass RLS policies if possible
-          // This requires server-side implementation with service role key
-          // For now, we'll use what we have and address RLS issues separately
-
           // First check if profile already exists
           const { data: existingProfile } = await supabase
             .from("profiles")
@@ -230,16 +233,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("No user returned from sign-up operation");
       }
 
-      if (!error) {
-        // On success, inform the user they've been signed up
-        // and redirect them
-        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-        setTimeout(() => {
-          router.push(redirectTo);
-        }, 500);
+      // If email confirmation is needed, don't redirect and return emailConfirmationRequired flag
+      if (needsEmailConfirmation) {
+        return { error: null, emailConfirmationRequired: true };
       }
 
-      return { error };
+      // If no email confirmation needed, proceed with redirect
+      // On success, inform the user they've been signed up
+      // and redirect them
+      const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+      window.location.href = redirectTo;
+
+      return { error: null };
     } catch (error) {
       console.error("Error signing up:", error);
       return { error: error as AuthError };
@@ -250,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-      router.push("/");
+      window.location.href = "/";
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -277,7 +282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!error) {
-        router.push("/auth/sign-in?reset=success");
+        window.location.href = "/auth/sign-in?reset=success";
       }
 
       return { error };

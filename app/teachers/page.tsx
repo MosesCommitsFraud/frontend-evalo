@@ -374,10 +374,6 @@ export default function TeachersPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           Teacher Management
         </h1>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Teacher
-        </Button>
       </div>
 
       {/* Stats Cards */}

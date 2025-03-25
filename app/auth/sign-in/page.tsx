@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,42 +15,56 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 
 function SignInContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const { signIn, user } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
   const resetSuccess = searchParams.get("reset") === "success";
+  const emailVerified = searchParams.get("emailVerified") === "true";
 
   // If user is already logged in, redirect
   useEffect(() => {
     if (user) {
-      router.push(redirectTo);
+      window.location.href = redirectTo;
     }
-  }, [user, router, redirectTo]);
+
+    // Set success message based on URL parameters
+    if (resetSuccess) {
+      setSuccessMessage(
+        "Your password has been reset successfully. Please sign in.",
+      );
+    } else if (emailVerified) {
+      setSuccessMessage(
+        "Your email has been verified successfully. Please sign in.",
+      );
+    }
+  }, [user, redirectTo, resetSuccess, emailVerified]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const { error } = await signIn(email, password);
       if (error) {
         setErrorMessage(error.message);
+        setIsLoading(false);
       }
       // The actual redirect is handled in AuthContext after successful signIn
+      // No need to set isLoading to false on success as page will be redirected
     } catch (err) {
       setErrorMessage("An unexpected error occurred. Please try again.");
       console.error(err);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -74,10 +88,10 @@ function SignInContent() {
             </div>
           )}
 
-          {resetSuccess && (
+          {successMessage && (
             <div className="mb-4 flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400">
-              <AlertCircle className="h-4 w-4" />
-              <p>Your password has been reset successfully. Please sign in.</p>
+              <CheckCircle2 className="h-4 w-4" />
+              <p>{successMessage}</p>
             </div>
           )}
 
@@ -91,6 +105,7 @@ function SignInContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -110,6 +125,7 @@ function SignInContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>

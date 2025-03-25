@@ -479,7 +479,7 @@ export default function CoursePage() {
               courseId={courseId}
               onEventCreated={handleEventCreated}
             >
-              <Button className="gap-2">
+              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
                 <Plus className="h-4 w-4" />
                 Create Event
               </Button>
@@ -1653,7 +1653,7 @@ export default function CoursePage() {
             courseId={courseId}
             onEventCreated={handleEventCreated}
           >
-            <Button className="shrink-0 gap-2">
+            <Button className="shrink-0 gap-2 bg-emerald-600 hover:bg-emerald-700">
               <Plus className="h-4 w-4" />
               New Event
             </Button>
@@ -2036,7 +2036,14 @@ function EventCard({ event, onStatusChange }: EventCardProps) {
             >
               Change Status
             </Button>
-            <Button variant="default" size="sm">
+            <Button
+              variant="default"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent event card click
+              }}
+            >
               View Analytics
             </Button>
           </div>

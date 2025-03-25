@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import CustomTabs from "@/components/custom-tabs";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   User,
   Mail,
@@ -26,6 +25,9 @@ import {
   Check,
   Loader2,
   AlertTriangle,
+  Book,
+  Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { dataService, Department } from "@/lib/data-service";
@@ -46,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
   // Get authentication info
@@ -79,6 +82,19 @@ export default function ProfilePage() {
   // Departments state
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
+
+  // Activity state
+  interface Activity {
+    id: string;
+    type: "course" | "event" | "feedback" | "profile";
+    title: string;
+    description: string;
+    date: string;
+    icon: React.ReactNode;
+  }
+
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -167,6 +183,166 @@ export default function ProfilePage() {
 
     fetchDepartments();
   }, []);
+
+  // Function to format dates as relative time
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
+    if (diffInSeconds < 3600)
+      return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    if (diffInSeconds < 2592000)
+      return `${Math.floor(diffInSeconds / 604800)} weeks ago`;
+    if (diffInSeconds < 31536000)
+      return `${Math.floor(diffInSeconds / 2592000)} months ago`;
+    return `${Math.floor(diffInSeconds / 31536000)} years ago`;
+  };
+
+  // Function to fetch activities
+  const fetchActivities = async () => {
+    if (!authUser) return;
+
+    setLoadingActivities(true);
+
+    try {
+      const supabase = createClient();
+
+      // Fetch user's courses
+      const { data: coursesData } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("owner_id", authUser.id)
+        .order("created_at", { ascending: false });
+
+      const courses = coursesData || [];
+      const allActivities = [];
+
+      // Add course creation activities
+      courses.forEach((course) => {
+        allActivities.push({
+          id: `course-${course.id}`,
+          type: "course",
+          title: "Created course",
+          description: `${course.name} (${course.code})`,
+          date: course.created_at,
+          icon: <Book className="h-4 w-4" />,
+        });
+      });
+
+      // Fetch all events for user's courses
+      if (courses.length > 0) {
+        const courseIds = courses.map((c) => c.id);
+
+        const { data: eventsData } = await supabase
+          .from("events")
+          .select("*")
+          .in("course_id", courseIds)
+          .order("created_at", { ascending: false });
+
+        const events = eventsData || [];
+
+        // Add event creation activities
+        events.forEach((event) => {
+          const relatedCourse = courses.find((c) => c.id === event.course_id);
+          allActivities.push({
+            id: `event-${event.id}`,
+            type: "event",
+            title: "Created feedback session",
+            description: relatedCourse
+              ? `For ${relatedCourse.name} (${relatedCourse.code})`
+              : "For a course",
+            date: event.created_at,
+            icon: <Calendar className="h-4 w-4" />,
+          });
+        });
+
+        // Fetch feedback for all events
+        if (events.length > 0) {
+          const eventIds = events.map((e) => e.id);
+
+          const { data: feedbackData } = await supabase
+            .from("feedback")
+            .select("*")
+            .in("event_id", eventIds)
+            .order("created_at", { ascending: false });
+
+          const feedback = feedbackData || [];
+
+          // Add feedback activities
+          feedback.forEach((item) => {
+            const relatedEvent = events.find((e) => e.id === item.event_id);
+            const relatedCourse = relatedEvent
+              ? courses.find((c) => c.id === relatedEvent.course_id)
+              : null;
+
+            allActivities.push({
+              id: `feedback-${item.id}`,
+              type: "feedback",
+              title: "Received feedback",
+              description: relatedCourse
+                ? `${capitalize(item.tone)} feedback for ${relatedCourse.name}`
+                : `${capitalize(item.tone)} feedback`,
+              date: item.created_at,
+              icon: <MessageSquare className="h-4 w-4" />,
+            });
+          });
+        }
+      }
+
+      // Add profile update activity if applicable
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("created_at, updated_at")
+        .eq("id", authUser.id)
+        .single();
+
+      if (
+        profileData &&
+        new Date(profileData.updated_at).getTime() >
+          new Date(profileData.created_at).getTime()
+      ) {
+        allActivities.push({
+          id: `profile-${Date.now()}`,
+          type: "profile",
+          title: "Updated profile",
+          description: "You updated your profile information",
+          date: profileData.updated_at,
+          icon: <User className="h-4 w-4" />,
+        });
+      }
+
+      // Sort by date (newest first)
+      allActivities.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      );
+
+      setActivities(allActivities as Activity[]);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  // Helper function to capitalize first letter
+  const capitalize = (str: string) => {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  // Fetch activities when tab changes
+  useEffect(() => {
+    // We'll fetch activities when the component mounts to ensure they're ready
+    // when user switches to the Activity tab
+    if (authUser) {
+      fetchActivities();
+    }
+  }, [authUser]);
 
   // Handle opening the edit dialog
   const handleEdit = () => {
@@ -674,23 +850,68 @@ export default function ProfilePage() {
     </div>
   );
 
-  // Account Activity Tab Content
+  // Account Activity Tab Content - With real data
   const activityTabContent = (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Account Activity</CardTitle>
           <CardDescription>
-            This is a placeholder for account activity. In a real application,
-            this would show actual user activity from your database.
+            Your recent activities and interactions
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-8">
-          <Badge variant="outline">Demo Information</Badge>
-          <p className="mt-4 text-center text-muted-foreground">
-            Activity tracking features would be implemented based on your
-            specific requirements.
-          </p>
+        <CardContent>
+          {loadingActivities ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+              <span className="ml-2">Loading activities...</span>
+            </div>
+          ) : activities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No recent activity</h3>
+              <p className="text-muted-foreground max-w-md">
+                When you create courses, feedback sessions, or receive feedback,
+                your activity will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {activities.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex items-start gap-4 border-b pb-4 last:border-0 last:pb-0"
+                >
+                  <div
+                    className={cn(
+                      "rounded-full p-2 mt-0.5",
+                      activity.type === "course" &&
+                        "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                      activity.type === "event" &&
+                        "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+                      activity.type === "feedback" &&
+                        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                      activity.type === "profile" &&
+                        "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                    )}
+                  >
+                    {activity.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-medium">{activity.title}</h4>
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelativeTime(activity.date)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {activity.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

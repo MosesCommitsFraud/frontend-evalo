@@ -52,6 +52,231 @@ import { toast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
+// Avatar Display Component
+const AvatarDisplay = ({
+  avatarUrl,
+  isUploading,
+  handleUploadClick,
+}: {
+  avatarUrl: string;
+  isUploading: boolean;
+  handleUploadClick: () => void;
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  // Reset error state whenever the URL changes
+  useEffect(() => {
+    setImageError(false);
+  }, [avatarUrl]);
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-emerald-100 dark:border-emerald-900/30">
+          {avatarUrl && !imageError ? (
+            <img
+              src={avatarUrl}
+              alt="Profile"
+              className="h-full w-full object-cover"
+              onError={() => {
+                console.error("Failed to load image:", avatarUrl);
+                setImageError(true);
+              }}
+            />
+          ) : (
+            <User className="h-16 w-16 text-muted-foreground" />
+          )}
+          {isUploading && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-white" />
+            </div>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="absolute bottom-0 right-0 rounded-full bg-background shadow"
+          onClick={handleUploadClick}
+          disabled={isUploading}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-4"
+        onClick={handleUploadClick}
+        disabled={isUploading}
+      >
+        {isUploading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="h-4 w-4 mr-2" />
+            Change Picture
+          </>
+        )}
+      </Button>
+
+      {imageError && avatarUrl && (
+        <div className="text-xs text-red-500 mt-1 max-w-[200px] text-center">
+          Unable to load image. The URL may be invalid or inaccessible.
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Avatar Debugger Component
+const AvatarDebugger = ({ avatarUrl }: { avatarUrl: string }) => {
+  const [showDebugger, setShowDebugger] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    headers?: Record<string, string>;
+    contentType?: string;
+    contentLength?: string;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const testAvatarUrl = async () => {
+    if (!avatarUrl) {
+      setTestResult({
+        success: false,
+        message: "No avatar URL provided to test",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setTestResult(null);
+
+    try {
+      console.log("Testing URL:", avatarUrl);
+
+      // Try to fetch the image URL
+      const response = await fetch(avatarUrl, {
+        method: "HEAD",
+        // Add cache-busting to avoid getting cached results
+        headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
+      });
+
+      // Get headers to analyze
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+
+      if (response.ok) {
+        setTestResult({
+          success: true,
+          message: `URL is accessible (HTTP ${response.status})`,
+          headers,
+          contentType: headers["content-type"] || "Unknown",
+          contentLength: headers["content-length"] || "Unknown",
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: `URL returned error: HTTP ${response.status} ${response.statusText}`,
+          headers,
+        });
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: `Error accessing URL: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowDebugger(!showDebugger)}
+        className="text-xs text-muted-foreground"
+      >
+        {showDebugger ? "Hide" : "Debug"} Avatar URL
+      </Button>
+
+      {showDebugger && (
+        <div className="mt-2 p-3 border rounded-md text-xs">
+          <div className="font-mono break-all overflow-hidden">
+            <span className="font-semibold">Current URL:</span>{" "}
+            {avatarUrl || "No URL set"}
+          </div>
+
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={testAvatarUrl}
+              disabled={isLoading || !avatarUrl}
+            >
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : null}
+              Test URL
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(avatarUrl, "_blank")}
+              disabled={!avatarUrl}
+            >
+              Open in New Tab
+            </Button>
+          </div>
+
+          {testResult && (
+            <div
+              className={`mt-2 p-2 rounded text-xs ${testResult.success ? "bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-400" : "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-400"}`}
+            >
+              <div className="font-semibold">{testResult.message}</div>
+
+              {testResult.contentType && (
+                <div className="mt-1">
+                  <span className="font-semibold">Content Type:</span>{" "}
+                  {testResult.contentType}
+                </div>
+              )}
+
+              {testResult.contentLength && (
+                <div>
+                  <span className="font-semibold">Size:</span>{" "}
+                  {testResult.contentLength} bytes
+                </div>
+              )}
+
+              {testResult.headers && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer">Response Headers</summary>
+                  <div className="mt-1 pl-2 border-l">
+                    {Object.entries(testResult.headers).map(([key, value]) => (
+                      <div key={key}>
+                        <span className="font-semibold">{key}:</span> {value}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function ProfilePage() {
   // Get authentication info
   const { user: authUser } = useAuth();
@@ -101,6 +326,214 @@ export default function ProfilePage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const activitiesPerPage = 7;
+
+  // Storage Debugging functions
+  const debugSupabaseStorage = async () => {
+    try {
+      console.log("============ SUPABASE STORAGE DEBUG ============");
+      console.log("1. Checking authentication status...");
+      const supabase = createClient();
+
+      const { data: authData } = await supabase.auth.getUser();
+      console.log(
+        "Authentication status:",
+        authData?.user ? "Authenticated" : "Not authenticated",
+      );
+      if (authData?.user) {
+        console.log("User ID:", authData.user.id);
+      } else {
+        console.error(
+          "ERROR: User not authenticated. Storage operations require authentication.",
+        );
+        return;
+      }
+
+      console.log("\n2. Checking Supabase URL and key configuration...");
+      // Don't log the actual key, just check if it exists
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const hasKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      console.log("Supabase URL configured:", !!supabaseUrl);
+      console.log("Supabase ANON key configured:", hasKey);
+
+      if (!supabaseUrl || !hasKey) {
+        console.error(
+          "ERROR: Supabase configuration missing. Check your environment variables.",
+        );
+        return;
+      }
+
+      console.log("\n3. Attempting to list ALL buckets...");
+      try {
+        const { data: buckets, error } = await supabase.storage.listBuckets();
+
+        if (error) {
+          console.error("ERROR listing buckets:", error);
+          console.log(
+            "This suggests a permissions issue with your Supabase anon key or project settings.",
+          );
+
+          // Try to get more specific error info
+          if (error.message.includes("permission")) {
+            console.log(
+              "This appears to be a permissions issue. Check that storage is enabled in your project.",
+            );
+          } else if (error.message.includes("network")) {
+            console.log(
+              "This appears to be a network issue. Check your connection and CORS settings.",
+            );
+          }
+        } else {
+          console.log("SUCCESS: Retrieved", buckets?.length || 0, "buckets");
+          console.log(
+            "Bucket names:",
+            buckets?.map((b) => b.name),
+          );
+
+          // Check for avatars bucket with different casing
+          const avatarsBucketVariants = buckets?.filter(
+            (b) =>
+              b.name.toLowerCase() === "avatars" ||
+              b.name.toLowerCase() === "avatar",
+          );
+
+          if (avatarsBucketVariants && avatarsBucketVariants.length > 0) {
+            console.log(
+              "Found potential avatars buckets:",
+              avatarsBucketVariants,
+            );
+
+            // Try each variant
+            for (const bucket of avatarsBucketVariants) {
+              console.log(`\n4. Testing access to bucket: "${bucket.name}"`);
+              try {
+                const { data: files, error: listError } = await supabase.storage
+                  .from(bucket.name)
+                  .list();
+
+                if (listError) {
+                  console.error(
+                    `ERROR listing files in "${bucket.name}":`,
+                    listError,
+                  );
+                } else {
+                  console.log(
+                    `SUCCESS: Listed ${files?.length || 0} files in "${bucket.name}"`,
+                  );
+                }
+
+                // Try a dummy upload to test permissions
+                const testBlob = new Blob(["test"], { type: "text/plain" });
+                const testFile = new File([testBlob], "test.txt", {
+                  type: "text/plain",
+                });
+
+                console.log(`Attempting test upload to "${bucket.name}"...`);
+                const { data: uploadData, error: uploadError } =
+                  await supabase.storage
+                    .from(bucket.name)
+                    .upload(`test-${Date.now()}.txt`, testFile, {
+                      upsert: true,
+                      cacheControl: "0",
+                    });
+
+                if (uploadError) {
+                  console.error(
+                    `ERROR uploading to "${bucket.name}":`,
+                    uploadError,
+                  );
+
+                  // Check for specific error types
+                  if (uploadError.message.includes("permission")) {
+                    console.log(
+                      "This is a permissions issue. You need an INSERT policy for this bucket.",
+                    );
+                  } else if (uploadError.message.includes("not found")) {
+                    console.log(
+                      "Bucket found in list but not accessible for upload. This is unusual.",
+                    );
+                  }
+                } else {
+                  console.log(
+                    `SUCCESS: Test upload to "${bucket.name}" worked!`,
+                  );
+                  console.log("Upload data:", uploadData);
+
+                  // Try to get URL
+                  const { data: urlData } = supabase.storage
+                    .from(bucket.name)
+                    .getPublicUrl(uploadData?.path || "test.txt");
+
+                  console.log("Generated public URL:", urlData?.publicUrl);
+
+                  // Test URL accessibility
+                  try {
+                    const response = await fetch(urlData?.publicUrl, {
+                      method: "HEAD",
+                    });
+                    console.log("URL is accessible:", response.ok);
+                  } catch (fetchError) {
+                    console.error("Error accessing the URL:", fetchError);
+                  }
+                }
+              } catch (bucketError) {
+                console.error(
+                  `Exception testing bucket "${bucket.name}":`,
+                  bucketError,
+                );
+              }
+            }
+          } else {
+            console.error("No bucket with name 'avatars' or 'avatar' found.");
+            console.log(
+              "Available buckets:",
+              buckets?.map((b) => b.name),
+            );
+
+            // If no avatars bucket, check if we can create one
+            console.log("\nAttempting to create 'avatars' bucket...");
+            try {
+              const { data: createData, error: createError } =
+                await supabase.storage.createBucket("avatars", {
+                  public: true,
+                });
+
+              if (createError) {
+                console.error("ERROR creating 'avatars' bucket:", createError);
+                if (createError.message.includes("permission")) {
+                  console.log(
+                    "You don't have permission to create buckets. This requires admin access.",
+                  );
+                }
+              } else {
+                console.log("SUCCESS: Created 'avatars' bucket:", createData);
+              }
+            } catch (createError) {
+              console.error("Exception creating bucket:", createError);
+            }
+          }
+        }
+      } catch (listError) {
+        console.error("Exception listing buckets:", listError);
+      }
+
+      console.log("\n5. Final diagnosis:");
+      console.log(
+        "- If test uploads succeeded: Your avatar upload should work; the issue might be elsewhere in your code.",
+      );
+      console.log(
+        "- If buckets couldn't be listed: Check your Storage permissions in Supabase project settings.",
+      );
+      console.log(
+        "- If bucket was found but uploads failed: Check your RLS policies for INSERT permissions.",
+      );
+      console.log(
+        "- If no avatars bucket was found: Create one in the Supabase dashboard.",
+      );
+      console.log("=================================================");
+    } catch (e) {
+      console.error("Exception in storage debug:", e);
+    }
+  };
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -161,35 +594,7 @@ export default function ProfilePage() {
     fetchUserProfile();
   }, [authUser]);
 
-  // Fetch departments
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      setLoadingDepartments(true);
-      try {
-        const { data, error } = await dataService.getDepartments();
-        if (error) {
-          console.error("Error fetching departments:", error);
-          toast({
-            title: "Warning",
-            description:
-              "Failed to load departments. You may not be able to select a department.",
-          });
-          return;
-        }
-        if (data) {
-          console.log("Departments loaded:", data);
-          setDepartments(data);
-        }
-      } catch (error) {
-        console.error("Error fetching departments:", error);
-      } finally {
-        setLoadingDepartments(false);
-      }
-    };
-
-    fetchDepartments();
-  }, []);
-
+  // Check Supabase buckets on mount
   useEffect(() => {
     const checkBuckets = async () => {
       try {
@@ -258,7 +663,36 @@ export default function ProfilePage() {
     if (authUser) {
       checkBuckets();
     }
-  }, [authUser]);
+  }, [authUser]); // Run when authUser changes (i.e., after login)
+
+  // Fetch departments
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setLoadingDepartments(true);
+      try {
+        const { data, error } = await dataService.getDepartments();
+        if (error) {
+          console.error("Error fetching departments:", error);
+          toast({
+            title: "Warning",
+            description:
+              "Failed to load departments. You may not be able to select a department.",
+          });
+          return;
+        }
+        if (data) {
+          console.log("Departments loaded:", data);
+          setDepartments(data);
+        }
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   // Function to format dates as relative time
   const formatRelativeTime = (dateString: string): string => {
@@ -450,80 +884,28 @@ export default function ProfilePage() {
 
     const file = e.target.files[0];
     const fileExt = file.name.split(".").pop();
-    // Generate a unique filename to avoid caching issues
-    const fileName = `${Date.now()}_${authUser?.id}.${fileExt}`;
-    const filePath = fileName; // Simplified path - no folders
+
+    // Create a folder structure with user ID to organize the files
+    const userId = authUser?.id || "unknown";
+    const folderPath = `users/${userId}/`;
+    const fileName = `avatar_${Date.now()}.${fileExt}`;
+    const filePath = folderPath + fileName;
 
     setIsUploading(true);
     console.log("Starting avatar upload...");
     console.log("File:", file.name, "Size:", file.size);
+    console.log("Upload path:", filePath);
 
     try {
-      // Upload file to Supabase Storage
+      // Upload file to Supabase Storage - skip bucket checks, just try to upload directly
       const supabase = createClient();
-      console.log("Attempting to upload to avatars bucket, path:", filePath);
 
-      // First check if bucket exists - with more detailed logging
-      const { data: buckets, error: bucketsError } =
-        await supabase.storage.listBuckets();
-
-      if (bucketsError) {
-        console.error("Error listing buckets:", bucketsError);
-        toast({
-          title: "Error",
-          description:
-            "Unable to access storage. Please check your permissions.",
-        });
-        setIsUploading(false);
-        return;
-      }
-
-      console.log(
-        "Available buckets:",
-        buckets?.map((b) => b.name),
-      );
-
-      // Check for bucket existence (case-insensitive)
-      const bucketExists = buckets?.some(
-        (bucket) => bucket.name.toLowerCase() === "avatars",
-      );
-
-      if (!bucketExists) {
-        console.error("Avatars bucket not found!");
-        console.log("Attempting direct upload...");
-
-        // Try direct upload anyway - sometimes bucket checks fail but uploads work
-        const { data: directData, error: directError } = await supabase.storage
-          .from("avatars")
-          .upload(filePath, file, {
-            upsert: true,
-            cacheControl: "0",
-          });
-
-        if (directError) {
-          console.error("Direct upload failed:", directError);
-          toast({
-            title: "Storage Error",
-            description: `Storage bucket not found or inaccessible. Error: ${directError.message}`,
-          });
-          setIsUploading(false);
-          return;
-        }
-
-        console.log(
-          "Direct upload succeeded despite bucket check failure:",
-          directData,
-        );
-      } else {
-        console.log("Found avatars bucket, proceeding with upload");
-      }
-
-      // Proceed with normal upload
+      console.log("Uploading to storage...");
       const { data, error } = await supabase.storage
-        .from("avatars")
+        .from("avatars") // Use the bucket name directly
         .upload(filePath, file, {
           upsert: true,
-          cacheControl: "0", // Disable caching
+          cacheControl: "3600", // 1 hour cache, adjust as needed
         });
 
       if (error) {
@@ -533,20 +915,20 @@ export default function ProfilePage() {
 
       console.log("Upload successful:", data);
 
-      // Get public URL for the uploaded file - use newer getPublicUrl method
+      // Get public URL for the uploaded file
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);
 
-      console.log("Public URL response:", urlData);
+      console.log("Public URL data:", urlData);
 
-      if (!urlData.publicUrl) {
+      if (!urlData || !urlData.publicUrl) {
         throw new Error("Failed to get public URL for the uploaded file");
       }
 
-      // Make sure the URL is using HTTPS (sometimes needed for security)
-      const publicUrl = urlData.publicUrl.replace("http:", "https:");
-      console.log("Final public URL to be saved:", publicUrl);
+      // Add a timestamp query parameter to force image refresh in the UI
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      console.log("Final public URL with cache busting:", publicUrl);
 
       // Update profile with new avatar URL
       console.log("Updating profile with new avatar URL");
@@ -560,7 +942,7 @@ export default function ProfilePage() {
         throw updateError;
       }
 
-      // Update local state
+      // Update local state - force a re-render by creating a new object
       setUser((prev) => ({
         ...prev,
         avatar_url: publicUrl,
@@ -711,60 +1093,20 @@ export default function ProfilePage() {
               {/* Avatar section */}
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex flex-col items-center">
-                  <div className="relative">
-                    <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-emerald-100 dark:border-emerald-900/30">
-                      {user.avatar_url ? (
-                        <img
-                          src={user.avatar_url}
-                          alt="Profile"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <User className="h-16 w-16 text-muted-foreground" />
-                      )}
-                      {isUploading && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Loader2 className="h-8 w-8 animate-spin text-white" />
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="absolute bottom-0 right-0 rounded-full bg-background shadow"
-                      onClick={handleUploadClick}
-                      disabled={isUploading}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      disabled={isUploading}
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-4"
-                    onClick={handleUploadClick}
+                  <AvatarDisplay
+                    avatarUrl={user.avatar_url}
+                    isUploading={isUploading}
+                    handleUploadClick={handleUploadClick}
+                  />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
                     disabled={isUploading}
-                  >
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Change Picture
-                      </>
-                    )}
-                  </Button>
+                  />
+                  <AvatarDebugger avatarUrl={user.avatar_url} />
                 </div>
 
                 <div className="flex-1 space-y-4">
@@ -815,10 +1157,17 @@ export default function ProfilePage() {
                 </div>
               )}
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex justify-between">
               <Button variant="outline" className="gap-2" onClick={handleEdit}>
                 <Edit className="h-4 w-4" />
                 Edit Profile
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={debugSupabaseStorage}
+              >
+                Storage Debug
               </Button>
             </CardFooter>
           </Card>

@@ -131,7 +131,7 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
         if (error) {
           console.error("Error fetching notifications:", error);
           setNotifications([]);
-        } else if (data) {
+        } else if (data && data.length > 0) {
           // Transform the data to match our notification interface
           const formattedNotifications: FeedbackNotification[] = data.map(
             (item) => ({
@@ -159,8 +159,8 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
     if (isClient && user) {
       fetchNotifications();
 
-      // Set up polling for new notifications (every 2 minutes)
-      const pollingInterval = setInterval(fetchNotifications, 2 * 60 * 1000);
+      // Set up polling for new notifications (every 1 minute to be more responsive)
+      const pollingInterval = setInterval(fetchNotifications, 60 * 1000);
       return () => clearInterval(pollingInterval);
     } else {
       setNotifications([]);
@@ -236,6 +236,26 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
       setNotifications([]);
     } catch (error) {
       console.error("Error marking notifications as seen:", error);
+    }
+  };
+
+  // Handle clicking on a notification
+  const handleNotificationClick = async (
+    notification: FeedbackNotification,
+  ) => {
+    try {
+      // Mark just this notification as seen
+      await dataService.markNotificationAsSeen(notification.id);
+
+      // Remove it from the list
+      setNotifications((current) =>
+        current.filter((item) => item.id !== notification.id),
+      );
+
+      // You could also navigate to the specific event page
+      // Example: router.push(`/events/${notification.event_id}`);
+    } catch (error) {
+      console.error("Error marking notification as seen:", error);
     }
   };
 
@@ -374,7 +394,8 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
                     {notifications.map((notification) => (
                       <DropdownMenuItem
                         key={notification.id}
-                        className="flex flex-col items-start p-3 cursor-default"
+                        className="flex flex-col items-start p-3 cursor-pointer"
+                        onClick={() => handleNotificationClick(notification)}
                       >
                         <div className="flex w-full justify-between">
                           <span className="font-medium">
@@ -412,7 +433,7 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link
-                    href="/dashboard"
+                    href="/feedback"
                     className="w-full text-center cursor-pointer"
                   >
                     View all feedback

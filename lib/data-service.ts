@@ -726,31 +726,67 @@ export const dataService = {
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
-    // Get all unseen feedback for the current user's courses
-    return supabase
-      .from("feedback")
-      .select(
-        `
-      *,
-      events!inner(
-        id,
-        course_id,
-        event_date,
-        courses!inner(
+    try {
+      // Step 1: Get all courses owned by the current user
+      const { data: courses, error: coursesError } = await supabase
+        .from("courses")
+        .select("id")
+        .eq("owner_id", user.id);
+
+      if (coursesError || !courses || courses.length === 0) {
+        return {
+          data: [],
+          error: coursesError || new Error("No courses found"),
+        };
+      }
+
+      const courseIds = courses.map((course) => course.id);
+
+      // Step 2: Get all events for those courses
+      const { data: events, error: eventsError } = await supabase
+        .from("events")
+        .select("id")
+        .in("course_id", courseIds);
+
+      if (eventsError || !events || events.length === 0) {
+        return { data: [], error: eventsError || new Error("No events found") };
+      }
+
+      const eventIds = events.map((event) => event.id);
+
+      // Step 3: Get all unseen feedback for those events
+      const { data: feedback, error: feedbackError } = await supabase
+        .from("feedback")
+        .select(
+          `
+        *,
+        events!inner(
           id,
-          name,
-          code,
-          owner_id
+          course_id,
+          courses!inner(
+            id,
+            name,
+            code
+          )
         )
-      )
-    `,
-      )
-      .eq("events.courses.owner_id", user.id)
-      .eq("is_seen", false)
-      .order("created_at", { ascending: false });
+      `,
+        )
+        .in("event_id", eventIds)
+        .eq("is_seen", false)
+        .order("created_at", { ascending: false });
+
+      if (feedbackError) {
+        return { data: [], error: feedbackError };
+      }
+
+      return { data: feedback || [], error: null };
+    } catch (error) {
+      console.error("Error in getUnseenFeedbackNotifications:", error);
+      return { data: [], error: error as Error };
+    }
   },
 
-  // Mark a notification as seen
+  // Mark a specific notification as seen
   markNotificationAsSeen: async (notificationId: string) => {
     const supabase = createClient();
 
@@ -760,7 +796,7 @@ export const dataService = {
       .eq("id", notificationId);
   },
 
-  // Mark all notifications as seen
+  // Mark all notifications as seen for the current user's courses
   markAllNotificationsAsSeen: async () => {
     const supabase = createClient();
     const {
@@ -768,38 +804,47 @@ export const dataService = {
     } = await supabase.auth.getUser();
     if (!user) return { data: null, error: new Error("User not found") };
 
-    // Get all unseen feedback for the current user's courses
-    const { data: feedbackToUpdate, error: selectError } = await supabase
-      .from("feedback")
-      .select(
-        `
-      id,
-      events!inner(
-        course_id,
-        courses!inner(
-          owner_id
-        )
-      )
-    `,
-      )
-      .eq("events.courses.owner_id", user.id)
-      .eq("is_seen", false);
+    try {
+      // Step 1: Get all courses owned by the current user
+      const { data: courses, error: coursesError } = await supabase
+        .from("courses")
+        .select("id")
+        .eq("owner_id", user.id);
 
-    if (selectError) {
-      return { data: null, error: selectError };
-    }
+      if (coursesError || !courses || courses.length === 0) {
+        return {
+          data: null,
+          error: coursesError || new Error("No courses found"),
+        };
+      }
 
-    if (feedbackToUpdate && feedbackToUpdate.length > 0) {
-      const feedbackIds = feedbackToUpdate.map((item) => item.id);
+      const courseIds = courses.map((course) => course.id);
 
-      // Update all matching feedback to be seen
+      // Step 2: Get all events for those courses
+      const { data: events, error: eventsError } = await supabase
+        .from("events")
+        .select("id")
+        .in("course_id", courseIds);
+
+      if (eventsError || !events || events.length === 0) {
+        return {
+          data: null,
+          error: eventsError || new Error("No events found"),
+        };
+      }
+
+      const eventIds = events.map((event) => event.id);
+
+      // Step 3: Update all unseen feedback for those events
       return supabase
         .from("feedback")
         .update({ is_seen: true })
-        .in("id", feedbackIds);
+        .in("event_id", eventIds)
+        .eq("is_seen", false);
+    } catch (error) {
+      console.error("Error in markAllNotificationsAsSeen:", error);
+      return { data: null, error: error as Error };
     }
-
-    return { data: null, error: null };
   },
 
   // Replace the getGlobalAnalytics function in your lib/data-service.ts file

@@ -973,15 +973,78 @@ export const dataService = {
     department: Omit<DepartmentInsert, "created_at" | "updated_at">,
   ) => {
     const supabase = createClient();
-    return supabase
-      .from("departments")
-      .insert({
-        ...department,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+
+    // Ensure we have the organization_id
+    if (!department.organization_id) {
+      try {
+        department.organization_id = await getUserOrganizationId();
+      } catch (error) {
+        console.error("Error getting organization ID:", error);
+        return {
+          data: null,
+          error: new Error(
+            "Unable to determine organization. Please try again.",
+          ),
+        };
+      }
+    }
+
+    // Add timestamps
+    const departmentWithTimestamps = {
+      ...department,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    console.log("Creating department with data:", departmentWithTimestamps);
+
+    try {
+      // First try direct insertion
+      const { data, error } = await supabase
+        .from("departments")
+        .insert(departmentWithTimestamps)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error in direct department creation:", error);
+
+        // If that fails, try using a stored procedure or function if available
+        // This is just an example - you would need to create this function in Supabase
+        try {
+          const { data: rpcData, error: rpcError } = await supabase.rpc(
+            "create_department",
+            {
+              dept_name: department.name,
+              dept_code: department.code,
+              org_id: department.organization_id,
+              timestamp: departmentWithTimestamps.created_at,
+            },
+          );
+
+          if (rpcError) {
+            console.error("RPC department creation also failed:", rpcError);
+            return { data: null, error: rpcError };
+          }
+
+          return { data: rpcData, error: null };
+        } catch (rpcException) {
+          console.error("Exception in RPC department creation:", rpcException);
+          return { data: null, error: error }; // Return the original error
+        }
+      }
+
+      return { data, error };
+    } catch (exception) {
+      console.error("Exception during department creation:", exception);
+      return {
+        data: null,
+        error:
+          exception instanceof Error
+            ? exception
+            : new Error("Unknown error during department creation"),
+      };
+    }
   },
 
   updateDepartment: async (id: string, department: DepartmentUpdate) => {

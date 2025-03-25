@@ -43,10 +43,15 @@ import {
   Key,
   Loader2,
   Building2,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
-import { dataService } from "@/lib/data-service";
+import {
+  dataService,
+  Department,
+  getUserOrganizationId,
+} from "@/lib/data-service";
 import { toast } from "@/components/ui/toast";
-import { Department } from "@/lib/data-service";
 import InviteCodeManager from "@/components/invite-code-manager";
 
 export default function AdminSettingsPage() {
@@ -62,12 +67,36 @@ export default function AdminSettingsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState({ type: "", message: "" });
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // State for new department dialog
   const [newDepartment, setNewDepartment] = useState({
     name: "",
     code: "",
   });
+
+  // Auto-generate code from name
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nameValue = e.target.value;
+    setNewDepartment((prev) => ({
+      ...prev,
+      name: nameValue,
+    }));
+
+    // Only auto-generate code if user hasn't manually edited it
+    if (nameValue) {
+      const generatedCode = nameValue
+        .replace(/[^a-zA-Z0-9]/g, "") // Remove special characters
+        .substring(0, 4) // Take first 4 characters
+        .toUpperCase(); // Convert to uppercase
+
+      setNewDepartment((prev) => ({
+        ...prev,
+        code: generatedCode,
+      }));
+    }
+  };
 
   // Fetch departments on component mount
   useEffect(() => {
@@ -110,31 +139,61 @@ export default function AdminSettingsPage() {
     }));
   };
 
+  // Reset dialog state
+  const resetDialog = () => {
+    setNewDepartment({ name: "", code: "" });
+    setStatusMessage({ type: "", message: "" });
+    setIsSubmitting(false);
+  };
+
   // Handler for department creation
   const handleCreateDepartment = async () => {
-    if (!newDepartment.name.trim() || !newDepartment.code.trim()) return;
+    if (!newDepartment.name.trim() || !newDepartment.code.trim()) {
+      setStatusMessage({
+        type: "error",
+        message: "Department name and code are required",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
+    setStatusMessage({ type: "", message: "" });
+
     try {
+      // Get the user's organization ID dynamically
+      const organizationId = await getUserOrganizationId();
+
       const { data, error } = await dataService.createDepartment({
         name: newDepartment.name,
         code: newDepartment.code.toUpperCase(),
-        organization_id: "your-organization-id", // Add the required organization_id
+        organization_id: organizationId, // Use the dynamically fetched organization ID
       });
 
       if (error) {
         console.error("Error creating department:", error);
-        toast({
-          title: "Error",
-          description: "Failed to create department. Please try again.",
+        setStatusMessage({
+          type: "error",
+          message:
+            error.message || "Failed to create department. Please try again.",
         });
         return;
       }
 
       if (data) {
         setDepartments((prev) => [...prev, data]);
-        // Reset dialog
+        // Reset dialog and show success message
         setNewDepartment({ name: "", code: "" });
+        setStatusMessage({
+          type: "success",
+          message: "Department created successfully.",
+        });
+
+        // Close dialog after a delay
+        setTimeout(() => {
+          setDialogOpen(false);
+          resetDialog();
+        }, 1500);
+
         toast({
           title: "Success",
           description: "Department created successfully.",
@@ -142,10 +201,9 @@ export default function AdminSettingsPage() {
       }
     } catch (error) {
       console.error("Error:", error);
-      toast({
-        title: "Error",
-        description:
-          "An unexpected error occurred while creating the department.",
+      setStatusMessage({
+        type: "error",
+        message: "An unexpected error occurred while creating the department.",
       });
     } finally {
       setIsSubmitting(false);
@@ -154,6 +212,14 @@ export default function AdminSettingsPage() {
 
   // Handler for department deletion
   const handleDeleteDepartment = async (id: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this department? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
     try {
       const { error } = await dataService.deleteDepartment(id);
       if (error) {
@@ -207,9 +273,9 @@ export default function AdminSettingsPage() {
             Add, edit, or remove academic departments
           </CardDescription>
         </div>
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={() => resetDialog()}>
               <Plus className="h-4 w-4" />
               Add Department
             </Button>
@@ -222,18 +288,28 @@ export default function AdminSettingsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              {statusMessage.type === "error" && (
+                <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4" />
+                  <p>{statusMessage.message}</p>
+                </div>
+              )}
+
+              {statusMessage.type === "success" && (
+                <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <p>{statusMessage.message}</p>
+                </div>
+              )}
+
               <div className="grid gap-2">
                 <Label htmlFor="dept-name">Department Name</Label>
                 <Input
                   id="dept-name"
                   value={newDepartment.name}
-                  onChange={(e) =>
-                    setNewDepartment((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
+                  onChange={handleNameChange}
                   placeholder="e.g., Computer Science"
+                  disabled={isSubmitting || statusMessage.type === "success"}
                 />
               </div>
               <div className="grid gap-2">
@@ -244,11 +320,16 @@ export default function AdminSettingsPage() {
                   onChange={(e) =>
                     setNewDepartment((prev) => ({
                       ...prev,
-                      code: e.target.value,
+                      code: e.target.value.toUpperCase(),
                     }))
                   }
                   placeholder="e.g., CS"
+                  maxLength={10}
+                  disabled={isSubmitting || statusMessage.type === "success"}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Short code for the department (max 10 characters)
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -258,7 +339,8 @@ export default function AdminSettingsPage() {
                 disabled={
                   isSubmitting ||
                   !newDepartment.name.trim() ||
-                  !newDepartment.code.trim()
+                  !newDepartment.code.trim() ||
+                  statusMessage.type === "success"
                 }
               >
                 {isSubmitting ? (

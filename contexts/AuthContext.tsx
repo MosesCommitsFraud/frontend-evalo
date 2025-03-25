@@ -46,6 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
 
+  // Helper function to get the site URL
+  const getSiteUrl = () => {
+    return typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_SITE_URL;
+  };
+
   // Create the Supabase client
   const supabase = createClient();
 
@@ -128,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: user.user_metadata?.full_name || "",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          department: "", // Include required fields
         });
 
         if (insertError) {
@@ -157,7 +165,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign up with email and password
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      // First sign up the user
+      // Get the site URL for redirects
+      const siteUrl = getSiteUrl();
+
+      // First sign up the user with proper redirect URL
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -165,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${siteUrl}/auth/callback`,
         },
       });
 
@@ -177,7 +189,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const newUser = data.user;
 
       // Check if email confirmation is needed
-      // This checks if the identity requires confirmation
       const needsEmailConfirmation =
         newUser?.identities?.some(
           (identity) => !identity.identity_data?.email_confirmed_at,
@@ -208,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   role: "teacher", // Default role
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
+                  department: "", // Include required fields
                 })
                 .select();
 
@@ -239,8 +251,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // If no email confirmation needed, proceed with redirect
-      // On success, inform the user they've been signed up
-      // and redirect them
       const redirectTo = searchParams.get("redirectTo") || "/dashboard";
       window.location.href = redirectTo;
 
@@ -264,8 +274,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Password reset request
   const forgotPassword = async (email: string) => {
     try {
+      // Get the site URL for redirects
+      const siteUrl = getSiteUrl();
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${siteUrl}/auth/reset-password`,
       });
       return { error };
     } catch (error) {

@@ -190,6 +190,76 @@ export default function ProfilePage() {
     fetchDepartments();
   }, []);
 
+  useEffect(() => {
+    const checkBuckets = async () => {
+      try {
+        console.log("Checking Supabase buckets...");
+        const supabase = createClient();
+
+        // Check if we can access the storage API
+        const { data: buckets, error } = await supabase.storage.listBuckets();
+
+        if (error) {
+          console.error("Error accessing Supabase storage:", error);
+          toast({
+            title: "Storage Access Error",
+            description:
+              "Unable to access storage. This might affect avatar uploads.",
+          });
+          return;
+        }
+
+        console.log(
+          "Available buckets:",
+          buckets?.map((b) => ({ name: b.name, id: b.id })),
+        );
+
+        // Check specifically for the avatars bucket
+        const avatarsBucket = buckets?.find(
+          (b) =>
+            b.name.toLowerCase() === "avatars" ||
+            b.name.toLowerCase() === "avatar",
+        );
+
+        if (!avatarsBucket) {
+          console.warn("Warning: 'avatars' bucket not found in Supabase");
+          toast({
+            title: "Storage Configuration Warning",
+            description:
+              "The avatars storage bucket was not found. Avatar uploads may not work.",
+          });
+        } else {
+          console.log("Found avatars bucket:", avatarsBucket);
+
+          // Optional: Test bucket access by trying to list files
+          const { data: files, error: listError } = await supabase.storage
+            .from(avatarsBucket.name)
+            .list();
+
+          if (listError) {
+            console.error("Error listing files in avatars bucket:", listError);
+            toast({
+              title: "Storage Access Warning",
+              description:
+                "Found avatars bucket but can't list files. Check bucket permissions.",
+            });
+          } else {
+            console.log(
+              `Successfully accessed avatars bucket. Contains ${files?.length || 0} files.`,
+            );
+          }
+        }
+      } catch (e) {
+        console.error("Exception checking buckets:", e);
+      }
+    };
+
+    // Only run this check if we're authenticated
+    if (authUser) {
+      checkBuckets();
+    }
+  }, [authUser]);
+
   // Function to format dates as relative time
   const formatRelativeTime = (dateString: string): string => {
     const date = new Date(dateString);
@@ -391,24 +461,64 @@ export default function ProfilePage() {
     try {
       // Upload file to Supabase Storage
       const supabase = createClient();
-      console.log("Uploading to avatars bucket, path:", filePath);
+      console.log("Attempting to upload to avatars bucket, path:", filePath);
 
-      // First check if bucket exists
-      const { data: buckets } = await supabase.storage.listBuckets();
-      console.log("Available buckets:", buckets);
+      // First check if bucket exists - with more detailed logging
+      const { data: buckets, error: bucketsError } =
+        await supabase.storage.listBuckets();
 
-      const bucketExists = buckets?.some((bucket) => bucket.name === "avatars");
-      if (!bucketExists) {
-        console.error("Avatars bucket doesn't exist!");
+      if (bucketsError) {
+        console.error("Error listing buckets:", bucketsError);
         toast({
           title: "Error",
-          description: "Storage bucket not found. Please contact support.",
+          description:
+            "Unable to access storage. Please check your permissions.",
         });
         setIsUploading(false);
         return;
       }
 
-      // Upload the file
+      console.log(
+        "Available buckets:",
+        buckets?.map((b) => b.name),
+      );
+
+      // Check for bucket existence (case-insensitive)
+      const bucketExists = buckets?.some(
+        (bucket) => bucket.name.toLowerCase() === "avatars",
+      );
+
+      if (!bucketExists) {
+        console.error("Avatars bucket not found!");
+        console.log("Attempting direct upload...");
+
+        // Try direct upload anyway - sometimes bucket checks fail but uploads work
+        const { data: directData, error: directError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, file, {
+            upsert: true,
+            cacheControl: "0",
+          });
+
+        if (directError) {
+          console.error("Direct upload failed:", directError);
+          toast({
+            title: "Storage Error",
+            description: `Storage bucket not found or inaccessible. Error: ${directError.message}`,
+          });
+          setIsUploading(false);
+          return;
+        }
+
+        console.log(
+          "Direct upload succeeded despite bucket check failure:",
+          directData,
+        );
+      } else {
+        console.log("Found avatars bucket, proceeding with upload");
+      }
+
+      // Proceed with normal upload
       const { data, error } = await supabase.storage
         .from("avatars")
         .upload(filePath, file, {
@@ -423,15 +533,20 @@ export default function ProfilePage() {
 
       console.log("Upload successful:", data);
 
-      // Get public URL for the uploaded file
+      // Get public URL for the uploaded file - use newer getPublicUrl method
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);
 
-      console.log("Public URL:", urlData.publicUrl);
+      console.log("Public URL response:", urlData);
+
+      if (!urlData.publicUrl) {
+        throw new Error("Failed to get public URL for the uploaded file");
+      }
 
       // Make sure the URL is using HTTPS (sometimes needed for security)
       const publicUrl = urlData.publicUrl.replace("http:", "https:");
+      console.log("Final public URL to be saved:", publicUrl);
 
       // Update profile with new avatar URL
       console.log("Updating profile with new avatar URL");
@@ -460,7 +575,7 @@ export default function ProfilePage() {
       console.error("Error uploading avatar:", error);
       toast({
         title: "Error",
-        description: "Failed to upload profile picture. Please try again.",
+        description: `Failed to upload profile picture: ${error instanceof Error ? error.message : "Unknown error"}`,
       });
     } finally {
       setIsUploading(false);

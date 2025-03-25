@@ -17,6 +17,7 @@ import ActionSearchBar from "@/components/action-search-bar";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { dataService } from "@/lib/data-service";
 
 // Define proper type for the toggleSidebar prop
 interface TopNavProps {
@@ -27,6 +28,10 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
   // First, call all hooks unconditionally to maintain hook order
   const [isClient, setIsClient] = useState(false);
   const pathname = usePathname();
+
+  // State for profile avatar
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [loadingAvatar, setLoadingAvatar] = useState(true);
 
   // Always call useAuth - we'll handle the conditional access to its values below
   const auth = useAuth();
@@ -44,6 +49,44 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
       return auth.signOut();
     }
   };
+
+  // Fetch user's profile avatar when user is authenticated
+  useEffect(() => {
+    const fetchProfileAvatar = async () => {
+      if (!user) {
+        setProfileAvatarUrl(null);
+        setLoadingAvatar(false);
+        return;
+      }
+
+      setLoadingAvatar(true);
+      try {
+        const { data, error } = await dataService.getProfile();
+
+        if (error) {
+          console.error("Error fetching profile for avatar:", error);
+          setProfileAvatarUrl(null);
+        } else if (data && data.avatar_url) {
+          console.log("Fetched profile avatar URL:", data.avatar_url);
+          setProfileAvatarUrl(data.avatar_url);
+        } else {
+          setProfileAvatarUrl(null);
+        }
+      } catch (err) {
+        console.error("Exception fetching profile avatar:", err);
+        setProfileAvatarUrl(null);
+      } finally {
+        setLoadingAvatar(false);
+      }
+    };
+
+    if (isClient && user) {
+      fetchProfileAvatar();
+    } else {
+      setProfileAvatarUrl(null);
+      setLoadingAvatar(false);
+    }
+  }, [isClient, user]);
 
   // Determine if we're on a page that would show the sidebar toggle
   const showSidebarToggle = user && !pathname?.startsWith("/auth/");
@@ -70,8 +113,14 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
     return user.user_metadata?.full_name || user.email || "User";
   };
 
-  // Get avatar URL
+  // Get avatar URL - prioritize profile avatar over user metadata
   const getAvatarUrl = (): string | null => {
+    // First check profile avatar (from database)
+    if (profileAvatarUrl) {
+      return profileAvatarUrl;
+    }
+
+    // Fall back to user metadata (from auth)
     if (!user) return null;
     return user.user_metadata?.avatar_url || null;
   };
@@ -181,9 +230,13 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
                   className="relative h-8 w-8 rounded-full"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={getAvatarUrl() || ""} alt="User avatar" />
+                    <AvatarImage
+                      src={getAvatarUrl() || ""}
+                      alt="User avatar"
+                      className="object-cover"
+                    />
                     <AvatarFallback className="bg-emerald-100 text-emerald-800">
-                      {getUserInitials()}
+                      {loadingAvatar ? "..." : getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -200,13 +253,17 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <Link href="/profile">Profile</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <Link href="/settings">Settings</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>

@@ -886,9 +886,10 @@ export default function ProfilePage() {
     const fileExt = file.name.split(".").pop();
 
     // Create a folder structure with user ID to organize the files
+    // But use a fixed filename to ensure we overwrite previous avatars
     const userId = authUser?.id || "unknown";
     const folderPath = `users/${userId}/`;
-    const fileName = `avatar_${Date.now()}.${fileExt}`;
+    const fileName = `avatar.${fileExt}`; // Fixed filename - will overwrite existing avatar
     const filePath = folderPath + fileName;
 
     setIsUploading(true);
@@ -904,7 +905,7 @@ export default function ProfilePage() {
       const { data, error } = await supabase.storage
         .from("avatars") // Use the bucket name directly
         .upload(filePath, file, {
-          upsert: true,
+          upsert: true, // This ensures it overwrites any existing file at the same path
           cacheControl: "3600", // 1 hour cache, adjust as needed
         });
 

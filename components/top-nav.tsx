@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { BellIcon, Menu, Settings, User, LogOut } from "lucide-react";
+import {
+  BellIcon,
+  Menu,
+  Settings,
+  User,
+  LogOut,
+  CheckCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +17,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -24,6 +32,17 @@ interface TopNavProps {
   toggleSidebarAction: () => void;
 }
 
+// Define type for notification
+interface FeedbackNotification {
+  id: string;
+  event_id: string;
+  course_name: string;
+  student_name: string | null;
+  content: string;
+  tone: "positive" | "negative" | "neutral";
+  created_at: string;
+}
+
 export function TopNav({ toggleSidebarAction }: TopNavProps) {
   // First, call all hooks unconditionally to maintain hook order
   const [isClient, setIsClient] = useState(false);
@@ -32,6 +51,13 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
   // State for profile avatar
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [loadingAvatar, setLoadingAvatar] = useState(true);
+
+  // State for notifications
+  const [notifications, setNotifications] = useState<FeedbackNotification[]>(
+    [],
+  );
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
 
   // Always call useAuth - we'll handle the conditional access to its values below
   const auth = useAuth();
@@ -88,6 +114,60 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
     }
   }, [isClient, user]);
 
+  // Fetch unseen notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) {
+        setNotifications([]);
+        setIsLoadingNotifications(false);
+        return;
+      }
+
+      setIsLoadingNotifications(true);
+      try {
+        const { data, error } =
+          await dataService.getUnseenFeedbackNotifications();
+
+        if (error) {
+          console.error("Error fetching notifications:", error);
+          setNotifications([]);
+        } else if (data) {
+          // Transform the data to match our notification interface
+          const formattedNotifications: FeedbackNotification[] = data.map(
+            (item) => ({
+              id: item.id,
+              event_id: item.event_id,
+              course_name: item.events.courses.name,
+              student_name: item.student_name,
+              content: item.content,
+              tone: item.tone,
+              created_at: item.created_at,
+            }),
+          );
+          setNotifications(formattedNotifications);
+        } else {
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.error("Exception fetching notifications:", err);
+        setNotifications([]);
+      } finally {
+        setIsLoadingNotifications(false);
+      }
+    };
+
+    if (isClient && user) {
+      fetchNotifications();
+
+      // Set up polling for new notifications (every 2 minutes)
+      const pollingInterval = setInterval(fetchNotifications, 2 * 60 * 1000);
+      return () => clearInterval(pollingInterval);
+    } else {
+      setNotifications([]);
+      setIsLoadingNotifications(false);
+    }
+  }, [isClient, user]);
+
   // Determine if we're on a page that would show the sidebar toggle
   const showSidebarToggle = user && !pathname?.startsWith("/auth/");
 
@@ -127,6 +207,36 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  // Format relative time for notifications
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) {
+      return "just now";
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} ${days === 1 ? "day" : "days"} ago`;
+    }
+  };
+
+  // Handle marking all notifications as seen
+  const handleMarkAllAsSeen = async () => {
+    try {
+      await dataService.markAllNotificationsAsSeen();
+      setNotifications([]);
+    } catch (error) {
+      console.error("Error marking notifications as seen:", error);
+    }
   };
 
   return (
@@ -211,14 +321,105 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
           <ThemeToggle />
 
           {isClient && user && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground"
+            <DropdownMenu
+              open={notificationMenuOpen}
+              onOpenChange={(open) => {
+                setNotificationMenuOpen(open);
+                if (!open && notifications.length > 0) {
+                  // Mark notifications as seen when closing the dropdown
+                  handleMarkAllAsSeen();
+                }
+              }}
             >
-              <BellIcon className="h-5 w-5" />
-              <span className="sr-only">Notifications</span>
-            </Button>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground relative"
+                >
+                  <BellIcon className="h-5 w-5" />
+                  {notifications.length > 0 && (
+                    <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-red-500" />
+                  )}
+                  <span className="sr-only">Notifications</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-80" align="end" forceMount>
+                <DropdownMenuLabel className="flex justify-between items-center">
+                  <span>Notifications</span>
+                  {notifications.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={handleMarkAllAsSeen}
+                    >
+                      <CheckCheck className="h-3.5 w-3.5 mr-1" />
+                      Mark all as read
+                    </Button>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {isLoadingNotifications ? (
+                  <div className="px-4 py-3 text-sm text-center">
+                    Loading notifications...
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-center text-muted-foreground">
+                    No new notifications
+                  </div>
+                ) : (
+                  <DropdownMenuGroup className="max-h-80 overflow-y-auto">
+                    {notifications.map((notification) => (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className="flex flex-col items-start p-3 cursor-default"
+                      >
+                        <div className="flex w-full justify-between">
+                          <span className="font-medium">
+                            {notification.course_name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatRelativeTime(notification.created_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center text-sm gap-2 mt-1">
+                          {notification.student_name && (
+                            <span className="text-muted-foreground">
+                              {notification.student_name}:
+                            </span>
+                          )}
+                          <span
+                            className={`text-sm ${
+                              notification.tone === "positive"
+                                ? "text-green-600"
+                                : notification.tone === "negative"
+                                  ? "text-red-600"
+                                  : "text-blue-600"
+                            }`}
+                          >
+                            {notification.content.length > 80
+                              ? `${notification.content.substring(0, 80)}...`
+                              : notification.content}
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                )}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/dashboard"
+                    className="w-full text-center cursor-pointer"
+                  >
+                    View all feedback
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           {isClient && user ? (

@@ -138,6 +138,7 @@ export interface Database {
           content: string;
           tone: "positive" | "negative" | "neutral";
           is_reviewed: boolean;
+          is_seen: boolean; // Add this field
           created_at: string;
           organization_id: string;
         };
@@ -148,6 +149,7 @@ export interface Database {
           content: string;
           tone: "positive" | "negative" | "neutral";
           is_reviewed?: boolean;
+          is_seen?: boolean; // Add this field
           created_at?: string;
           organization_id: string;
         };
@@ -158,6 +160,7 @@ export interface Database {
           content?: string;
           tone?: "positive" | "negative" | "neutral";
           is_reviewed?: boolean;
+          is_seen?: boolean; // Add this field
           created_at?: string;
           organization_id?: string;
         };

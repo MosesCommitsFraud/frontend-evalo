@@ -719,6 +719,89 @@ export const dataService = {
     };
   },
 
+  getUnseenFeedbackNotifications: async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Get all unseen feedback for the current user's courses
+    return supabase
+      .from("feedback")
+      .select(
+        `
+      *,
+      events!inner(
+        id,
+        course_id,
+        event_date,
+        courses!inner(
+          id,
+          name,
+          code,
+          owner_id
+        )
+      )
+    `,
+      )
+      .eq("events.courses.owner_id", user.id)
+      .eq("is_seen", false)
+      .order("created_at", { ascending: false });
+  },
+
+  // Mark a notification as seen
+  markNotificationAsSeen: async (notificationId: string) => {
+    const supabase = createClient();
+
+    return supabase
+      .from("feedback")
+      .update({ is_seen: true })
+      .eq("id", notificationId);
+  },
+
+  // Mark all notifications as seen
+  markAllNotificationsAsSeen: async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { data: null, error: new Error("User not found") };
+
+    // Get all unseen feedback for the current user's courses
+    const { data: feedbackToUpdate, error: selectError } = await supabase
+      .from("feedback")
+      .select(
+        `
+      id,
+      events!inner(
+        course_id,
+        courses!inner(
+          owner_id
+        )
+      )
+    `,
+      )
+      .eq("events.courses.owner_id", user.id)
+      .eq("is_seen", false);
+
+    if (selectError) {
+      return { data: null, error: selectError };
+    }
+
+    if (feedbackToUpdate && feedbackToUpdate.length > 0) {
+      const feedbackIds = feedbackToUpdate.map((item) => item.id);
+
+      // Update all matching feedback to be seen
+      return supabase
+        .from("feedback")
+        .update({ is_seen: true })
+        .in("id", feedbackIds);
+    }
+
+    return { data: null, error: null };
+  },
+
   // Replace the getGlobalAnalytics function in your lib/data-service.ts file
 
   getGlobalAnalytics: async () => {

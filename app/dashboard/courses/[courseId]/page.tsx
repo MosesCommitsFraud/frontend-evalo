@@ -30,6 +30,7 @@ import {
   PieChart as PieChartIcon,
   LineChart as LineChartIcon,
   CalendarIcon,
+  Users,
 } from "lucide-react";
 import CustomTabs from "@/components/custom-tabs";
 import Link from "next/link";
@@ -209,65 +210,26 @@ export default function CoursePage() {
     fetchEventsAndFeedback();
   }, [courseId]);
 
-  // Define your dashboard stats card component
-  function StatsCard({
-    title,
-    value,
-    description,
-    icon: Icon,
-  }: {
-    title: string;
-    value: string;
-    description: string;
-    icon: React.FC<{ className?: string }>;
-  }) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <Icon className="h-4 w-4 text-emerald-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{value}</div>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Format date for display and relative time
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-  // Empty state stats
-  const emptyStats = [
-    {
-      title: "Total Responses",
-      value: feedback.length.toString(),
-      description: feedback.length
-        ? `Across ${events.length} events`
-        : "No feedback yet",
-      icon: MessageSquare,
-    },
-    {
-      title: "Sentiment Score",
-      value: feedback.length ? "Calculating..." : "N/A",
-      description: feedback.length
-        ? "Based on feedback analysis"
-        : "Waiting for feedback",
-      icon: BarChart3,
-    },
-    {
-      title: "Response Rate",
-      value: events.length
-        ? `${Math.round((feedback.length / events.length) * 100)}%`
-        : "0%",
-      description: events.length ? "Average per event" : "No events yet",
-      icon: BarChart3,
-    },
-    {
-      title: "Total Students",
-      value: course?.student_count?.toString() || "0",
-      description: "Currently enrolled",
-      icon: BarChart3,
-    },
-  ];
+    if (diffSeconds < 60) return "just now";
+    if (diffMinutes < 60)
+      return `${diffMinutes} ${diffMinutes === 1 ? "minute" : "minutes"} ago`;
+    if (diffHours < 24)
+      return `${diffHours} ${diffHours === 1 ? "hour" : "hours"} ago`;
+    if (diffDays < 7)
+      return `${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+
+    return date.toLocaleDateString();
+  };
 
   // Format date for display
   const formatEventDate = (dateString: string) => {
@@ -427,7 +389,7 @@ export default function CoursePage() {
     return true;
   });
 
-  // Dashboard Tab Content
+  // Dashboard Tab Content - Simplified version
   const dashboardTabContent = (
     <div className="space-y-6">
       {loading ? (
@@ -446,48 +408,346 @@ export default function CoursePage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {emptyStats.map((stat) => (
-              <StatsCard
-                key={stat.title}
-                title={stat.title}
-                value={stat.value}
-                description={stat.description}
-                icon={stat.icon}
-              />
-            ))}
+          {/* Quick Stats */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Students
+                    </p>
+                    <div className="text-2xl font-bold">
+                      {course?.student_count || "0"}
+                    </div>
+                  </div>
+                  <Users className="h-8 w-8 text-emerald-600/50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Events
+                    </p>
+                    <div className="text-2xl font-bold">{events.length}</div>
+                  </div>
+                  <Calendar className="h-8 w-8 text-emerald-600/50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Responses
+                    </p>
+                    <div className="text-2xl font-bold">{feedback.length}</div>
+                  </div>
+                  <MessageSquare className="h-8 w-8 text-emerald-600/50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      Sentiment
+                    </p>
+                    <div className="text-2xl font-bold">
+                      {feedback.length > 0
+                        ? `${Math.round((feedback.filter((f) => f.tone === "positive").length / feedback.length) * 100)}%`
+                        : "--"}
+                    </div>
+                  </div>
+                  <ThumbsUp className="h-8 w-8 text-emerald-600/50" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
+            <CreateEventDialog
+              courseId={courseId}
+              onEventCreated={handleEventCreated}
+            >
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Create Event
+              </Button>
+            </CreateEventDialog>
+
+            <Button variant="outline" className="gap-2" asChild>
+              <Link href={`/dashboard/courses/${courseId}/share`}>
+                <QrCode className="h-4 w-4" />
+                Share Feedback Code
+              </Link>
+            </Button>
+          </div>
+
+          {/* Quick Overview Cards */}
           <div className="grid gap-6 md:grid-cols-2">
+            {/* Recent Feedback */}
             <Card>
-              <CardHeader>
-                <CardTitle>Feedback Categories</CardTitle>
-                <CardDescription>
-                  Distribution of feedback by category
-                </CardDescription>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between">
+                  <span>Recent Feedback</span>
+                  {feedback.length > 0 && (
+                    <Badge variant="outline" className="font-normal">
+                      {feedback.length} total
+                    </Badge>
+                  )}
+                </CardTitle>
               </CardHeader>
-              <CardContent className="h-80">
-                <div className="flex h-full items-center justify-center rounded-md border border-dashed p-8 text-muted-foreground">
-                  No feedback data available yet
-                </div>
+              <CardContent>
+                {feedback.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-center">
+                    <div className="text-sm text-muted-foreground">
+                      No feedback received yet
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {feedback.slice(0, 3).map((item) => (
+                      <div
+                        key={item.id}
+                        className="border-b pb-3 last:border-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge
+                            variant="outline"
+                            className={
+                              item.tone === "positive"
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : item.tone === "negative"
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                            }
+                          >
+                            <span className="flex items-center gap-1">
+                              {getSentimentIcon(item.tone)}
+                              {item.tone.charAt(0).toUpperCase() +
+                                item.tone.slice(1)}
+                            </span>
+                          </Badge>
+                          <div className="text-xs text-muted-foreground ml-auto">
+                            {formatRelativeTime(item.created_at)}
+                          </div>
+                        </div>
+                        <p className="text-sm line-clamp-2">{item.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
+            {/* Active Events */}
             <Card>
-              <CardHeader>
-                <CardTitle>Quick Stats</CardTitle>
-                <CardDescription>At a glance metrics</CardDescription>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between">
+                  <span>Active Events</span>
+                  <Badge variant="outline" className="font-normal">
+                    {events.filter((e) => e.status === "open").length} open
+                  </Badge>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="flex h-80 items-center justify-center rounded-md border border-dashed text-muted-foreground">
-                <div className="text-center">
-                  <p>No statistics available yet</p>
-                  <p className="text-sm mt-2">
-                    Statistics will appear here once students submit feedback
-                  </p>
-                </div>
+              <CardContent>
+                {events.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-center">
+                    <div className="text-sm text-muted-foreground">
+                      No events created yet
+                    </div>
+                  </div>
+                ) : events.filter((e) => e.status === "open").length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-center">
+                    <div className="text-sm text-muted-foreground">
+                      No active events. Create one to collect feedback.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {events
+                      .filter((e) => e.status === "open")
+                      .slice(0, 3)
+                      .map((event) => (
+                        <div
+                          key={event.id}
+                          className="border-b pb-3 last:border-0 last:pb-0"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="text-sm font-medium">
+                              {formatEventDate(event.event_date)}
+                            </div>
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              Active
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center text-xs text-muted-foreground">
+                              <span className="mr-4">
+                                Code:{" "}
+                                <span className="font-medium">
+                                  {event.entry_code}
+                                </span>
+                              </span>
+                              <span>
+                                {event.total_feedback_count || 0} responses
+                              </span>
+                            </div>
+                            {event.total_feedback_count > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                asChild
+                              >
+                                <Link
+                                  href={`/dashboard/courses/${courseId}/events/${event.id}`}
+                                >
+                                  View
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
+
+          {/* Course Insights - Only shown if there's enough data */}
+          {feedback.length >= 5 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Course Insights</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Sentiment ratio visualization */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-1/3">
+                      <div className="text-sm font-medium mb-1">
+                        Sentiment Distribution
+                      </div>
+                      <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                        {(() => {
+                          const positivePercent =
+                            (feedback.filter((f) => f.tone === "positive")
+                              .length /
+                              feedback.length) *
+                            100;
+                          const neutralPercent =
+                            (feedback.filter((f) => f.tone === "neutral")
+                              .length /
+                              feedback.length) *
+                            100;
+                          const negativePercent =
+                            (feedback.filter((f) => f.tone === "negative")
+                              .length /
+                              feedback.length) *
+                            100;
+
+                          return (
+                            <>
+                              <div
+                                className="h-full bg-emerald-500"
+                                style={{ width: `${positivePercent}%` }}
+                              />
+                              <div
+                                className="h-full bg-gray-500"
+                                style={{ width: `${neutralPercent}%` }}
+                              />
+                              <div
+                                className="h-full bg-red-500"
+                                style={{ width: `${negativePercent}%` }}
+                              />
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1"></div>
+                          {Math.round(
+                            (feedback.filter((f) => f.tone === "positive")
+                              .length /
+                              feedback.length) *
+                              100,
+                          )}
+                          %
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-gray-500 rounded-full mr-1"></div>
+                          {Math.round(
+                            (feedback.filter((f) => f.tone === "neutral")
+                              .length /
+                              feedback.length) *
+                              100,
+                          )}
+                          %
+                        </div>
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+                          {Math.round(
+                            (feedback.filter((f) => f.tone === "negative")
+                              .length /
+                              feedback.length) *
+                              100,
+                          )}
+                          %
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-2/3 pl-6 border-l">
+                      <div className="text-sm font-medium mb-2">
+                        Quick Recommendation
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {(() => {
+                          // Generate a simple recommendation based on data
+                          const positivePercent =
+                            (feedback.filter((f) => f.tone === "positive")
+                              .length /
+                              feedback.length) *
+                            100;
+                          const negativePercent =
+                            (feedback.filter((f) => f.tone === "negative")
+                              .length /
+                              feedback.length) *
+                            100;
+
+                          if (negativePercent > 40) {
+                            return "Student sentiment is trending negative. Consider reviewing feedback for common concerns.";
+                          } else if (positivePercent > 70) {
+                            return "Student sentiment is very positive. Your current approach seems to be working well.";
+                          } else if (
+                            events.filter((e) => e.status === "open").length ===
+                            0
+                          ) {
+                            return "Create a new feedback event to collect more student insights.";
+                          } else {
+                            return "Feedback shows mixed sentiment. Check the analytics tab for more detailed insights.";
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

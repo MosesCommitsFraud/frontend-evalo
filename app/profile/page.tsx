@@ -28,6 +28,8 @@ import {
   Book,
   Calendar,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { dataService, Department } from "@/lib/data-service";
@@ -95,6 +97,10 @@ export default function ProfilePage() {
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const activitiesPerPage = 7;
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -547,6 +553,28 @@ export default function ProfilePage() {
     return department ? department.name : code;
   };
 
+  // Functions to handle pagination
+  const goToNextPage = () => {
+    if (currentPage < Math.ceil(activities.length / activitiesPerPage)) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Calculate pagination indexes
+  const indexOfLastActivity = currentPage * activitiesPerPage;
+  const indexOfFirstActivity = indexOfLastActivity - activitiesPerPage;
+  const currentActivities = activities.slice(
+    indexOfFirstActivity,
+    indexOfLastActivity,
+  );
+  const totalPages = Math.ceil(activities.length / activitiesPerPage);
+
   // Profile Overview Tab Content
   const overviewTabContent = (
     <div className="space-y-6">
@@ -850,7 +878,7 @@ export default function ProfilePage() {
     </div>
   );
 
-  // Account Activity Tab Content - With real data
+  // Account Activity Tab Content - With real data and pagination
   const activityTabContent = (
     <div className="space-y-6">
       <Card>
@@ -876,41 +904,81 @@ export default function ProfilePage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {activities.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-start gap-4 border-b pb-4 last:border-0 last:pb-0"
-                >
+            <>
+              <div className="space-y-4">
+                {currentActivities.map((activity) => (
                   <div
-                    className={cn(
-                      "rounded-full p-2 mt-0.5",
-                      activity.type === "course" &&
-                        "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-                      activity.type === "event" &&
-                        "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
-                      activity.type === "feedback" &&
-                        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
-                      activity.type === "profile" &&
-                        "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
-                    )}
+                    key={activity.id}
+                    className="flex items-start gap-4 border-b pb-4 last:border-0 last:pb-0"
                   >
-                    {activity.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-medium">{activity.title}</h4>
-                      <span className="text-xs text-muted-foreground">
-                        {formatRelativeTime(activity.date)}
-                      </span>
+                    <div
+                      className={cn(
+                        "rounded-full p-2 mt-0.5",
+                        activity.type === "course" &&
+                          "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                        activity.type === "event" &&
+                          "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+                        activity.type === "feedback" &&
+                          "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                        activity.type === "profile" &&
+                          "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                      )}
+                    >
+                      {activity.icon}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {activity.description}
-                    </p>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-medium">{activity.title}</h4>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(activity.date)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {activity.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {activities.length > activitiesPerPage && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {indexOfFirstActivity + 1}-
+                    {Math.min(indexOfLastActivity, activities.length)} of{" "}
+                    {activities.length} activities
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goToPreviousPage}
+                      disabled={currentPage === 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="sr-only">Previous page</span>
+                    </Button>
+                    <div className="text-sm font-medium">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goToNextPage}
+                      disabled={
+                        currentPage === totalPages || activities.length === 0
+                      }
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                      <span className="sr-only">Next page</span>
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

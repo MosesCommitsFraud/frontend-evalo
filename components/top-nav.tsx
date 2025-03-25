@@ -96,7 +96,7 @@ export function TopNav({ toggleSidebarAction }: TopNavProps) {
             </Button>
           )}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="h-10 w-10 text-emerald-600">
+            <div className="h-8 w-8 text-emerald-600 flex items-center">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 562 653"

@@ -154,6 +154,8 @@ const AdminCreateCourseDialog = ({
     setError("");
   };
 
+  // The handleSubmit function improvements for better course creation
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -193,6 +195,16 @@ const AdminCreateCourseDialog = ({
     try {
       const supabase = createClient();
 
+      // Log what we're about to insert
+      console.log("Creating course with data:", {
+        name,
+        code,
+        student_count: studentCount ? parseInt(studentCount, 10) : 0,
+        owner_id: teacherId,
+        teacher: teacherId,
+        organization_id: orgId,
+      });
+
       // Create the new course in Supabase, including organization_id
       const { data, error } = await supabase
         .from("courses")
@@ -200,8 +212,8 @@ const AdminCreateCourseDialog = ({
           name: name,
           code: code,
           student_count: studentCount ? parseInt(studentCount, 10) : 0,
-          owner_id: teacherId, // This allows multiple courses per teacher
-          teacher: teacherId,
+          owner_id: teacherId, // Both owner_id and teacher are set to the same value
+          teacher: teacherId, // This is important for multiple courses per teacher
           organization_id: orgId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -222,11 +234,15 @@ const AdminCreateCourseDialog = ({
       if (data && data.length > 0) {
         const newCourse = data[0] as Course;
         console.log("Course created successfully:", newCourse);
+
+        // Pass the new course back to the parent component
         onCourseCreate(newCourse);
+
         toast({
           title: "Success",
-          description: `Course "${name}" created successfully`,
+          description: `Course "${name}" created successfully and assigned to teacher`,
         });
+
         resetForm();
         setOpen(false);
       }

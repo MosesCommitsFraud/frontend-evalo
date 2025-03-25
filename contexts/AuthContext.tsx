@@ -142,7 +142,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 6) Redirect after sign-in (and profile check/creation) is complete
       const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-      router.push(redirectTo);
+      setTimeout(() => {
+        router.push(redirectTo);
+      }, 500);
 
       return { error: null };
     } catch (error) {
@@ -232,7 +234,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // On success, inform the user they've been signed up
         // and redirect them
         const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-        router.push(redirectTo);
+        setTimeout(() => {
+          router.push(redirectTo);
+        }, 500);
       }
 
       return { error };

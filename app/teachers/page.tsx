@@ -271,8 +271,8 @@ export default function TeachersPage() {
       // Update local state
       if (updatedCourse) {
         // Update the courses list
-        setCourses(
-          courses.map((c) =>
+        setCourses((prevCourses) =>
+          prevCourses.map((c) =>
             c.id === selectedCourseToAssign
               ? {
                   ...c,

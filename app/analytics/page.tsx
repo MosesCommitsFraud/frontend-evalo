@@ -148,11 +148,12 @@ export default function AnalyticsPage() {
     }>
   >([]);
 
+  // Updated type to focus on sentiment values instead of response rates
   interface CourseComparison {
     name: string;
-    feedbackCount: number;
-    responseRate: number;
-    sentiment: number;
+    positive: number;
+    negative: number;
+    neutral: number;
   }
 
   const [courseComparisonData, setCourseComparisonData] = useState<
@@ -381,28 +382,54 @@ export default function AnalyticsPage() {
         count,
       }));
 
-      // Course comparison data
+      // UPDATED: Course comparison data focusing on sentiment percentages
       const courseData = courses.map((course) => {
         const courseEvents = events.filter((e) => e.course_id === course.id);
-        const courseFeedbackCount = courseEvents.reduce(
+
+        // Calculate total feedback for this course
+        const totalFeedbackCount = courseEvents.reduce(
           (sum, event) => sum + (event.total_feedback_count || 0),
           0,
         );
-        const coursePositiveFeedback = courseEvents.reduce(
+
+        // Calculate sentiment counts
+        const positiveFeedback = courseEvents.reduce(
           (sum, event) => sum + (event.positive_feedback_count || 0),
           0,
         );
+        const negativeFeedback = courseEvents.reduce(
+          (sum, event) => sum + (event.negative_feedback_count || 0),
+          0,
+        );
+        const neutralFeedback = courseEvents.reduce(
+          (sum, event) => sum + (event.neutral_feedback_count || 0),
+          0,
+        );
+
+        // Calculate percentages (default to 0 if no feedback)
+        const positivePercent =
+          totalFeedbackCount > 0
+            ? Math.round((positiveFeedback / totalFeedbackCount) * 100)
+            : 0;
+        const negativePercent =
+          totalFeedbackCount > 0
+            ? Math.round((negativeFeedback / totalFeedbackCount) * 100)
+            : 0;
+        const neutralPercent =
+          totalFeedbackCount > 0
+            ? Math.round((neutralFeedback / totalFeedbackCount) * 100)
+            : 0;
 
         return {
           name: course.code,
-          feedbackCount: courseFeedbackCount,
-          responseRate: course.student_count
-            ? Math.round((courseFeedbackCount / course.student_count) * 100)
-            : 0,
-          sentiment:
-            courseFeedbackCount > 0
-              ? Math.round((coursePositiveFeedback / courseFeedbackCount) * 100)
-              : 0,
+          positive: positivePercent,
+          negative: negativePercent,
+          neutral: neutralPercent,
+          // Include raw counts for tooltip display
+          positiveFeedback,
+          negativeFeedback,
+          neutralFeedback,
+          totalFeedback: totalFeedbackCount,
         };
       });
 
@@ -455,7 +482,7 @@ export default function AnalyticsPage() {
           })),
       );
 
-      // Update course comparison data
+      // Update course comparison data with sentiment focus
       setCourseComparisonData([...courseData]);
 
       // Update course page data with filtered events
@@ -729,12 +756,12 @@ export default function AnalyticsPage() {
 
       {/* Activity Charts */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Course Activity */}
+        {/* Course Comparison - UPDATED to show sentiment */}
         <Card>
           <CardHeader>
-            <CardTitle>Course Comparison</CardTitle>
+            <CardTitle>Course Sentiment Comparison</CardTitle>
             <CardDescription>
-              Overview of performance across all your courses
+              Sentiment breakdown across all your courses (%)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -744,18 +771,43 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" stroke="#888888" />
                   <YAxis stroke="#888888" />
-                  <Tooltip />
+                  <Tooltip
+                    formatter={(value, name, props) => {
+                      if (name === "Positive") {
+                        return [
+                          `${value}% (${props.payload.positiveFeedback})`,
+                          name,
+                        ];
+                      } else if (name === "Negative") {
+                        return [
+                          `${value}% (${props.payload.negativeFeedback})`,
+                          name,
+                        ];
+                      } else {
+                        return [
+                          `${value}% (${props.payload.neutralFeedback})`,
+                          name,
+                        ];
+                      }
+                    }}
+                  />
                   <Legend />
                   <Bar
-                    dataKey="feedbackCount"
-                    name="Feedback Count"
-                    fill="#10b981"
+                    dataKey="positive"
+                    name="Positive"
+                    fill="#16a34a"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
-                    dataKey="responseRate"
-                    name="Response Rate (%)"
-                    fill="#60a5fa"
+                    dataKey="neutral"
+                    name="Neutral"
+                    fill="#737373"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="negative"
+                    name="Negative"
+                    fill="#dc2626"
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
@@ -941,12 +993,12 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" domain={[0, 100]} />
                   <YAxis type="category" dataKey="name" />
-                  <Tooltip />
+                  <Tooltip formatter={(value, name) => [`${value}%`, name]} />
                   <Legend />
                   <Bar
-                    dataKey="feedbackCount"
-                    name="Total Feedback"
-                    fill="#10b981"
+                    dataKey="positive"
+                    name="Positive Sentiment"
+                    fill="#16a34a"
                     barSize={20}
                   />
                 </BarChart>

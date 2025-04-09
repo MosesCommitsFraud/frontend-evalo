@@ -38,7 +38,6 @@ import {
   Users,
   MessageSquare,
   Book,
-  Settings,
   Search,
   Filter,
   Calendar,
@@ -215,18 +214,6 @@ export default function AnalyticsPage() {
       },
     ]);
 
-    setActivityData([
-      { month: "Jan", responses: 0, feedback: 0 },
-      { month: "Feb", responses: 0, feedback: 0 },
-      { month: "Mar", responses: 0, feedback: 0 },
-    ]);
-
-    setSentimentData([
-      { sentiment: "Positive", count: 0, percentage: 0 },
-      { sentiment: "Neutral", count: 0, percentage: 0 },
-      { sentiment: "Negative", count: 0, percentage: 0 },
-    ]);
-
     setSentimentTrendData([
       { name: "Week 1", positive: 0, negative: 0, neutral: 0 },
       { name: "Week 2", positive: 0, negative: 0, neutral: 0 },
@@ -242,28 +229,69 @@ export default function AnalyticsPage() {
     });
   };
 
-  // Calculate teacher-specific analytics - wrap with useCallback to fix dependency issues
+  // Complete updated calculateTeacherAnalytics function with time period filtering
   const calculateTeacherAnalytics = useCallback(
     (courses: Course[], events: Event[], feedback: Feedback[]) => {
+      // Handle case where there's no data for the selected time period
+      if (events.length === 0 || feedback.length === 0) {
+        // Initialize overview data with time period context
+        setOverviewData([
+          {
+            name: "Your Courses",
+            value: courses.length,
+            icon: <Book className="h-4 w-4 text-emerald-600" />,
+            change: "",
+            changeText: "active courses",
+          },
+          {
+            name: "Course Feedback",
+            value: 0,
+            icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
+            change: "",
+            changeText: `no feedback in last ${timePeriod} days`,
+          },
+          {
+            name: "Active Students",
+            value: courses
+              .reduce((total, course) => total + (course.student_count || 0), 0)
+              .toString(),
+            icon: <Users className="h-4 w-4 text-emerald-600" />,
+            change: "",
+            changeText: "enrolled students",
+          },
+          {
+            name: "Response Rate",
+            value: "0",
+            icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
+            change: "",
+            changeText: `no activity in last ${timePeriod} days`,
+          },
+        ]);
+
+        setSentimentTrendData([]);
+        setCourseComparisonData([]);
+
+        // Set empty course page data
+        setCoursePageData({
+          teacherCourses: courses.map((course) => ({
+            id: course.id,
+            name: course.name,
+            code: course.code,
+            students: course.student_count || 0,
+            feedbackCount: 0,
+            responseRate: 0,
+            avgSentiment: 0,
+          })),
+          studentActivityData: [],
+          submissionByDayData: [],
+          upcomingEvents: [],
+        });
+
+        return; // Exit early if no data
+      }
+
       // Calculate overall statistics
       const totalFeedback = feedback.length;
-      let positiveFeedback = 0;
-      let negativeFeedback = 0;
-      let neutralFeedback = 0;
-
-      feedback.forEach((item) => {
-        if (item.tone === "positive") positiveFeedback++;
-        else if (item.tone === "negative") negativeFeedback++;
-        else if (item.tone === "neutral") neutralFeedback++;
-      });
-
-      // Calculate percentages
-      const positivePercentage =
-        totalFeedback > 0 ? (positiveFeedback / totalFeedback) * 100 : 0;
-      const negativePercentage =
-        totalFeedback > 0 ? (negativeFeedback / totalFeedback) * 100 : 0;
-      const neutralPercentage =
-        totalFeedback > 0 ? (neutralFeedback / totalFeedback) * 100 : 0;
 
       // Group feedback by month for trend data
       const monthlyCounts: Record<
@@ -276,6 +304,7 @@ export default function AnalyticsPage() {
           total: number;
         }
       > = {};
+
       feedback.forEach((item) => {
         if (!item.created_at) return;
 
@@ -377,7 +406,7 @@ export default function AnalyticsPage() {
         };
       });
 
-      // Set updated overview data
+      // Set updated overview data with time period context
       setOverviewData([
         {
           name: "Your Courses",
@@ -391,7 +420,7 @@ export default function AnalyticsPage() {
           value: totalFeedback,
           icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
           change: "",
-          changeText: "total responses",
+          changeText: `in last ${timePeriod} days`,
         },
         {
           name: "Active Students",
@@ -410,37 +439,7 @@ export default function AnalyticsPage() {
               : "0",
           icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
           change: "",
-          changeText: "avg responses per course",
-        },
-      ]);
-
-      // Update activity data
-      setActivityData(
-        Object.values(monthlyCounts)
-          .sort((a, b) => a.month.localeCompare(b.month))
-          .map((item) => ({
-            month: formatMonth(item.month),
-            responses: item.total,
-            feedback: item.positive + item.negative + item.neutral,
-          })),
-      );
-
-      // Update sentiment data for bar chart
-      setSentimentData([
-        {
-          sentiment: "Positive",
-          count: positiveFeedback,
-          percentage: Math.round(positivePercentage),
-        },
-        {
-          sentiment: "Neutral",
-          count: neutralFeedback,
-          percentage: Math.round(neutralPercentage),
-        },
-        {
-          sentiment: "Negative",
-          count: negativeFeedback,
-          percentage: Math.round(negativePercentage),
+          changeText: `avg in last ${timePeriod} days`,
         },
       ]);
 
@@ -459,13 +458,13 @@ export default function AnalyticsPage() {
       // Update course comparison data
       setCourseComparisonData([...courseData]);
 
-      // Update course page data
+      // Update course page data with filtered events
       setCoursePageData({
         teacherCourses: courses.map((course) => {
           // Find events for this course
           const courseEvents = events.filter((e) => e.course_id === course.id);
 
-          // Calculate totals
+          // Calculate totals from filtered data
           const feedbackCount = courseEvents.reduce(
             (sum, e) => sum + (e.total_feedback_count || 0),
             0,
@@ -510,8 +509,22 @@ export default function AnalyticsPage() {
           })),
       });
     },
-    [],
+    [timePeriod], // Add timePeriod as a dependency
   );
+  const filterByTimePeriod = <T extends Record<string, unknown>>(
+    data: T[],
+    dateField: string,
+    days: number,
+  ) => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    return data.filter((item) => {
+      if (!item[dateField]) return false;
+      const itemDate = new Date(item[dateField] as string | number | Date);
+      return itemDate >= cutoffDate;
+    });
+  };
 
   // Fetch data on component mount
   useEffect(() => {
@@ -561,10 +574,16 @@ export default function AnalyticsPage() {
           return;
         }
 
-        setEvents(eventsData || []);
+        const daysToFilter = parseInt(timePeriod);
+        const filteredEvents = filterByTimePeriod(
+          eventsData || [],
+          "created_at",
+          daysToFilter,
+        );
+        setEvents(filteredEvents);
 
         // If there are no events, set empty feedback and return
-        if (!eventsData || eventsData.length === 0) {
+        if (!filteredEvents || filteredEvents.length === 0) {
           setFeedback([]);
           calculateTeacherAnalytics(ownedCourses, [], []);
           setIsLoading(false);
@@ -572,7 +591,7 @@ export default function AnalyticsPage() {
         }
 
         // Get event IDs for feedback query
-        const eventIds = eventsData.map((event) => event.id);
+        const eventIds = filteredEvents.map((event) => event.id);
 
         // Fetch only feedback for the teacher's events
         const { data: feedbackData, error: feedbackError } = await supabase
@@ -587,13 +606,19 @@ export default function AnalyticsPage() {
           return;
         }
 
-        setFeedback(feedbackData || []);
+        // Apply time period filtering to feedback
+        const filteredFeedback = filterByTimePeriod(
+          feedbackData || [],
+          "created_at",
+          daysToFilter,
+        );
+        setFeedback(filteredFeedback);
 
-        // Calculate teacher-specific analytics
+        // Calculate teacher-specific analytics with filtered data
         calculateTeacherAnalytics(
           ownedCourses,
-          eventsData || [],
-          feedbackData || [],
+          filteredEvents,
+          filteredFeedback,
         );
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -1313,10 +1338,6 @@ export default function AnalyticsPage() {
               <SelectItem value="365">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </Button>
         </div>
       </div>
 

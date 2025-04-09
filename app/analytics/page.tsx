@@ -889,51 +889,6 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Your Courses Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Courses</CardTitle>
-          <CardDescription>
-            Quick overview of your active courses
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {teacherCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center">
-              <Book className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No courses found</h3>
-              <p className="text-muted-foreground">
-                You don&#39;t have any assigned courses yet
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {teacherCourses.map((course) => (
-                <div
-                  key={course.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <Book className="h-5 w-5 text-emerald-600" />
-                    <div>
-                      <div className="font-medium">{course.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {course.code}
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/courses/${course.id}`}>
-                      View Course
-                    </Link>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 

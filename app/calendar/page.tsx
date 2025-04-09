@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import CreateEventDialog from "@/components/create-event-dialog";
+import CustomCreateEventDialog from "@/components/custom-create-event-dialog";
 
 // Type definitions
 interface Course {
@@ -300,14 +300,9 @@ export default function CalendarPage() {
         <div className="flex gap-2">
           {/* Create event dialog */}
           {courses.length > 0 && (
-            <CreateEventDialog
-              courseId={
-                selectedCourse !== "all" ? selectedCourse : courses[0].id
-              }
-              onEventCreated={handleEventCreated}
-            >
+            <CustomCreateEventDialog onEventCreated={handleEventCreated}>
               <Button className="gap-2">Add Event</Button>
-            </CreateEventDialog>
+            </CustomCreateEventDialog>
           )}
           <Select value={selectedCourse} onValueChange={setSelectedCourse}>
             <SelectTrigger className="w-[180px]">

@@ -11,9 +11,8 @@ import {
   YAxis,
   Legend,
   CartesianGrid,
-  AreaChart,
-  Area,
-  Cell,
+  Line,
+  LineChart,
 } from "recharts";
 import {
   Card,
@@ -138,22 +137,6 @@ export default function AnalyticsPage() {
       icon: React.ReactNode;
       change: string;
       changeText: string;
-    }>
-  >([]);
-
-  const [activityData, setActivityData] = useState<
-    Array<{
-      month: string;
-      responses: number;
-      feedback: number;
-    }>
-  >([]);
-
-  const [sentimentData, setSentimentData] = useState<
-    Array<{
-      sentiment: string;
-      count: number;
-      percentage: number;
     }>
   >([]);
 
@@ -724,29 +707,29 @@ export default function AnalyticsPage() {
         {/* Course Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Course Activity</CardTitle>
+            <CardTitle>Course Comparison</CardTitle>
             <CardDescription>
-              Monthly responses and feedback submissions for your courses
+              Overview of performance across all your courses
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={activityData}>
+                <BarChart data={courseComparisonData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" stroke="#888888" />
+                  <XAxis dataKey="name" stroke="#888888" />
                   <YAxis stroke="#888888" />
                   <Tooltip />
                   <Legend />
                   <Bar
-                    dataKey="responses"
-                    name="Total Responses"
+                    dataKey="feedbackCount"
+                    name="Feedback Count"
                     fill="#10b981"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
-                    dataKey="feedback"
-                    name="Total Feedback"
+                    dataKey="responseRate"
+                    name="Response Rate (%)"
                     fill="#60a5fa"
                     radius={[4, 4, 0, 0]}
                   />
@@ -761,49 +744,43 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Sentiment Trend</CardTitle>
             <CardDescription>
-              Feedback sentiment across your courses
+              Feedback sentiment trends over time
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sentimentTrendData}>
+                <LineChart data={sentimentTrendData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" stroke="#888888" />
                   <YAxis stroke="#888888" />
                   <Tooltip />
                   <Legend />
-                  <Area
+                  <Line
                     type="monotone"
                     dataKey="positive"
                     name="Positive"
                     stroke="#16a34a"
-                    fill="#16a34a"
-                    fillOpacity={0.3}
                     strokeWidth={2}
-                    stackId="1"
+                    dot={{ r: 5 }}
                   />
-                  <Area
+                  <Line
                     type="monotone"
                     dataKey="neutral"
                     name="Neutral"
                     stroke="#737373"
-                    fill="#737373"
-                    fillOpacity={0.3}
                     strokeWidth={2}
-                    stackId="1"
+                    dot={{ r: 5 }}
                   />
-                  <Area
+                  <Line
                     type="monotone"
                     dataKey="negative"
                     name="Negative"
                     stroke="#dc2626"
-                    fill="#dc2626"
-                    fillOpacity={0.3}
                     strokeWidth={2}
-                    stackId="1"
+                    dot={{ r: 5 }}
                   />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -813,40 +790,70 @@ export default function AnalyticsPage() {
       {/* Feedback Sentiment Distribution (Bar Chart instead of Pie Chart) */}
       <Card>
         <CardHeader>
-          <CardTitle>Feedback Distribution</CardTitle>
+          <CardTitle>Feedback Distribution by Course</CardTitle>
           <CardDescription>
-            Breakdown of feedback by sentiment type
+            Breakdown of feedback sentiment across your courses
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
-            {sentimentData[0].count > 0 ||
-            sentimentData[1].count > 0 ||
-            sentimentData[2].count > 0 ? (
+            {teacherCourses.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={sentimentData}
+                  data={teacherCourses
+                    .map((course) => {
+                      const courseEvents = events.filter(
+                        (e) => e.course_id === course.id,
+                      );
+                      const courseFeedback = feedback.filter((f) =>
+                        courseEvents.some((e) => e.id === f.event_id),
+                      );
+
+                      const positive = courseFeedback.filter(
+                        (f) => f.tone === "positive",
+                      ).length;
+                      const neutral = courseFeedback.filter(
+                        (f) => f.tone === "neutral",
+                      ).length;
+                      const negative = courseFeedback.filter(
+                        (f) => f.tone === "negative",
+                      ).length;
+
+                      return {
+                        name: course.code,
+                        positive,
+                        neutral,
+                        negative,
+                        total: courseFeedback.length,
+                      };
+                    })
+                    .filter((item) => item.total > 0)}
                   layout="vertical"
                   margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
-                  <YAxis type="category" dataKey="sentiment" />
-                  <Tooltip formatter={(value) => [value, "Count"]} />
-                  <Bar dataKey="count" name="Feedback Count" barSize={30}>
-                    {sentimentData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          index === 0
-                            ? "#16a34a"
-                            : index === 1
-                              ? "#737373"
-                              : "#dc2626"
-                        }
-                      />
-                    ))}
-                  </Bar>
+                  <YAxis type="category" dataKey="name" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar
+                    dataKey="positive"
+                    name="Positive"
+                    fill="#16a34a"
+                    stackId="stack"
+                  />
+                  <Bar
+                    dataKey="neutral"
+                    name="Neutral"
+                    fill="#737373"
+                    stackId="stack"
+                  />
+                  <Bar
+                    dataKey="negative"
+                    name="Negative"
+                    fill="#dc2626"
+                    stackId="stack"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -918,67 +925,18 @@ export default function AnalyticsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
           {coursePageData.teacherCourses.map((course) => (
-            <Card key={course.id} className="overflow-hidden">
-              <div className="h-2 bg-emerald-500"></div>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{course.name}</CardTitle>
+            <Link key={course.id} href={`/dashboard/courses/${course.id}`}>
+              <Card className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer h-full">
+                <div className="h-2 bg-emerald-500"></div>
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                  <Book className="h-8 w-8 text-emerald-600 mb-2" />
+                  <h3 className="font-medium mb-1">{course.name}</h3>
                   <Badge variant="outline">{course.code}</Badge>
-                </div>
-                <CardDescription>
-                  {course.students} enrolled students
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">
-                      Feedback
-                    </div>
-                    <div className="text-lg font-semibold">
-                      {course.feedbackCount}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">
-                      Response Rate
-                    </div>
-                    <div className="text-lg font-semibold">
-                      {course.responseRate}%
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">
-                      Sentiment
-                    </div>
-                    <div className="text-lg font-semibold">
-                      {course.avgSentiment}%
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-sm text-muted-foreground">
-                      Engagement
-                    </div>
-                    <div className="text-lg font-semibold">
-                      {course.responseRate > 70
-                        ? "High"
-                        : course.responseRate > 50
-                          ? "Medium"
-                          : "Low"}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/courses/${course.id}`}>
-                      View Details
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
@@ -1215,28 +1173,24 @@ export default function AnalyticsPage() {
                   return (
                     <Card key={item.id} className="overflow-hidden">
                       <CardContent className="p-4">
-                        <div className="mb-2 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={
-                                item.tone === "positive"
-                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                  : item.tone === "negative"
-                                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                    : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                              }
-                            >
-                              <span className="flex items-center gap-1">
-                                {getSentimentIcon(item.tone)}
-                                {item.tone.charAt(0).toUpperCase() +
-                                  item.tone.slice(1)}
-                              </span>
-                            </Badge>
-                            {course && (
-                              <Badge variant="outline">{course.code}</Badge>
-                            )}
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="bg-muted px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                            <Calendar className="h-3.5 w-3.5 mr-1" />
+                            <span>
+                              {event ? (
+                                <>
+                                  {course?.code} Event (
+                                  {new Date(
+                                    event.event_date,
+                                  ).toLocaleDateString()}
+                                  )
+                                </>
+                              ) : (
+                                "Unknown event"
+                              )}
+                            </span>
                           </div>
+
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             <span>
@@ -1245,16 +1199,26 @@ export default function AnalyticsPage() {
                           </div>
                         </div>
 
-                        <p className="mb-3">{item.content}</p>
-
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          <span>
-                            {event
-                              ? new Date(event.event_date).toLocaleDateString()
-                              : "Unknown date"}
-                          </span>
+                        <div className="mb-2 flex items-center">
+                          <Badge
+                            variant="outline"
+                            className={
+                              item.tone === "positive"
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : item.tone === "negative"
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                            }
+                          >
+                            <span className="flex items-center gap-1">
+                              {getSentimentIcon(item.tone)}
+                              {item.tone.charAt(0).toUpperCase() +
+                                item.tone.slice(1)}
+                            </span>
+                          </Badge>
                         </div>
+
+                        <p className="mb-3">{item.content}</p>
                       </CardContent>
                     </Card>
                   );

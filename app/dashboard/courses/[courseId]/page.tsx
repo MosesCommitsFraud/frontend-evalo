@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   BarChart3,
   MessageSquare,
-  Settings,
   QrCode,
   ThumbsUp,
   ThumbsDown,
@@ -120,6 +119,8 @@ export default function CoursePage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [activeEventsTab, setActiveEventsTab] = useState("upcoming");
+
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   // Fetch course data on component mount
   useEffect(() => {
@@ -1828,9 +1829,8 @@ export default function CoursePage() {
             <DialogDescription>
               {selectedEvent && (
                 <>
-                  Update the status for the event on{" "}
-                  {formatEventDate(selectedEvent.event_date)}. This will affect
-                  whether students can submit feedback.
+                  Update the status for {getEventName(selectedEvent.id)}. This
+                  will affect whether students can submit feedback.
                 </>
               )}
             </DialogDescription>
@@ -1840,15 +1840,8 @@ export default function CoursePage() {
             <Select
               defaultValue={selectedEvent?.status}
               onValueChange={(value) => {
-                if (
-                  selectedEvent &&
-                  ["open", "closed", "archived"].includes(value)
-                ) {
-                  handleStatusChange(
-                    selectedEvent.id,
-                    value as "open" | "closed" | "archived",
-                  );
-                }
+                // Just store the selected value, don't apply it yet
+                setPendingStatus(value);
               }}
             >
               <SelectTrigger>
@@ -1880,11 +1873,30 @@ export default function CoursePage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setConfirmDialogOpen(false)}
+              onClick={() => {
+                setPendingStatus(null);
+                setConfirmDialogOpen(false);
+              }}
             >
               Cancel
             </Button>
-            <Button onClick={() => setConfirmDialogOpen(false)}>
+            <Button
+              onClick={() => {
+                if (
+                  selectedEvent &&
+                  pendingStatus &&
+                  ["open", "closed", "archived"].includes(pendingStatus)
+                ) {
+                  handleStatusChange(
+                    selectedEvent.id,
+                    pendingStatus as "open" | "closed" | "archived",
+                  );
+                } else {
+                  setConfirmDialogOpen(false);
+                }
+                setPendingStatus(null);
+              }}
+            >
               Save Changes
             </Button>
           </DialogFooter>
@@ -1963,14 +1975,6 @@ export default function CoursePage() {
               <QrCode className="h-4 w-4" />
               Create/Share Feedback Code
             </Link>
-          </Button>
-          <Button
-            variant="outline"
-            className="gap-2"
-            disabled={loading || !!error}
-          >
-            <Settings className="h-4 w-4" />
-            Course Settings
           </Button>
         </div>
       </div>

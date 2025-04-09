@@ -54,6 +54,14 @@ export const getUserOrganizationId = async () => {
   return profile.organization_id;
 };
 
+export function getEventName(event: Event) {
+  const date = new Date(event.event_date);
+  const month = date.toLocaleString("default", { month: "short" });
+  const day = date.getDate();
+
+  return `Event on ${month} ${day} at ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 // Client-side data service
 export const dataService = {
   // Organization Management

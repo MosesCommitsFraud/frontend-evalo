@@ -44,6 +44,8 @@ interface Event {
   id: string;
   course_id: string;
   event_date: string;
+  event_name?: string | null; // Add event_name field
+  end_time?: string | null; // Add end_time field
   status: string;
   entry_code: string;
   created_at: string;
@@ -293,17 +295,62 @@ export default function DashboardPage() {
       }));
   };
 
-  // Get recent feedback (last 3)
+  const getEventDuration = (event: Event) => {
+    try {
+      if (event.event_date && event.end_time) {
+        const startDate = new Date(event.event_date);
+        const endDate = new Date(event.end_time);
+
+        // Calculate duration in minutes
+        const durationMs = endDate.getTime() - startDate.getTime();
+        const durationMinutes = Math.floor(durationMs / 60000);
+
+        if (durationMinutes < 60) {
+          return `${durationMinutes} min`;
+        } else {
+          const hours = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  };
+
+  const formatEventTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // Update the getRecentFeedback function
   const getRecentFeedback = () => {
     return feedback.slice(0, 3).map((item) => {
       // Find the corresponding event
       const event = events.find((e) => e.id === item.event_id);
+      const course = event?.courses?.code || "Unknown";
+      const eventName =
+        event?.event_name ||
+        (event
+          ? `Event (${new Date(event.event_date).toLocaleDateString()})`
+          : "Unknown");
+      const duration = event ? getEventDuration(event) : "";
+
       return {
         id: item.id,
-        course: event?.courses?.code || "Unknown",
+        eventId: event?.id || "",
+        courseId: event?.course_id || "",
+        course,
+        eventName,
         content: item.content,
         sentiment: item.tone,
         time: formatRelativeTime(item.created_at),
+        eventDate: event?.event_date
+          ? new Date(event.event_date).toLocaleDateString()
+          : "",
+        eventTime: event?.event_date ? formatEventTime(event.event_date) : "",
+        duration,
       };
     });
   };

@@ -2105,6 +2105,9 @@ function EventCard({ event, onStatusChange }: EventCardProps) {
               className="bg-emerald-600 hover:bg-emerald-700"
               onClick={(e) => {
                 e.stopPropagation(); // Prevent event card click
+                router.push(
+                  `/dashboard/courses/${event.course_id}/events/${event.id}`,
+                );
               }}
             >
               View Analytics

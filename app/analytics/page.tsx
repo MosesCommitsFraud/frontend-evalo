@@ -1155,17 +1155,22 @@ export default function AnalyticsPage() {
   );
 
   // Content for Feedback tab
+  // Updated feedbackTabContent with more compact layout and visual separation
   const feedbackTabContent = (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
+        {" "}
+        {/* Reduced padding at bottom */}
         <CardTitle>Student Feedback</CardTitle>
         <CardDescription>
           View and analyze feedback from all events in this course
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Filter Bar */}
-        <div className="flex flex-col gap-4 sm:flex-row">
+      <CardContent className="space-y-4">
+        {" "}
+        {/* Reduced spacing between elements */}
+        {/* Filter Bar - Made more compact */}
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1208,23 +1213,30 @@ export default function AnalyticsPage() {
             </Button>
           </div>
         </div>
-
         {/* Feedback List */}
         {feedback.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No feedback yet</h3>
-            <p className="text-muted-foreground">
+          <div className="flex flex-col items-center justify-center py-6">
+            {" "}
+            {/* Reduced padding */}
+            <MessageSquare className="h-10 w-10 text-muted-foreground mb-3" />{" "}
+            {/* Smaller icon */}
+            <h3 className="text-base font-medium mb-1">No feedback yet</h3>{" "}
+            {/* Smaller text */}
+            <p className="text-sm text-muted-foreground">
               You haven&#39;t received any feedback for your courses yet
             </p>
           </div>
         ) : filteredFeedback.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground">
+          <div className="text-center py-4 text-muted-foreground">
+            {" "}
+            {/* Reduced padding */}
             No feedback matching your search criteria
           </div>
         ) : (
           <>
-            <div className="space-y-4 mt-4">
+            <div className="space-y-3 mt-2">
+              {" "}
+              {/* Reduced vertical spacing */}
               {filteredFeedback
                 .slice(currentPage * 5, currentPage * 5 + 5)
                 .map((item) => {
@@ -1251,14 +1263,20 @@ export default function AnalyticsPage() {
                         }
                       }}
                     >
-                      <CardContent className="p-4">
-                        <div className="mb-3 flex items-center justify-between">
+                      <CardContent className="p-3">
+                        {" "}
+                        {/* Reduced padding */}
+                        <div className="mb-2 flex items-center justify-between">
+                          {" "}
+                          {/* Reduced margin */}
                           <div className="bg-muted px-3 py-1 rounded-full text-sm font-medium flex items-center">
                             <Calendar className="h-3.5 w-3.5 mr-1" />
                             <span>
                               {event ? (
                                 <>
-                                  {course?.code}{" "}
+                                  {course?.code}
+                                  {/* Added divider between course code and event name */}
+                                  <span className="mx-1 text-gray-400">|</span>
                                   {event.event_name ||
                                     `Event (${new Date(event.event_date).toLocaleDateString()})`}
                                 </>
@@ -1267,8 +1285,9 @@ export default function AnalyticsPage() {
                               )}
                             </span>
                           </div>
-
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            {" "}
+                            {/* Smaller text */}
                             <Clock className="h-3 w-3" />
                             <span>
                               {event ? (
@@ -1289,17 +1308,19 @@ export default function AnalyticsPage() {
                             </span>
                           </div>
                         </div>
-
-                        <div className="mb-2 flex items-center">
+                        <div className="mb-1 flex items-center">
+                          {" "}
+                          {/* Reduced margin */}
                           <Badge
                             variant="outline"
-                            className={
+                            className={`text-xs py-0.5 px-2 ${
+                              /* Made badge smaller */
                               item.tone === "positive"
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
                                 : item.tone === "negative"
                                   ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                                   : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                            }
+                            }`}
                           >
                             <span className="flex items-center gap-1">
                               {getSentimentIcon(item.tone)}
@@ -1308,12 +1329,11 @@ export default function AnalyticsPage() {
                             </span>
                           </Badge>
                         </div>
-
-                        <p className="mb-3">{item.content}</p>
-
+                        <p className="mb-2 text-sm">{item.content}</p>{" "}
+                        {/* Reduced font size and margin */}
                         {/* Add a subtle "View Details" link */}
                         {event && (
-                          <div className="text-xs text-right text-emerald-600 mt-2">
+                          <div className="text-xs text-right text-emerald-600">
                             View Event Details →
                           </div>
                         )}
@@ -1323,9 +1343,13 @@ export default function AnalyticsPage() {
                 })}
             </div>
 
-            {/* Pagination Controls */}
-            <div className="flex justify-between items-center mt-6">
-              <div className="text-sm text-muted-foreground">
+            {/* Pagination Controls - more compact */}
+            <div className="flex justify-between items-center mt-4">
+              {" "}
+              {/* Reduced margin */}
+              <div className="text-xs text-muted-foreground">
+                {" "}
+                {/* Smaller text */}
                 Showing {Math.min(filteredFeedback.length, 5)} of{" "}
                 {filteredFeedback.length} responses
               </div>
@@ -1333,6 +1357,7 @@ export default function AnalyticsPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 px-3" /* Smaller button */
                   onClick={() =>
                     setCurrentPage((prev) => Math.max(0, prev - 1))
                   }
@@ -1343,6 +1368,7 @@ export default function AnalyticsPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 px-3" /* Smaller button */
                   onClick={() => setCurrentPage((prev) => prev + 1)}
                   disabled={(currentPage + 1) * 5 >= filteredFeedback.length}
                 >

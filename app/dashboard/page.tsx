@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -76,6 +77,7 @@ interface Stats {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -295,7 +297,40 @@ export default function DashboardPage() {
       }));
   };
 
-  const getEventDuration = (event: Event) => {
+  const getRecentFeedback = () => {
+    return feedback.slice(0, 3).map((item) => {
+      // Find the corresponding event and course
+      const event = events.find((e) => e.id === item.event_id);
+
+      return {
+        id: item.id,
+        eventId: item.event_id,
+        courseId: event?.course_id || "",
+        course: event?.courses?.code || "Unknown",
+        eventName:
+          event?.event_name ||
+          (event
+            ? `Event (${new Date(event.event_date).toLocaleDateString()})`
+            : "Unknown"),
+        content: item.content,
+        sentiment: item.tone,
+        time: formatRelativeTime(item.created_at),
+        eventDate: event?.event_date
+          ? new Date(event.event_date).toLocaleDateString()
+          : "",
+        eventTime: event?.event_date
+          ? new Date(event.event_date).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
+        duration: event?.end_time ? getEventDuration(event) : "",
+      };
+    });
+  };
+
+  // Add the event duration helper function
+  const getEventDuration = (event: Event): string => {
     try {
       if (event.event_date && event.end_time) {
         const startDate = new Date(event.event_date);
@@ -317,42 +352,6 @@ export default function DashboardPage() {
     } catch {
       return "";
     }
-  };
-
-  const formatEventTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
-  // Update the getRecentFeedback function
-  const getRecentFeedback = () => {
-    return feedback.slice(0, 3).map((item) => {
-      // Find the corresponding event
-      const event = events.find((e) => e.id === item.event_id);
-      const course = event?.courses?.code || "Unknown";
-      const eventName =
-        event?.event_name ||
-        (event
-          ? `Event (${new Date(event.event_date).toLocaleDateString()})`
-          : "Unknown");
-      const duration = event ? getEventDuration(event) : "";
-
-      return {
-        id: item.id,
-        eventId: event?.id || "",
-        courseId: event?.course_id || "",
-        course,
-        eventName,
-        content: item.content,
-        sentiment: item.tone,
-        time: formatRelativeTime(item.created_at),
-        eventDate: event?.event_date
-          ? new Date(event.event_date).toLocaleDateString()
-          : "",
-        eventTime: event?.event_date ? formatEventTime(event.event_date) : "",
-        duration,
-      };
-    });
   };
 
   // Helper function to get appropriate sentiment icon
@@ -451,7 +450,7 @@ export default function DashboardPage() {
     label: "Recent Feedback",
     content: (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>Recent Feedback</CardTitle>
           <CardDescription>
             Latest student feedback across your courses
@@ -463,36 +462,77 @@ export default function DashboardPage() {
               No feedback received yet
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentFeedback.map((item) => (
-                <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-4">
+                <Card
+                  key={item.id}
+                  className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer"
+                  onClick={() => {
+                    // Use router for navigation instead of direct window.location
+                    if (item.courseId && item.eventId) {
+                      router.push(
+                        `/dashboard/courses/${item.courseId}/events/${item.eventId}`,
+                      );
+                    }
+                  }}
+                >
+                  <CardContent className="p-3">
                     <div className="mb-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            item.sentiment === "positive"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : item.sentiment === "negative"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                          }
-                        >
-                          <span className="flex items-center gap-1">
-                            {getSentimentIcon(item.sentiment)}
-                            {item.sentiment.charAt(0).toUpperCase() +
-                              item.sentiment.slice(1)}
-                          </span>
-                        </Badge>
-                        <Badge variant="outline">{item.course}</Badge>
+                      <div className="bg-muted px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                        <Calendar className="h-3.5 w-3.5 mr-1" />
+                        <span>
+                          {item.course}
+                          <span className="mx-1 text-gray-400">|</span>
+                          {item.eventName}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
-                        <span>{item.time}</span>
+                        <span>
+                          {item.eventDate ? (
+                            <>
+                              {item.eventDate} at {item.eventTime}
+                              {item.duration && (
+                                <span className="ml-1 text-gray-500">
+                                  ({item.duration})
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            item.time
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <p>{item.content}</p>
+
+                    <div className="mb-1 flex items-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs py-0.5 px-2 ${
+                          item.sentiment === "positive"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : item.sentiment === "negative"
+                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                        }`}
+                      >
+                        <span className="flex items-center gap-1">
+                          {getSentimentIcon(item.sentiment)}
+                          {item.sentiment.charAt(0).toUpperCase() +
+                            item.sentiment.slice(1)}
+                        </span>
+                      </Badge>
+                    </div>
+
+                    <p className="mb-2 text-sm">{item.content}</p>
+
+                    {/* Add a subtle "View Details" link */}
+                    {item.eventId && (
+                      <div className="text-xs text-right text-emerald-600">
+                        View Event Details →
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

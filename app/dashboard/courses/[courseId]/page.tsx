@@ -65,13 +65,12 @@ import {
   Legend,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
   AreaChart,
+  Cell,
 } from "recharts";
 
 interface Event {
@@ -815,48 +814,86 @@ export default function CoursePage() {
                       </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              {
-                                name: "Positive",
-                                value: feedback.filter(
-                                  (f) => f.tone === "positive",
-                                ).length,
-                                fill: "#10b981",
-                              },
-                              {
-                                name: "Neutral",
-                                value: feedback.filter(
-                                  (f) => f.tone === "neutral",
-                                ).length,
-                                fill: "#6b7280",
-                              },
-                              {
-                                name: "Negative",
-                                value: feedback.filter(
-                                  (f) => f.tone === "negative",
-                                ).length,
-                                fill: "#ef4444",
-                              },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={80}
-                            label={(entry) =>
-                              `${entry.name}: ${((entry.value / feedback.length) * 100).toFixed(0)}%`
-                            }
-                            dataKey="value"
+                        <BarChart
+                          data={[
+                            {
+                              name: "Positive",
+                              count: feedback.filter(
+                                (f) => f.tone === "positive",
+                              ).length,
+                              percentage: Math.round(
+                                (feedback.filter((f) => f.tone === "positive")
+                                  .length /
+                                  feedback.length) *
+                                  100,
+                              ),
+                              fill: "#10b981",
+                            },
+                            {
+                              name: "Neutral",
+                              count: feedback.filter(
+                                (f) => f.tone === "neutral",
+                              ).length,
+                              percentage: Math.round(
+                                (feedback.filter((f) => f.tone === "neutral")
+                                  .length /
+                                  feedback.length) *
+                                  100,
+                              ),
+                              fill: "#6b7280",
+                            },
+                            {
+                              name: "Negative",
+                              count: feedback.filter(
+                                (f) => f.tone === "negative",
+                              ).length,
+                              percentage: Math.round(
+                                (feedback.filter((f) => f.tone === "negative")
+                                  .length /
+                                  feedback.length) *
+                                  100,
+                              ),
+                              fill: "#ef4444",
+                            },
+                          ]}
+                          layout="vertical"
+                          margin={{ top: 20, right: 30, left: 65, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            type="number"
+                            tickFormatter={(value) => `${value}%`}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            tick={{ fontSize: 14 }}
+                            width={60}
                           />
                           <Tooltip
-                            formatter={(value) => [
-                              `${value} feedback items`,
-                              "Count",
-                            ]}
+                            formatter={(value, name) => {
+                              if (name === "percentage") {
+                                return [`${value}%`, "Percentage"];
+                              }
+                              return [`${value} items`, "Count"];
+                            }}
+                            labelFormatter={(value) => `${value} Feedback`}
                           />
-                          <Legend />
-                        </PieChart>
+                          <Bar
+                            dataKey="percentage"
+                            name="Percentage"
+                            radius={[0, 4, 4, 0]}
+                            barSize={30}
+                          >
+                            {[
+                              { dataKey: "Positive", fill: "#10b981" },
+                              { dataKey: "Neutral", fill: "#6b7280" },
+                              { dataKey: "Negative", fill: "#ef4444" },
+                            ].map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
                       </ResponsiveContainer>
                     )}
                   </CardContent>
@@ -1205,14 +1242,16 @@ export default function CoursePage() {
             </TabsContent>
 
             <TabsContent value="sentiment" className="space-y-6">
-              {/* Sentiment Analysis */}
+              {/* Sentiment Analysis with Improved Font Hierarchy */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Sentiment Analysis</CardTitle>
+                  <CardTitle className="text-lg font-bold">
+                    Sentiment Analysis
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="h-80">
+                <CardContent className="h-auto">
                   {feedback.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full">
+                    <div className="flex flex-col items-center justify-center h-full py-12">
                       <ThumbsUp className="h-12 w-12 text-muted-foreground mb-4" />
                       <p className="text-sm text-muted-foreground">
                         No sentiment data available yet
@@ -1221,115 +1260,131 @@ export default function CoursePage() {
                   ) : (
                     <div className="h-full">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-full">
-                        <div className="flex flex-col justify-center">
-                          <div className="text-center mb-6">
+                        <div className="flex flex-col justify-center bg-muted/20 p-6 rounded-lg">
+                          <div className="text-center mb-8">
                             <span className="text-6xl font-bold text-emerald-600">
                               {feedback.length > 0
                                 ? `${Math.round((feedback.filter((f) => f.tone === "positive").length / feedback.length) * 100)}%`
                                 : "0%"}
                             </span>
-                            <p className="text-sm text-muted-foreground mt-2">
+                            <p className="text-sm text-muted-foreground mt-2 font-medium uppercase tracking-wide">
                               Overall Positive Sentiment
                             </p>
                           </div>
 
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium">
-                              Positive
-                            </span>
-                            <span className="text-sm font-medium text-emerald-600">
-                              {
-                                feedback.filter((f) => f.tone === "positive")
-                                  .length
-                              }
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                            <div
-                              className="bg-emerald-600 h-2.5 rounded-full"
-                              style={{
-                                width: `${
-                                  feedback.length > 0
-                                    ? Math.round(
-                                        (feedback.filter(
-                                          (f) => f.tone === "positive",
-                                        ).length /
-                                          feedback.length) *
-                                          100,
-                                      )
-                                    : 0
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
+                          <h3 className="text-md font-semibold mb-3 uppercase tracking-wide text-muted-foreground">
+                            Sentiment Breakdown
+                          </h3>
 
-                          <div className="flex justify-between items-center mb-2 mt-4">
-                            <span className="text-sm font-medium">Neutral</span>
-                            <span className="text-sm font-medium text-gray-600">
-                              {
-                                feedback.filter((f) => f.tone === "neutral")
-                                  .length
-                              }
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                            <div
-                              className="bg-gray-600 h-2.5 rounded-full"
-                              style={{
-                                width: `${
-                                  feedback.length > 0
-                                    ? Math.round(
-                                        (feedback.filter(
-                                          (f) => f.tone === "neutral",
-                                        ).length /
-                                          feedback.length) *
-                                          100,
-                                      )
-                                    : 0
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
+                          <div className="space-y-5">
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-semibold">
+                                  Positive
+                                </span>
+                                <span className="text-sm font-bold text-emerald-600">
+                                  {
+                                    feedback.filter(
+                                      (f) => f.tone === "positive",
+                                    ).length
+                                  }
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                                <div
+                                  className="bg-emerald-600 h-3 rounded-full"
+                                  style={{
+                                    width: `${
+                                      feedback.length > 0
+                                        ? Math.round(
+                                            (feedback.filter(
+                                              (f) => f.tone === "positive",
+                                            ).length /
+                                              feedback.length) *
+                                              100,
+                                          )
+                                        : 0
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
 
-                          <div className="flex justify-between items-center mb-2 mt-4">
-                            <span className="text-sm font-medium">
-                              Negative
-                            </span>
-                            <span className="text-sm font-medium text-red-600">
-                              {
-                                feedback.filter((f) => f.tone === "negative")
-                                  .length
-                              }
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                            <div
-                              className="bg-red-600 h-2.5 rounded-full"
-                              style={{
-                                width: `${
-                                  feedback.length > 0
-                                    ? Math.round(
-                                        (feedback.filter(
-                                          (f) => f.tone === "negative",
-                                        ).length /
-                                          feedback.length) *
-                                          100,
-                                      )
-                                    : 0
-                                }%`,
-                              }}
-                            ></div>
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-semibold">
+                                  Neutral
+                                </span>
+                                <span className="text-sm font-bold text-gray-600">
+                                  {
+                                    feedback.filter((f) => f.tone === "neutral")
+                                      .length
+                                  }
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                                <div
+                                  className="bg-gray-600 h-3 rounded-full"
+                                  style={{
+                                    width: `${
+                                      feedback.length > 0
+                                        ? Math.round(
+                                            (feedback.filter(
+                                              (f) => f.tone === "neutral",
+                                            ).length /
+                                              feedback.length) *
+                                              100,
+                                          )
+                                        : 0
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-semibold">
+                                  Negative
+                                </span>
+                                <span className="text-sm font-bold text-red-600">
+                                  {
+                                    feedback.filter(
+                                      (f) => f.tone === "negative",
+                                    ).length
+                                  }
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                                <div
+                                  className="bg-red-600 h-3 rounded-full"
+                                  style={{
+                                    width: `${
+                                      feedback.length > 0
+                                        ? Math.round(
+                                            (feedback.filter(
+                                              (f) => f.tone === "negative",
+                                            ).length /
+                                              feedback.length) *
+                                              100,
+                                          )
+                                        : 0
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="col-span-2 border-l pl-8">
-                          <h3 className="font-medium mb-4">
+                        <div className="col-span-2 md:border-l md:pl-8">
+                          <h3 className="font-bold text-xl mb-5 text-gray-800 dark:text-gray-200">
                             Top Feedback Samples
                           </h3>
 
                           <div
-                            className="space-y-3 overflow-y-auto"
-                            style={{ maxHeight: "250px" }}
+                            className="space-y-4 overflow-y-auto"
+                            style={{ maxHeight: "300px" }}
                           >
                             {feedback
                               .sort(
@@ -1341,9 +1396,9 @@ export default function CoursePage() {
                               .map((item, index) => (
                                 <div
                                   key={index}
-                                  className="p-3 border rounded-md"
+                                  className="p-4 border rounded-md shadow-sm hover:border-emerald-200 transition-colors"
                                 >
-                                  <div className="flex items-center gap-2 mb-1">
+                                  <div className="flex items-center gap-2 mb-2">
                                     <Badge
                                       variant="outline"
                                       className={
@@ -1360,13 +1415,15 @@ export default function CoursePage() {
                                           item.tone.slice(1)}
                                       </span>
                                     </Badge>
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground ml-auto font-medium">
                                       {new Date(
                                         item.created_at,
                                       ).toLocaleDateString()}
                                     </span>
                                   </div>
-                                  <p className="text-sm">{item.content}</p>
+                                  <p className="text-sm leading-relaxed">
+                                    {item.content}
+                                  </p>
                                 </div>
                               ))}
                           </div>
@@ -1380,15 +1437,17 @@ export default function CoursePage() {
               {feedback.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Key Insights</CardTitle>
+                    <CardTitle className="text-xl font-bold">
+                      Key Insights
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="p-4 border rounded-lg">
-                        <h3 className="font-medium text-lg mb-2">
+                    <div className="space-y-6">
+                      <div className="p-5 border rounded-lg bg-muted/20">
+                        <h3 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-200">
                           Sentiment Summary
                         </h3>
-                        <p>
+                        <p className="leading-relaxed">
                           {feedback.filter((f) => f.tone === "positive")
                             .length >
                           feedback.filter((f) => f.tone === "negative").length
@@ -1402,11 +1461,11 @@ export default function CoursePage() {
                         </p>
                       </div>
 
-                      <div className="p-4 border rounded-lg">
-                        <h3 className="font-medium text-lg mb-2">
+                      <div className="p-5 border rounded-lg bg-muted/20">
+                        <h3 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-200">
                           Engagement Analysis
                         </h3>
-                        <p>
+                        <p className="leading-relaxed">
                           {events.length > 0 && course?.student_count
                             ? `Average response rate is ${Math.round((feedback.length / (events.length * course.student_count)) * 100)}% of students.`
                             : "Insufficient data to analyze engagement patterns."}
@@ -1418,20 +1477,20 @@ export default function CoursePage() {
                         </p>
                       </div>
 
-                      <div className="p-4 border rounded-lg">
-                        <h3 className="font-medium text-lg mb-2">
+                      <div className="p-5 border rounded-lg bg-muted/20">
+                        <h3 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-200">
                           Recommended Actions
                         </h3>
-                        <ul className="list-disc pl-5 space-y-1">
+                        <ul className="list-disc pl-6 space-y-2">
                           {feedback.filter((f) => f.tone === "negative")
                             .length > 5 && (
-                            <li>
+                            <li className="leading-relaxed">
                               Address common negative themes in your next class
                               session
                             </li>
                           )}
                           {feedback.length / (events.length || 1) < 10 && (
-                            <li>
+                            <li className="leading-relaxed">
                               Encourage more students to provide feedback by
                               explaining its importance
                             </li>
@@ -1440,12 +1499,12 @@ export default function CoursePage() {
                             .length >
                             feedback.filter((f) => f.tone === "negative")
                               .length && (
-                            <li>
+                            <li className="leading-relaxed">
                               Highlight and continue effective teaching methods
                               that are receiving positive feedback
                             </li>
                           )}
-                          <li>
+                          <li className="leading-relaxed">
                             Review individual comments for specific suggestions
                             that may not be captured in the sentiment analysis
                           </li>

@@ -76,6 +76,8 @@ interface Event {
   id: string;
   course_id: string;
   event_date: string;
+  event_name: string; // Add this property
+  end_time: string; // Add this property
   status: "open" | "closed" | "archived";
   entry_code: string;
   created_at: string;
@@ -293,7 +295,6 @@ export default function CoursePage() {
 
     fetchEvents();
   };
-
   // Handle status change for events
   const handleStatusChange = async (
     eventId: string,
@@ -1992,37 +1993,80 @@ interface EventCardProps {
 function EventCard({ event, onStatusChange }: EventCardProps) {
   const router = useRouter();
 
-  const getRelativeTime = (dateString: string) => {
-    const eventDate = new Date(dateString);
-    const today = new Date();
-
-    // Reset time part for accurate day comparison
-    today.setHours(0, 0, 0, 0);
-    const compareDate = new Date(eventDate);
-    compareDate.setHours(0, 0, 0, 0);
-
-    const diffTime = compareDate.getTime() - today.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Tomorrow";
-    if (diffDays > 0 && diffDays < 7) return `In ${diffDays} days`;
-    if (diffDays < 0) {
-      if (diffDays === -1) return "Yesterday";
-      if (diffDays > -7) return `${Math.abs(diffDays)} days ago`;
-      return new Date(dateString).toLocaleDateString();
-    }
-    return new Date(dateString).toLocaleDateString();
+  // Format date to short format (e.g., "Jan 15, 2023")
+  const formatEventShortDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
-  // Format date
-  const formatEventDate = (dateString: string) => {
+  // Format just the time part (e.g., "2:30 PM")
+  const formatEventTime = (dateString: string) => {
     const date = new Date(dateString);
-    return (
-      date.toLocaleDateString() +
-      " " +
-      date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    );
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Calculate event duration
+  const getEventDuration = (event: Event) => {
+    try {
+      if (event.event_date && event.end_time) {
+        const startDate = new Date(event.event_date);
+        const endDate = new Date(event.end_time);
+
+        // Calculate duration in minutes
+        const durationMs = endDate.getTime() - startDate.getTime();
+        const durationMinutes = Math.floor(durationMs / 60000);
+
+        if (durationMinutes < 60) {
+          return `${durationMinutes} min`;
+        } else {
+          const hours = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
+      }
+      return "1h"; // Default duration
+    } catch (error) {
+      console.error("Error calculating event duration:", error);
+      return "";
+    }
+  };
+
+  // Calculate running duration for active events
+  const getRunningDuration = (event: Event) => {
+    try {
+      const now = new Date();
+      const startDate = new Date(event.event_date);
+      const endDate = event.end_time ? new Date(event.end_time) : null;
+
+      // Only show for ongoing events
+      if (
+        startDate <= now &&
+        (!endDate || endDate >= now) &&
+        event.status === "open"
+      ) {
+        const elapsedMs = now.getTime() - startDate.getTime();
+        const elapsedMinutes = Math.floor(elapsedMs / 60000);
+
+        if (elapsedMinutes < 60) {
+          return `Running for ${elapsedMinutes}m`;
+        } else {
+          const hours = Math.floor(elapsedMinutes / 60);
+          const minutes = elapsedMinutes % 60;
+          return `Running for ${hours}h ${minutes > 0 ? `${minutes}m` : ""}`;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Error calculating running duration:", error);
+      return null;
+    }
   };
 
   // Get status badge
@@ -2067,7 +2111,10 @@ function EventCard({ event, onStatusChange }: EventCardProps) {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-emerald-600" />
-            <h3 className="font-medium">{formatEventDate(event.event_date)}</h3>
+            <h3 className="font-medium">
+              {event.event_name ||
+                `${formatEventShortDate(event.event_date)} Session`}
+            </h3>
             <Badge variant="outline" className="ml-2">
               Code: {event.entry_code}
             </Badge>
@@ -2079,8 +2126,21 @@ function EventCard({ event, onStatusChange }: EventCardProps) {
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="h-3 w-3" />
-              <span>{getRelativeTime(event.event_date)}</span>
+              <span>
+                {formatEventShortDate(event.event_date)} at{" "}
+                {formatEventTime(event.event_date)}
+                {/* Add duration display here */}
+                <span className="ml-1 text-gray-500">
+                  ({getEventDuration(event)})
+                </span>
+              </span>
             </div>
+
+            {getRunningDuration(event) && (
+              <div className="flex items-center gap-1 text-emerald-600 font-medium">
+                <span>{getRunningDuration(event)}</span>
+              </div>
+            )}
 
             <div className="flex items-center gap-1 text-muted-foreground">
               <MessageSquare className="h-3 w-3" />

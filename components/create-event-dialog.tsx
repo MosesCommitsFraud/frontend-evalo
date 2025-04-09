@@ -29,7 +29,7 @@ import { createClient } from "@/lib/supabase/client";
 interface CreateEventDialogProps {
   children: React.ReactNode;
   courseId: string;
-  onEventCreated?: (eventId: string, code: string) => void;
+  onEventCreated?: (eventId: string, code?: string) => void;
 }
 
 export default function CreateEventDialog({
@@ -47,6 +47,31 @@ export default function CreateEventDialog({
   const [timeUntil, setTimeUntil] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Calculate event duration for the success message
+  const getEventDuration = (startTime: string, endTime: string) => {
+    try {
+      const [startHours, startMinutes] = startTime.split(":").map(Number);
+      const [endHours, endMinutes] = endTime.split(":").map(Number);
+
+      // Convert to minutes
+      const startInMinutes = startHours * 60 + startMinutes;
+      const endInMinutes = endHours * 60 + endMinutes;
+
+      // Calculate duration in minutes
+      const durationMinutes = endInMinutes - startInMinutes;
+
+      if (durationMinutes < 60) {
+        return `${durationMinutes} min`;
+      } else {
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+        return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+      }
+    } catch {
+      return "1h"; // Default fallback
+    }
+  };
 
   // Generate a random 4-character code
   const generateEventCode = () => {
@@ -70,20 +95,59 @@ export default function CreateEventDialog({
       return;
     }
 
+    // Validate event name
+    if (!eventName.trim()) {
+      setError("Please enter a name for the event");
+      toast({
+        title: "Error",
+        description: "Please enter a name for the event",
+      });
+      return;
+    }
+
+    // Validate date and times
+    if (!date) {
+      setError("Please select a date");
+      toast({
+        title: "Error",
+        description: "Please select a date for the event",
+      });
+      return;
+    }
+
+    if (!timeFrom) {
+      setError("Please select a start time");
+      toast({
+        title: "Error",
+        description: "Please select a start time for the event",
+      });
+      return;
+    }
+
+    if (!timeUntil) {
+      setError("Please select an end time");
+      toast({
+        title: "Error",
+        description: "Please select an end time for the event",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
     try {
-      // Create event date from the form inputs
+      // Create event date (start time) from the form inputs
       const eventDate = new Date(`${date}T${timeFrom}`);
+
+      // Create end time from the form inputs
+      const endTime = new Date(`${date}T${timeUntil}`);
 
       // Generate a unique code for this event
       const entryCode = generateEventCode();
 
-      // MODIFY event creation to include organization_id
-      const supabase = createClient();
-
       // Get organization_id from the associated course
+      const supabase = createClient();
       const { data: course, error: courseError } = await supabase
         .from("courses")
         .select("organization_id")
@@ -96,15 +160,17 @@ export default function CreateEventDialog({
         return;
       }
 
-      // Save the event to Supabase with organization_id
+      // Save the event to Supabase with organization_id, event_name, and end_time
       const { data, error } = await supabase
         .from("events")
         .insert({
           course_id: courseId,
-          event_date: eventDate.toISOString(),
+          event_date: eventDate.toISOString(), // Start date and time
+          event_name: eventName.trim(), // Add event name
+          end_time: endTime.toISOString(), // Add end time
           status: "open", // Default to open
           entry_code: entryCode,
-          organization_id: course.organization_id, // <- ADD THIS
+          organization_id: course.organization_id,
           positive_feedback_count: 0,
           negative_feedback_count: 0,
           neutral_feedback_count: 0,
@@ -128,6 +194,9 @@ export default function CreateEventDialog({
         const newEvent = data[0];
         console.log("Event created successfully:", newEvent);
 
+        // Calculate duration for the success message
+        const duration = getEventDuration(timeFrom, timeUntil);
+
         // Call the callback if provided
         if (onEventCreated) {
           onEventCreated(newEvent.id, entryCode);
@@ -136,7 +205,7 @@ export default function CreateEventDialog({
         // Show success message
         toast({
           title: "Success",
-          description: `Event created with code: ${entryCode}`,
+          description: `Event "${eventName}" (${duration}) created with code: ${entryCode}`,
         });
 
         // Reset form and close dialog
@@ -182,6 +251,7 @@ export default function CreateEventDialog({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
+          {/* Event Name - ADDED THIS FIELD */}
           <div className="grid gap-2">
             <Label htmlFor="event-name">Event Name</Label>
             <Input

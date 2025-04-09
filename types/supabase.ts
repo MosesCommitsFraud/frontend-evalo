@@ -90,7 +90,9 @@ export interface Database {
         Row: {
           id: string;
           course_id: string;
-          event_date: string;
+          event_date: string; // This already includes start date AND time
+          event_name: string | null; // Add event_name field
+          end_time: string | null; // Add end_time field for duration
           status: "open" | "closed" | "archived";
           entry_code: string | null;
           created_at: string;
@@ -104,7 +106,9 @@ export interface Database {
         Insert: {
           id?: string;
           course_id: string;
-          event_date: string;
+          event_date: string; // Start date and time
+          event_name?: string | null;
+          end_time?: string | null;
           status?: "open" | "closed" | "archived";
           entry_code?: string | null;
           created_at?: string;
@@ -119,6 +123,8 @@ export interface Database {
           id?: string;
           course_id?: string;
           event_date?: string;
+          event_name?: string | null;
+          end_time?: string | null;
           status?: "open" | "closed" | "archived";
           entry_code?: string | null;
           created_at?: string;

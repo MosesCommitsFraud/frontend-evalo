@@ -25,6 +25,7 @@ import { AlertTriangle, CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
+import { format } from "date-fns"; // Import the format function
 
 // Type definitions
 interface Course {
@@ -76,13 +77,13 @@ export default function CustomCreateEventDialog({
       const supabase = createClient();
 
       // Query courses where user is the owner
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from("courses")
         .select("id, name, code, owner_id, organization_id")
         .eq("owner_id", user.id);
 
-      if (error) {
-        console.error("Error fetching courses:", error);
+      if (fetchError) {
+        console.error("Error fetching courses:", fetchError);
         setError("Failed to load your courses. Please try again.");
         return;
       }
@@ -132,12 +133,56 @@ export default function CustomCreateEventDialog({
       return;
     }
 
+    if (!date) {
+      setError("Please select a date for the event");
+      toast({
+        title: "Error",
+        description: "Please select a date for the event",
+      });
+      return;
+    }
+
+    if (!timeFrom) {
+      setError("Please select a start time for the event");
+      toast({
+        title: "Error",
+        description: "Please select a start time for the event",
+      });
+      return;
+    }
+
+    if (!timeUntil) {
+      setError("Please select an end time for the event");
+      toast({
+        title: "Error",
+        description: "Please select an end time for the event",
+      });
+      return;
+    }
+
+    if (!eventName.trim()) {
+      setError("Please enter a name for the event");
+      toast({
+        title: "Error",
+        description: "Please enter a name for the event",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
     try {
+      // Parse the date string into a Date object for formatting
+      const selectedDate = new Date(date);
       // Create event date from the form inputs
-      const eventDate = new Date(`${date}T${timeFrom}`);
+      const formattedDate = format(selectedDate, "yyyy-MM-dd");
+
+      // event_date stores the start date and time
+      const eventDate = new Date(`${formattedDate}T${timeFrom}`);
+
+      // Calculate end time (same date, but different time)
+      const endDateTime = new Date(`${formattedDate}T${timeUntil}`);
 
       // Generate a unique code for this event
       const entryCode = generateEventCode();
@@ -154,12 +199,14 @@ export default function CustomCreateEventDialog({
         return;
       }
 
-      // Save the event to Supabase with organization_id
-      const { data, error } = await supabase
+      // Save the event to Supabase with organization_id AND event_name
+      const { data, error: saveError } = await supabase
         .from("events")
         .insert({
           course_id: selectedCourseId,
-          event_date: eventDate.toISOString(),
+          event_date: eventDate.toISOString(), // This is the start time
+          event_name: eventName.trim(), // Save the event name
+          end_time: endDateTime.toISOString(), // Save the end time
           status: "open", // Default to open
           entry_code: entryCode,
           organization_id: selectedCourse.organization_id,
@@ -172,12 +219,12 @@ export default function CustomCreateEventDialog({
         })
         .select();
 
-      if (error) {
-        console.error("Error creating event:", error);
-        setError(error.message);
+      if (saveError) {
+        console.error("Error creating event:", saveError);
+        setError(saveError.message);
         toast({
           title: "Error",
-          description: `Failed to create event: ${error.message}`,
+          description: `Failed to create event: ${saveError.message}`,
         });
         return;
       }
@@ -191,10 +238,16 @@ export default function CustomCreateEventDialog({
           onEventCreated(newEvent.id, entryCode);
         }
 
-        // Show success message
+        // Show success message with event name and duration
+        const duration = getEventDuration({
+          ...newEvent,
+          event_date: eventDate.toISOString(),
+          end_time: endDateTime.toISOString(),
+        });
+
         toast({
           title: "Success",
-          description: `Event created with code: ${entryCode}`,
+          description: `Event "${eventName}" (${duration}) created with code: ${entryCode}`,
         });
 
         // Reset form and close dialog
@@ -207,10 +260,10 @@ export default function CustomCreateEventDialog({
         setSelectedCourseId("");
         setOpen(false);
       }
-    } catch (error: unknown) {
-      console.error("Error creating event:", error);
+    } catch (err) {
+      console.error("Error creating event:", err);
       setError(
-        error instanceof Error ? error.message : "An unexpected error occurred",
+        err instanceof Error ? err.message : "An unexpected error occurred",
       );
       toast({
         title: "Error",
@@ -218,6 +271,31 @@ export default function CustomCreateEventDialog({
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Add the getEventDuration function to calculate duration for the success message
+  const getEventDuration = (event: {
+    event_date: string;
+    end_time: string;
+  }) => {
+    try {
+      const startDate = new Date(event.event_date);
+      const endDate = new Date(event.end_time);
+
+      // Calculate duration in minutes
+      const durationMs = endDate.getTime() - startDate.getTime();
+      const durationMinutes = Math.floor(durationMs / 60000);
+
+      if (durationMinutes < 60) {
+        return `${durationMinutes} min`;
+      } else {
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+        return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+      }
+    } catch {
+      return "1h"; // Default fallback
     }
   };
 

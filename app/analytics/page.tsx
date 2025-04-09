@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -65,6 +66,8 @@ interface Event {
   id: string;
   course_id: string;
   event_date: string;
+  event_name?: string | null; // Add event_name field
+  end_time?: string | null; // Add end_time field
   status: string;
   entry_code: string;
   created_at: string;
@@ -112,6 +115,7 @@ interface CoursePageData {
 
 export default function AnalyticsPage() {
   const { user } = useAuth();
+  const router = useRouter();
 
   // UI state
   const [timePeriod, setTimePeriod] = useState("30");
@@ -228,6 +232,35 @@ export default function AnalyticsPage() {
       submissionByDayData: [],
       upcomingEvents: [],
     });
+  };
+  const getEventDuration = (event: Event) => {
+    try {
+      if (event.event_date && event.end_time) {
+        const startDate = new Date(event.event_date);
+        const endDate = new Date(event.end_time);
+
+        // Calculate duration in minutes
+        const durationMs = endDate.getTime() - startDate.getTime();
+        const durationMinutes = Math.floor(durationMs / 60000);
+
+        if (durationMinutes < 60) {
+          return `${durationMinutes} min`;
+        } else {
+          const hours = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  };
+
+  // Add this helper function to format event time
+  const formatEventTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   // Complete updated calculateTeacherAnalytics function with time period filtering
@@ -1202,8 +1235,22 @@ export default function AnalyticsPage() {
                     ? teacherCourses.find((c) => c.id === event.course_id)
                     : null;
 
+                  // Get event duration if available
+                  const duration = event ? getEventDuration(event) : "";
+
                   return (
-                    <Card key={item.id} className="overflow-hidden">
+                    <Card
+                      key={item.id}
+                      className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer"
+                      onClick={() => {
+                        // Navigate to event details page if event exists
+                        if (event && course) {
+                          router.push(
+                            `/dashboard/courses/${event.course_id}/events/${event.id}`,
+                          );
+                        }
+                      }}
+                    >
                       <CardContent className="p-4">
                         <div className="mb-3 flex items-center justify-between">
                           <div className="bg-muted px-3 py-1 rounded-full text-sm font-medium flex items-center">
@@ -1211,11 +1258,9 @@ export default function AnalyticsPage() {
                             <span>
                               {event ? (
                                 <>
-                                  {course?.code} Event (
-                                  {new Date(
-                                    event.event_date,
-                                  ).toLocaleDateString()}
-                                  )
+                                  {course?.code}{" "}
+                                  {event.event_name ||
+                                    `Event (${new Date(event.event_date).toLocaleDateString()})`}
                                 </>
                               ) : (
                                 "Unknown event"
@@ -1226,7 +1271,21 @@ export default function AnalyticsPage() {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             <span>
-                              {new Date(item.created_at).toLocaleString()}
+                              {event ? (
+                                <>
+                                  {new Date(
+                                    event.event_date,
+                                  ).toLocaleDateString()}{" "}
+                                  at {formatEventTime(event.event_date)}
+                                  {duration && (
+                                    <span className="ml-1 text-gray-500">
+                                      ({duration})
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                new Date(item.created_at).toLocaleString()
+                              )}
                             </span>
                           </div>
                         </div>
@@ -1251,6 +1310,13 @@ export default function AnalyticsPage() {
                         </div>
 
                         <p className="mb-3">{item.content}</p>
+
+                        {/* Add a subtle "View Details" link */}
+                        {event && (
+                          <div className="text-xs text-right text-emerald-600 mt-2">
+                            View Event Details →
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );

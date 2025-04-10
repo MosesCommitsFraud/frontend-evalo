@@ -9,11 +9,12 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Cell,
   Legend,
   CartesianGrid,
   AreaChart,
   Area,
+  Line,
+  LineChart,
 } from "recharts";
 import {
   Card,
@@ -21,6 +22,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CustomTabs from "@/components/custom-tabs";
@@ -39,7 +41,6 @@ import {
   Users,
   MessageSquare,
   Book,
-  Settings,
   Search,
   Filter,
   Clock,
@@ -50,6 +51,7 @@ import {
   Loader2,
   RefreshCw,
   CheckCircle2,
+  ChevronDown,
 } from "lucide-react";
 import { dataService } from "@/lib/data-service";
 import { createClient } from "@/lib/supabase/client";
@@ -72,6 +74,7 @@ interface Course {
   owner_id: string;
   profiles?: {
     full_name: string;
+    department?: string;
   };
 }
 
@@ -129,9 +132,9 @@ interface Teacher {
   full_name: string;
   email: string;
   role: string;
+  department?: string;
 }
 
-// Add these interfaces before the component function
 interface SyncResultDetail {
   id: string;
   success: boolean;
@@ -165,6 +168,9 @@ export default function AdminAnalyticsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
   const [sentimentFilter, setSentimentFilter] = useState("all");
+  const [eventFilter, setEventFilter] = useState("all");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [showAllCourses, setShowAllCourses] = useState(false);
 
   // Data state
   const [isLoading, setIsLoading] = useState(true);
@@ -174,6 +180,7 @@ export default function AdminAnalyticsPage() {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [departments, setDepartments] = useState<string[]>([]);
 
   // Counter synchronization state
   const [isSyncingCounters, setIsSyncingCounters] = useState(false);
@@ -207,7 +214,16 @@ export default function AdminAnalyticsPage() {
           console.error("Error fetching teachers:", teachersError);
           throw new Error("Failed to load teacher data");
         }
-        setTeachers(teachersData?.filter((t) => t.role === "teacher") || []);
+
+        const teachersList =
+          teachersData?.filter((t) => t.role === "teacher") || [];
+        setTeachers(teachersList);
+
+        // Extract unique departments
+        const uniqueDepartments = Array.from(
+          new Set(teachersList.map((t) => t.department).filter(Boolean)),
+        );
+        setDepartments(uniqueDepartments as string[]);
 
         // Fetch all events
         const supabase = createClient();
@@ -454,7 +470,6 @@ export default function AdminAnalyticsPage() {
       !analytics?.monthlyTrendData ||
       analytics.monthlyTrendData.length === 0
     ) {
-      // Return sample data if no data is available
       return [
         { month: "Jan", responses: 0, feedback: 0 },
         { month: "Feb", responses: 0, feedback: 0 },
@@ -475,7 +490,6 @@ export default function AdminAnalyticsPage() {
       !analytics?.monthlyTrendData ||
       analytics.monthlyTrendData.length === 0
     ) {
-      // Return sample data if no data is available
       return [
         { name: "Week 1", positive: 0, negative: 0, neutral: 0 },
         { name: "Week 2", positive: 0, negative: 0, neutral: 0 },
@@ -488,6 +502,72 @@ export default function AdminAnalyticsPage() {
       negative: item.negative,
       neutral: item.neutral,
     }));
+  };
+
+  // Format participation trend data
+  const formatParticipationData = () => {
+    // Group courses by department or some other category
+    const coursesByCategory = courses.reduce(
+      (acc, course) => {
+        const teacher = teachers.find((t) => t.id === course.owner_id);
+        const category = teacher?.department || "Uncategorized";
+
+        if (!acc[category]) {
+          acc[category] = {
+            name: category,
+            students: 0,
+            courses: 0,
+            participation: 0,
+          };
+        }
+
+        acc[category].students += course.student_count || 0;
+        acc[category].courses += 1;
+
+        // Calculate participation as avg students per course
+        acc[category].participation =
+          acc[category].students / acc[category].courses;
+
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          name: string;
+          students: number;
+          courses: number;
+          participation: number;
+        }
+      >,
+    );
+
+    return Object.values(coursesByCategory);
+  };
+
+  // Filter courses based on filter criteria
+  const getFilteredCourses = () => {
+    return courses.filter((course) => {
+      // Department filter
+      if (departmentFilter !== "all") {
+        const teacher = teachers.find((t) => t.id === course.owner_id);
+        if (!teacher || teacher.department !== departmentFilter) {
+          return false;
+        }
+      }
+
+      // Event count filter
+      if (eventFilter !== "all") {
+        const courseEvents = events.filter((e) => e.course_id === course.id);
+        const eventCount = courseEvents.length;
+
+        if (eventFilter === "high" && eventCount < 5) return false;
+        if (eventFilter === "medium" && (eventCount < 2 || eventCount >= 5))
+          return false;
+        if (eventFilter === "low" && eventCount >= 2) return false;
+      }
+
+      return true;
+    });
   };
 
   // Filter feedback based on filters
@@ -518,7 +598,7 @@ export default function AdminAnalyticsPage() {
 
   // Format course data
   const formatCourseData = () => {
-    return courses.map((course) => {
+    return getFilteredCourses().map((course) => {
       // Find events for this course
       const courseEvents = events.filter((e) => e.course_id === course.id);
 
@@ -547,6 +627,10 @@ export default function AdminAnalyticsPage() {
             )
           : 0;
 
+      // Find teacher/department
+      const teacher = teachers.find((t) => t.id === course.owner_id);
+      const department = teacher?.department || "Uncategorized";
+
       return {
         id: course.id,
         name: course.name,
@@ -556,6 +640,8 @@ export default function AdminAnalyticsPage() {
         responseRate,
         avgSentiment,
         teacher: course.profiles?.full_name || "Unknown Teacher",
+        department,
+        eventCount: courseEvents.length,
       };
     });
   };
@@ -568,9 +654,6 @@ export default function AdminAnalyticsPage() {
     const date = new Date(event.event_date);
     return `${event.courses?.code || "Unknown"}: Event on ${date.toLocaleDateString()}`;
   };
-
-  // Colors for pie charts
-  const COLORS = ["#10b981", "#6b7280", "#ef4444", "#f59e0b", "#3b82f6"];
 
   // Stats Cards for Dashboard
   const statsCards = [
@@ -658,47 +741,137 @@ export default function AdminAnalyticsPage() {
             ))}
           </div>
 
+          {/* Charts Filter Controls */}
+          <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border">
+            <div className="font-medium text-sm">Filter by:</div>
+
+            <Select value={eventFilter} onValueChange={setEventFilter}>
+              <SelectTrigger className="w-[150px] h-8">
+                <SelectValue placeholder="Event Count" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Events</SelectItem>
+                <SelectItem value="high">High (5+)</SelectItem>
+                <SelectItem value="medium">Medium (2-4)</SelectItem>
+                <SelectItem value="low">Low (0-1)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={courseFilter} onValueChange={setCourseFilter}>
+              <SelectTrigger className="w-[150px] h-8">
+                <SelectValue placeholder="Course" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Courses</SelectItem>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={departmentFilter}
+              onValueChange={setDepartmentFilter}
+            >
+              <SelectTrigger className="w-[180px] h-8">
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Activity Charts */}
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Course Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Activity</CardTitle>
+            {/* Course Activity - Improved sleeker design */}
+            <Card className="shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Platform Activity</CardTitle>
                 <CardDescription>
-                  Monthly responses and feedback submissions across all courses
+                  Monthly responses and feedback across all courses
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={formatCourseActivityData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                    <AreaChart data={formatCourseActivityData()}>
+                      <defs>
+                        <linearGradient
+                          id="colorResponses"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#10b981"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#10b981"
+                            stopOpacity={0.1}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="colorFeedback"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#60a5fa"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#60a5fa"
+                            stopOpacity={0.1}
+                          />
+                        </linearGradient>
+                      </defs>
                       <XAxis dataKey="month" stroke="#888888" />
                       <YAxis stroke="#888888" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <Tooltip />
                       <Legend />
-                      <Bar
+                      <Area
+                        type="monotone"
                         dataKey="responses"
                         name="Total Responses"
-                        fill="#10b981"
-                        radius={[4, 4, 0, 0]}
+                        stroke="#10b981"
+                        fillOpacity={1}
+                        fill="url(#colorResponses)"
                       />
-                      <Bar
+                      <Area
+                        type="monotone"
                         dataKey="feedback"
                         name="Total Feedback"
-                        fill="#60a5fa"
-                        radius={[4, 4, 0, 0]}
+                        stroke="#60a5fa"
+                        fillOpacity={1}
+                        fill="url(#colorFeedback)"
                       />
-                    </BarChart>
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Sentiment Analysis */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sentiment Trend</CardTitle>
+            {/* Sentiment Analysis - Improved sleeker design */}
+            <Card className="shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Sentiment Trend</CardTitle>
                 <CardDescription>
                   Feedback sentiment across all courses
                 </CardDescription>
@@ -706,113 +879,91 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={formatSentimentData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                    <LineChart data={formatSentimentData()}>
                       <XAxis dataKey="name" stroke="#888888" />
                       <YAxis stroke="#888888" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <Tooltip />
                       <Legend />
-                      <Area
+                      <Line
                         type="monotone"
                         dataKey="positive"
                         name="Positive"
                         stroke="#16a34a"
-                        fill="#16a34a"
-                        fillOpacity={0.3}
                         strokeWidth={2}
-                        stackId="1"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
                       />
-                      <Area
+                      <Line
                         type="monotone"
                         dataKey="neutral"
                         name="Neutral"
                         stroke="#737373"
-                        fill="#737373"
-                        fillOpacity={0.3}
                         strokeWidth={2}
-                        stackId="1"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
                       />
-                      <Area
+                      <Line
                         type="monotone"
                         dataKey="negative"
                         name="Negative"
                         stroke="#dc2626"
-                        fill="#dc2626"
-                        fillOpacity={0.3}
                         strokeWidth={2}
-                        stackId="1"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
                       />
-                    </AreaChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Feedback Categories */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Feedback Distribution</CardTitle>
+          {/* Participation Trend - New chart showing students per course */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Participation Trend</CardTitle>
               <CardDescription>
-                Distribution of feedback by sentiment
+                Average student participation across departments
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        name: "Positive",
-                        value: analytics?.positiveFeedback || 0,
-                        fill: "#16a34a",
-                      },
-                      {
-                        name: "Neutral",
-                        value: analytics?.neutralFeedback || 0,
-                        fill: "#737373",
-                      },
-                      {
-                        name: "Negative",
-                        value: analytics?.negativeFeedback || 0,
-                        fill: "#dc2626",
-                      },
-                    ]}
-                    layout="vertical"
-                    margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" />
-                    <Tooltip formatter={(value) => [value, "Count"]} />
+                  <BarChart data={formatParticipationData()}>
+                    <XAxis dataKey="name" stroke="#888888" />
+                    <YAxis stroke="#888888" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <Tooltip
+                      formatter={(value, name) => [
+                        typeof value === "number" ? value.toFixed(1) : value,
+                        name === "participation" ? "Students per Course" : name,
+                      ]}
+                    />{" "}
                     <Legend />
-                    <Bar dataKey="value" name="Feedback Count" barSize={30}>
-                      {/* Use the colors specified in the data */}
-                      {[
-                        { fill: "#16a34a" },
-                        { fill: "#737373" },
-                        { fill: "#dc2626" },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
+                    <Bar
+                      dataKey="participation"
+                      name="Students per Course"
+                      fill="#8884d8"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* Top Courses Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Courses</CardTitle>
+          {/* Top Courses Summary with Show More button */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Top Courses</CardTitle>
               <CardDescription>Courses with highest engagement</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {formatCourseData()
                   .sort((a, b) => b.feedbackCount - a.feedbackCount)
-                  .slice(0, 5)
+                  .slice(0, showAllCourses ? undefined : 5)
                   .map((course) => (
                     <div
                       key={course.id}
@@ -824,6 +975,9 @@ export default function AdminAnalyticsPage() {
                           <div className="font-medium">{course.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {course.code} • {course.teacher}
+                            <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
+                              {course.department}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -849,6 +1003,18 @@ export default function AdminAnalyticsPage() {
                   ))}
               </div>
             </CardContent>
+            <CardFooter className="pt-2 pb-4 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllCourses(!showAllCourses)}
+                className="w-full max-w-xs text-sm"
+              >
+                {showAllCourses ? "Show Less" : "Show All Courses"}
+                <ChevronDown
+                  className={`h-4 w-4 ml-1 ${showAllCourses ? "rotate-180" : ""}`}
+                />
+              </Button>
+            </CardFooter>
           </Card>
         </>
       )}
@@ -867,7 +1033,10 @@ export default function AdminAnalyticsPage() {
           {/* Course Performance Cards */}
           <div className="grid gap-6 md:grid-cols-2">
             {formatCourseData().map((course) => (
-              <Card key={course.id} className="overflow-hidden">
+              <Card
+                key={course.id}
+                className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+              >
                 <div className="h-2 bg-emerald-500"></div>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -877,6 +1046,9 @@ export default function AdminAnalyticsPage() {
                   <CardDescription>
                     {course.students} enrolled students • Taught by{" "}
                     {course.teacher}
+                    <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
+                      {course.department}
+                    </span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -933,9 +1105,11 @@ export default function AdminAnalyticsPage() {
           {/* Activity Charts */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Student Activity Times */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Student Activity Times</CardTitle>
+            <Card className="shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">
+                  Student Activity Times
+                </CardTitle>
                 <CardDescription>
                   When students are most active across all courses
                 </CardDescription>
@@ -981,7 +1155,7 @@ export default function AdminAnalyticsPage() {
                         ];
                       })()}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="time" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
@@ -999,9 +1173,9 @@ export default function AdminAnalyticsPage() {
             </Card>
 
             {/* Feedback by Day */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Feedback by Day</CardTitle>
+            <Card className="shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Feedback by Day</CardTitle>
                 <CardDescription>
                   Submission distribution by day of week
                 </CardDescription>
@@ -1072,7 +1246,7 @@ export default function AdminAnalyticsPage() {
                         ];
                       })()}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="day" stroke="#888888" />
                       <YAxis stroke="#888888" />
                       <Tooltip />
@@ -1103,112 +1277,10 @@ export default function AdminAnalyticsPage() {
         <ErrorState message={error} />
       ) : (
         <>
-          {/* Feedback Distribution Charts */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Sentiment Distribution */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sentiment Distribution</CardTitle>
-                <CardDescription>
-                  Overall sentiment across all feedback
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={[
-                        {
-                          name: "Positive",
-                          value: analytics?.positiveFeedback || 0,
-                          fill: "#16a34a",
-                        },
-                        {
-                          name: "Neutral",
-                          value: analytics?.neutralFeedback || 0,
-                          fill: "#737373",
-                        },
-                        {
-                          name: "Negative",
-                          value: analytics?.negativeFeedback || 0,
-                          fill: "#dc2626",
-                        },
-                      ]}
-                      layout="vertical"
-                      margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis type="category" dataKey="name" />
-                      <Tooltip formatter={(value) => [value, "Count"]} />
-                      <Legend />
-                      <Bar dataKey="value" name="Feedback Count" barSize={30}>
-                        {[
-                          { fill: "#16a34a" },
-                          { fill: "#737373" },
-                          { fill: "#dc2626" },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Feedback by Course */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Feedback by Course</CardTitle>
-                <CardDescription>
-                  Distribution of feedback across courses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={formatCourseData()
-                        .filter((c) => c.feedbackCount > 0)
-                        .slice(0, 8)
-                        .map((c, index) => ({
-                          name: c.code,
-                          value: c.feedbackCount,
-                          fill: COLORS[index % COLORS.length],
-                        }))}
-                      layout="vertical"
-                      margin={{ top: 20, right: 30, left: 80, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis type="category" dataKey="name" width={80} />
-                      <Tooltip
-                        formatter={(value) => [value, "Feedback Count"]}
-                      />
-                      <Legend />
-                      <Bar dataKey="value" name="Feedback" barSize={20}>
-                        {formatCourseData()
-                          .filter((c) => c.feedbackCount > 0)
-                          .slice(0, 8)
-                          .map((c, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                            />
-                          ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Recent Feedback with Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Feedback</CardTitle>
+          <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Recent Feedback</CardTitle>
               <CardDescription>
                 Latest feedback across all courses
               </CardDescription>
@@ -1387,10 +1459,6 @@ export default function AdminAnalyticsPage() {
                 Sync Counters
               </>
             )}
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
           </Button>
         </div>
       </div>

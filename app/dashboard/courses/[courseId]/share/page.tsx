@@ -1607,7 +1607,7 @@ export default function CoursePage() {
           <div className="space-y-6">
             {(() => {
               // Group feedback by events
-              const eventGroups = {};
+              const eventGroups: Record<string, FeedbackItem[]> = {};
 
               // First, group all feedback by event_id
               filteredFeedback.forEach((item) => {
@@ -1678,7 +1678,7 @@ export default function CoursePage() {
                     </div>
 
                     <div className="space-y-3 pl-4 border-l-2 border-emerald-100 dark:border-emerald-900/30">
-                      {eventFeedback.map((item) => (
+                      {eventFeedback.map((item: FeedbackItem) => (
                         <Card key={item.id} className="overflow-hidden">
                           <CardContent className="p-4">
                             <div className="mb-2 flex items-center justify-between">

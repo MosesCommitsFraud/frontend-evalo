@@ -189,6 +189,7 @@ export default function AdminAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -236,9 +237,14 @@ export default function AdminAnalyticsPage() {
 
         // Extract unique departments
         const uniqueDepartments = Array.from(
-          new Set(teachersList.map((t) => t.department).filter(Boolean)),
+          new Set(
+            teachersList
+              .map((t) => t.department)
+              .filter((dept): dept is string => !!dept && dept.trim() !== ""),
+          ),
         );
-        setDepartments(uniqueDepartments as string[]);
+
+        setDepartments(uniqueDepartments);
 
         // Calculate department data
         const deptData = uniqueDepartments.map((dept) => {
@@ -281,6 +287,17 @@ export default function AdminAnalyticsPage() {
         }
         setEvents(eventsData || []);
 
+        // Apply time period filter to events
+        const periodDate = new Date();
+        periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
+
+        const timeFilteredEvents = (eventsData || []).filter((event) => {
+          const eventDate = new Date(event.created_at);
+          return eventDate >= periodDate;
+        });
+
+        setFilteredEvents(timeFilteredEvents);
+
         // Fetch all feedback
         const { data: feedbackData, error: feedbackError } = await supabase
           .from("feedback")
@@ -309,6 +326,21 @@ export default function AdminAnalyticsPage() {
   useEffect(() => {
     setActiveTab(0);
   }, []);
+
+  // Update filtered events when time period changes
+  useEffect(() => {
+    if (events.length > 0) {
+      const periodDate = new Date();
+      periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
+
+      const timeFilteredEvents = events.filter((event) => {
+        const eventDate = new Date(event.created_at);
+        return eventDate >= periodDate;
+      });
+
+      setFilteredEvents(timeFilteredEvents);
+    }
+  }, [timePeriod, events]);
 
   // Function to synchronize feedback counters
   const syncFeedbackCounters = async () => {
@@ -552,15 +584,25 @@ export default function AdminAnalyticsPage() {
     return courses.filter((course) => {
       // Department filter
       if (departmentFilter !== "all") {
+        // Find the teacher for this course
         const teacher = teachers.find((t) => t.id === course.owner_id);
-        if (!teacher || teacher.department !== departmentFilter) {
+
+        // If no teacher found or teacher has no department or department doesn't match filter
+        if (
+          !teacher ||
+          !teacher.department ||
+          teacher.department !== departmentFilter
+        ) {
           return false;
         }
       }
 
       // Event count filter
       if (eventFilter !== "all") {
-        const courseEvents = events.filter((e) => e.course_id === course.id);
+        // Count events for this course within the selected time period
+        const courseEvents = filteredEvents.filter(
+          (e) => e.course_id === course.id,
+        );
         const eventCount = courseEvents.length;
 
         if (eventFilter === "high" && eventCount < 5) return false;
@@ -575,17 +617,8 @@ export default function AdminAnalyticsPage() {
 
   // Format course data
   const formatCourseData = () => {
-    // Apply time period filtering to events
-    const periodDate = new Date();
-    periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
-
-    const filteredEvents = events.filter((event) => {
-      const eventDate = new Date(event.created_at);
-      return eventDate >= periodDate;
-    });
-
     return getFilteredCourses().map((course) => {
-      // Find events for this course (applying time period filter)
+      // Find events for this course (using pre-filtered events)
       const courseEvents = filteredEvents.filter(
         (e) => e.course_id === course.id,
       );
@@ -627,7 +660,8 @@ export default function AdminAnalyticsPage() {
         feedbackCount,
         responseRate,
         avgSentiment,
-        teacher: course.profiles?.full_name || "Unknown Teacher",
+        teacher:
+          course.profiles?.full_name || teacher?.full_name || "Unknown Teacher",
         department,
         eventCount: courseEvents.length,
       };
@@ -635,30 +669,42 @@ export default function AdminAnalyticsPage() {
   };
 
   // Filter feedback based on filters
-  const filteredFeedback = feedback.filter((item) => {
-    // Search filter
-    if (
-      searchQuery &&
-      !item.content.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
+  const getFilteredFeedback = () => {
+    // Apply time period filter to feedback
+    const periodDate = new Date();
+    periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
 
-    // Course filter (if we had course_id in feedback directly)
-    if (courseFilter !== "all") {
-      const event = events.find((e) => e.id === item.event_id);
-      if (!event || event.course_id !== courseFilter) {
+    return feedback.filter((item) => {
+      // Time period filter
+      const feedbackDate = new Date(item.created_at);
+      if (feedbackDate < periodDate) {
         return false;
       }
-    }
 
-    // Sentiment filter
-    if (sentimentFilter !== "all" && item.tone !== sentimentFilter) {
-      return false;
-    }
+      // Search filter
+      if (
+        searchQuery &&
+        !item.content.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
+        return false;
+      }
 
-    return true;
-  });
+      // Course filter
+      if (courseFilter !== "all") {
+        const event = events.find((e) => e.id === item.event_id);
+        if (!event || event.course_id !== courseFilter) {
+          return false;
+        }
+      }
+
+      // Sentiment filter
+      if (sentimentFilter !== "all" && item.tone !== sentimentFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  };
 
   // Get event name by ID
   const getEventName = (eventId: string) => {
@@ -1013,7 +1059,9 @@ export default function AdminAnalyticsPage() {
               >
                 {showAllCourses ? "Show Less" : "Show All Courses"}
                 <ChevronDown
-                  className={`h-4 w-4 ml-1 ${showAllCourses ? "rotate-180" : ""}`}
+                  className={`h-4 w-4 ml-1 ${
+                    showAllCourses ? "rotate-180" : ""
+                  }`}
                 />
               </Button>
             </CardFooter>
@@ -1207,352 +1255,373 @@ export default function AdminAnalyticsPage() {
         <ErrorState message={error} />
       ) : (
         <>
-          {/* Department Selection */}
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Department Comparison</CardTitle>
-              <CardDescription>
-                Compare sentiment and engagement metrics across departments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={departmentData.map((dept) => {
-                      // Calculate department metrics
-                      const deptCourses = courses.filter((c) =>
-                        dept.courseIds.includes(c.id),
-                      );
+          {departments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No departments found</h3>
+              <p className="text-muted-foreground">
+                There are no departments set up in the system yet. Teachers need
+                to update their profiles with department information.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Department Selection */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">
+                    Department Comparison
+                  </CardTitle>
+                  <CardDescription>
+                    Compare sentiment and engagement metrics across departments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={departmentData.map((dept) => {
+                          // Calculate department metrics
+                          const deptCourses = courses.filter((c) =>
+                            dept.courseIds.includes(c.id),
+                          );
 
-                      // Get feedback metrics
-                      let positive = 0,
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        negative = 0,
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        neutral = 0,
-                        total = 0;
+                          // Get feedback metrics
+                          let positive = 0,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            negative = 0,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            neutral = 0,
+                            total = 0;
 
-                      deptCourses.forEach((course) => {
-                        const courseEvents = events.filter(
-                          (e) => e.course_id === course.id,
-                        );
+                          deptCourses.forEach((course) => {
+                            const courseEvents = filteredEvents.filter(
+                              (e) => e.course_id === course.id,
+                            );
 
-                        courseEvents.forEach((event) => {
-                          positive += event.positive_feedback_count || 0;
-                          negative += event.negative_feedback_count || 0;
-                          neutral += event.neutral_feedback_count || 0;
-                          total += event.total_feedback_count || 0;
-                        });
-                      });
+                            courseEvents.forEach((event) => {
+                              positive += event.positive_feedback_count || 0;
+                              negative += event.negative_feedback_count || 0;
+                              neutral += event.neutral_feedback_count || 0;
+                              total += event.total_feedback_count || 0;
+                            });
+                          });
 
-                      // Calculate percentages
-                      const sentimentScore =
-                        total > 0 ? Math.round((positive / total) * 100) : 0;
-                      const responseRate =
-                        dept.students > 0
-                          ? Math.round((total / dept.students) * 100)
-                          : 0;
+                          // Calculate percentages
+                          const sentimentScore =
+                            total > 0
+                              ? Math.round((positive / total) * 100)
+                              : 0;
+                          const responseRate =
+                            dept.students > 0
+                              ? Math.round((total / dept.students) * 100)
+                              : 0;
 
-                      return {
-                        name: dept.name,
-                        sentimentScore,
-                        responseRate,
-                        feedbackCount: total,
-                        teacherCount: dept.teachers,
-                        studentCount: dept.students,
-                        courseCount: dept.courses,
-                      };
-                    })}
-                    layout="vertical"
-                    margin={{ top: 20, right: 20, bottom: 20, left: 100 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                    <XAxis type="number" domain={[0, 100]} />
-                    <YAxis type="category" dataKey="name" width={80} />
-                    <Tooltip
-                      formatter={(value, name) => {
-                        if (name === "sentimentScore")
-                          return [`${value}%`, "Positive Sentiment"];
-                        if (name === "responseRate")
-                          return [`${value}%`, "Response Rate"];
-                        return [value, name];
-                      }}
-                      labelFormatter={(value) => `Department: ${value}`}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      }}
-                    />
-                    <Legend iconType="circle" />
-                    <Bar
-                      dataKey="sentimentScore"
-                      name="Sentiment Score"
-                      fill="#16a34a"
-                      radius={[0, 4, 4, 0]}
-                    >
-                      {departmentData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`rgba(22, 163, 74, ${0.5 + index * 0.1})`}
-                        />
-                      ))}
-                    </Bar>
-                    <Bar
-                      dataKey="responseRate"
-                      name="Response Rate"
-                      fill="#3b82f6"
-                      radius={[0, 4, 4, 0]}
-                    >
-                      {departmentData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={`rgba(59, 130, 246, ${0.5 + index * 0.1})`}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Department Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {departmentData.map((dept) => {
-              // Calculate department metrics
-              const deptCourses = courses.filter((c) =>
-                dept.courseIds.includes(c.id),
-              );
-
-              // Get feedback metrics
-              let positive = 0;
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              let negative = 0;
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              let neutral = 0;
-              let total = 0;
-
-              deptCourses.forEach((course) => {
-                const courseEvents = events.filter(
-                  (e) => e.course_id === course.id,
-                );
-
-                courseEvents.forEach((event) => {
-                  positive += event.positive_feedback_count || 0;
-                  negative += event.negative_feedback_count || 0;
-                  neutral += event.neutral_feedback_count || 0;
-                  total += event.total_feedback_count || 0;
-                });
-              });
-
-              // Calculate percentages
-              const sentimentScore =
-                total > 0 ? Math.round((positive / total) * 100) : 0;
-              const responseRate =
-                dept.students > 0
-                  ? Math.round((total / dept.students) * 100)
-                  : 0;
-
-              return (
-                <Card
-                  key={dept.name}
-                  className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="h-2 bg-blue-500"></div>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>{dept.name}</CardTitle>
-                      <Badge
-                        className={
-                          sentimentScore > 70
-                            ? "bg-emerald-100 text-emerald-800"
-                            : sentimentScore > 40
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                        }
+                          return {
+                            name: dept.name,
+                            sentimentScore,
+                            responseRate,
+                            feedbackCount: total,
+                            teacherCount: dept.teachers,
+                            studentCount: dept.students,
+                            courseCount: dept.courses,
+                          };
+                        })}
+                        layout="vertical"
+                        margin={{ top: 20, right: 20, bottom: 20, left: 100 }}
                       >
-                        {sentimentScore}% Positive
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      {dept.courses} courses • {dept.teachers} teachers •{" "}
-                      {dept.students} students
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <div className="text-sm text-muted-foreground">
-                          Feedback
-                        </div>
-                        <div className="text-lg font-semibold">{total}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm text-muted-foreground">
-                          Response Rate
-                        </div>
-                        <div className="text-lg font-semibold">
-                          {responseRate}%
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm text-muted-foreground">
-                          Avg Feedback per Course
-                        </div>
-                        <div className="text-lg font-semibold">
-                          {dept.courses > 0
-                            ? Math.round(total / dept.courses)
-                            : 0}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm text-muted-foreground">
-                          Avg Students per Course
-                        </div>
-                        <div className="text-lg font-semibold">
-                          {dept.courses > 0
-                            ? Math.round(dept.students / dept.courses)
-                            : 0}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Department Sentiment Benchmarking */}
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">
-                Department Sentiment Benchmarking
-              </CardTitle>
-              <CardDescription>
-                Comparing sentiment scores across departments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={departmentData.map((dept) => {
-                      // Calculate department metrics for each sentiment category
-                      const deptCourses = courses.filter((c) =>
-                        dept.courseIds.includes(c.id),
-                      );
-
-                      // Get feedback metrics
-                      let positive = 0,
-                        negative = 0,
-                        neutral = 0,
-                        total = 0;
-
-                      deptCourses.forEach((course) => {
-                        const courseEvents = events.filter(
-                          (e) => e.course_id === course.id,
-                        );
-
-                        courseEvents.forEach((event) => {
-                          positive += event.positive_feedback_count || 0;
-                          negative += event.negative_feedback_count || 0;
-                          neutral += event.neutral_feedback_count || 0;
-                          total += event.total_feedback_count || 0;
-                        });
-                      });
-
-                      // Calculate percentages
-                      const positivePercent =
-                        total > 0 ? Math.round((positive / total) * 100) : 0;
-                      const negativePercent =
-                        total > 0 ? Math.round((negative / total) * 100) : 0;
-                      const neutralPercent =
-                        total > 0 ? Math.round((neutral / total) * 100) : 0;
-
-                      return {
-                        name: dept.name,
-                        positive: positivePercent,
-                        negative: negativePercent,
-                        neutral: neutralPercent,
-                        benchmark: 70, // Set a benchmark line at 70% positive
-                      };
-                    })}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                    <XAxis dataKey="name" />
-                    <YAxis
-                      domain={[0, 100]}
-                      label={{
-                        value: "Percentage",
-                        angle: -90,
-                        position: "insideLeft",
-                      }}
-                    />
-                    <Tooltip
-                      formatter={(value) => [`${value}%`, ""]}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                      }}
-                    />
-                    <Legend iconType="circle" />
-                    <Bar
-                      dataKey="positive"
-                      name="Positive"
-                      fill="#16a34a"
-                      radius={[4, 4, 0, 0]}
-                    >
-                      {departmentData.map((entry, index) => (
-                        <Cell
-                          key={`positive-${index}`}
-                          fill={`rgba(22, 163, 74, ${0.7 + index * 0.05})`}
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                        <XAxis type="number" domain={[0, 100]} />
+                        <YAxis type="category" dataKey="name" width={80} />
+                        <Tooltip
+                          formatter={(value, name) => {
+                            if (name === "sentimentScore")
+                              return [`${value}%`, "Positive Sentiment"];
+                            if (name === "responseRate")
+                              return [`${value}%`, "Response Rate"];
+                            return [value, name];
+                          }}
+                          labelFormatter={(value) => `Department: ${value}`}
+                          contentStyle={{
+                            borderRadius: "8px",
+                            border: "none",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                          }}
                         />
-                      ))}
-                    </Bar>
-                    <Bar
-                      dataKey="neutral"
-                      name="Neutral"
-                      fill="#737373"
-                      radius={[4, 4, 0, 0]}
+                        <Legend iconType="circle" />
+                        <Bar
+                          dataKey="sentimentScore"
+                          name="Sentiment Score"
+                          fill="#16a34a"
+                          radius={[0, 4, 4, 0]}
+                        >
+                          {departmentData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`rgba(22, 163, 74, ${0.5 + index * 0.1})`}
+                            />
+                          ))}
+                        </Bar>
+                        <Bar
+                          dataKey="responseRate"
+                          name="Response Rate"
+                          fill="#3b82f6"
+                          radius={[0, 4, 4, 0]}
+                        >
+                          {departmentData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`rgba(59, 130, 246, ${0.5 + index * 0.1})`}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Department Cards */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {departmentData.map((dept) => {
+                  // Calculate department metrics
+                  const deptCourses = courses.filter((c) =>
+                    dept.courseIds.includes(c.id),
+                  );
+
+                  // Get feedback metrics
+                  let positive = 0;
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  let negative = 0;
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  let neutral = 0;
+                  let total = 0;
+
+                  deptCourses.forEach((course) => {
+                    const courseEvents = filteredEvents.filter(
+                      (e) => e.course_id === course.id,
+                    );
+
+                    courseEvents.forEach((event) => {
+                      positive += event.positive_feedback_count || 0;
+                      negative += event.negative_feedback_count || 0;
+                      neutral += event.neutral_feedback_count || 0;
+                      total += event.total_feedback_count || 0;
+                    });
+                  });
+
+                  // Calculate percentages
+                  const sentimentScore =
+                    total > 0 ? Math.round((positive / total) * 100) : 0;
+                  const responseRate =
+                    dept.students > 0
+                      ? Math.round((total / dept.students) * 100)
+                      : 0;
+
+                  return (
+                    <Card
+                      key={dept.name}
+                      className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                     >
-                      {departmentData.map((entry, index) => (
-                        <Cell
-                          key={`neutral-${index}`}
-                          fill={`rgba(115, 115, 115, ${0.7 + index * 0.05})`}
-                        />
-                      ))}
-                    </Bar>
-                    <Bar
-                      dataKey="negative"
-                      name="Negative"
-                      fill="#dc2626"
-                      radius={[4, 4, 0, 0]}
-                    >
-                      {departmentData.map((entry, index) => (
-                        <Cell
-                          key={`negative-${index}`}
-                          fill={`rgba(220, 38, 38, ${0.7 + index * 0.05})`}
-                        />
-                      ))}
-                    </Bar>
-                    <Line
-                      type="monotone"
-                      dataKey="benchmark"
-                      name="Benchmark (70%)"
-                      stroke="#ff8c00"
-                      strokeWidth={3}
-                      strokeDasharray="5 5"
-                      dot={false}
-                      activeDot={false}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                      <div className="h-2 bg-blue-500"></div>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle>{dept.name}</CardTitle>
+                          <Badge
+                            className={
+                              sentimentScore > 70
+                                ? "bg-emerald-100 text-emerald-800"
+                                : sentimentScore > 40
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {sentimentScore}% Positive
+                          </Badge>
+                        </div>
+                        <CardDescription>
+                          {dept.courses} courses • {dept.teachers} teachers •{" "}
+                          {dept.students} students
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">
+                              Feedback
+                            </div>
+                            <div className="text-lg font-semibold">{total}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">
+                              Response Rate
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {responseRate}%
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">
+                              Avg Feedback per Course
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {dept.courses > 0
+                                ? Math.round(total / dept.courses)
+                                : 0}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-sm text-muted-foreground">
+                              Avg Students per Course
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {dept.courses > 0
+                                ? Math.round(dept.students / dept.courses)
+                                : 0}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Department Sentiment Benchmarking */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">
+                    Department Sentiment Benchmarking
+                  </CardTitle>
+                  <CardDescription>
+                    Comparing sentiment scores across departments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={departmentData.map((dept) => {
+                          // Calculate department metrics for each sentiment category
+                          const deptCourses = courses.filter((c) =>
+                            dept.courseIds.includes(c.id),
+                          );
+
+                          // Get feedback metrics
+                          let positive = 0,
+                            negative = 0,
+                            neutral = 0,
+                            total = 0;
+
+                          deptCourses.forEach((course) => {
+                            const courseEvents = filteredEvents.filter(
+                              (e) => e.course_id === course.id,
+                            );
+
+                            courseEvents.forEach((event) => {
+                              positive += event.positive_feedback_count || 0;
+                              negative += event.negative_feedback_count || 0;
+                              neutral += event.neutral_feedback_count || 0;
+                              total += event.total_feedback_count || 0;
+                            });
+                          });
+
+                          // Calculate percentages
+                          const positivePercent =
+                            total > 0
+                              ? Math.round((positive / total) * 100)
+                              : 0;
+                          const negativePercent =
+                            total > 0
+                              ? Math.round((negative / total) * 100)
+                              : 0;
+                          const neutralPercent =
+                            total > 0 ? Math.round((neutral / total) * 100) : 0;
+
+                          return {
+                            name: dept.name,
+                            positive: positivePercent,
+                            negative: negativePercent,
+                            neutral: neutralPercent,
+                            benchmark: 70, // Set a benchmark line at 70% positive
+                          };
+                        })}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                        <XAxis dataKey="name" />
+                        <YAxis
+                          domain={[0, 100]}
+                          label={{
+                            value: "Percentage",
+                            angle: -90,
+                            position: "insideLeft",
+                          }}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value}%`, ""]}
+                          contentStyle={{
+                            borderRadius: "8px",
+                            border: "none",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                          }}
+                        />
+                        <Legend iconType="circle" />
+                        <Bar
+                          dataKey="positive"
+                          name="Positive"
+                          fill="#16a34a"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {departmentData.map((entry, index) => (
+                            <Cell
+                              key={`positive-${index}`}
+                              fill={`rgba(22, 163, 74, ${0.7 + index * 0.05})`}
+                            />
+                          ))}
+                        </Bar>
+                        <Bar
+                          dataKey="neutral"
+                          name="Neutral"
+                          fill="#737373"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {departmentData.map((entry, index) => (
+                            <Cell
+                              key={`neutral-${index}`}
+                              fill={`rgba(115, 115, 115, ${0.7 + index * 0.05})`}
+                            />
+                          ))}
+                        </Bar>
+                        <Bar
+                          dataKey="negative"
+                          name="Negative"
+                          fill="#dc2626"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {departmentData.map((entry, index) => (
+                            <Cell
+                              key={`negative-${index}`}
+                              fill={`rgba(220, 38, 38, ${0.7 + index * 0.05})`}
+                            />
+                          ))}
+                        </Bar>
+                        <Line
+                          type="monotone"
+                          dataKey="benchmark"
+                          name="Benchmark (70%)"
+                          stroke="#ff8c00"
+                          strokeWidth={3}
+                          strokeDasharray="5 5"
+                          dot={false}
+                          activeDot={false}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </>
       )}
     </div>
@@ -1625,51 +1694,55 @@ export default function AdminAnalyticsPage() {
               </div>
 
               {/* Feedback List */}
-              {filteredFeedback.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  No feedback matching your criteria
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredFeedback.slice(0, 5).map((item) => (
-                    <Card key={item.id} className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="mb-2 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={
-                                item.tone === "positive"
-                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                  : item.tone === "negative"
-                                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                    : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                              }
-                            >
-                              <span className="flex items-center gap-1">
-                                {getSentimentIcon(item.tone)}
-                                {item.tone.charAt(0).toUpperCase() +
-                                  item.tone.slice(1)}
-                              </span>
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{formatRelativeTime(item.created_at)}</span>
-                          </div>
-                        </div>
+              {(() => {
+                const filteredFeedbackList = getFilteredFeedback();
 
-                        <p className="mb-3">{item.content}</p>
+                return filteredFeedbackList.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    No feedback matching your criteria
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredFeedbackList.slice(0, 5).map((item) => (
+                      <Card key={item.id} className="overflow-hidden">
+                        <CardContent className="p-4">
+                          <div className="mb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  item.tone === "positive"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                    : item.tone === "negative"
+                                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                      : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                }
+                              >
+                                <span className="flex items-center gap-1">
+                                  {getSentimentIcon(item.tone)}
+                                  {item.tone.charAt(0).toUpperCase() +
+                                    item.tone.slice(1)}
+                                </span>
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span>{formatRelativeTime(item.created_at)}</span>
+                            </div>
+                          </div>
 
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          <span>{getEventName(item.event_id)}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                          <p className="mb-3">{item.content}</p>
+
+                          <div className="text-sm text-muted-foreground flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            <span>{getEventName(item.event_id)}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </>

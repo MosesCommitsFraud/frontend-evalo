@@ -31,11 +31,11 @@ import {
   AlertTriangle,
   Clock,
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  PieChart,
-  Pie,
   BarChart,
   Bar,
   XAxis,
@@ -114,6 +114,10 @@ export default function EventAnalyticsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sentimentFilter, setSentimentFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("newest");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const feedbackPerPage = 5;
 
   // Fetch data on component mount
   useEffect(() => {
@@ -424,6 +428,50 @@ export default function EventAnalyticsPage() {
       }
     });
 
+  // Pagination logic
+  const indexOfLastFeedback = currentPage * feedbackPerPage;
+  const indexOfFirstFeedback = indexOfLastFeedback - feedbackPerPage;
+  const currentFeedback = filteredFeedback.slice(
+    indexOfFirstFeedback,
+    indexOfLastFeedback,
+  );
+  const totalPages = Math.ceil(filteredFeedback.length / feedbackPerPage);
+
+  // Change page
+  const nextPage = () =>
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+
+  // Download feedback as text file
+  const downloadFeedback = () => {
+    if (!event || feedback.length === 0) return;
+
+    const eventName = event.courses?.name || "Event";
+    const eventDate = formatDate(event.event_date);
+    const fileName = `${eventName}_Feedback_${eventDate.replace(/[/:\\]/g, "-")}.txt`;
+
+    let content = `Feedback for: ${eventName}\n`;
+    content += `Date: ${eventDate}\n`;
+    content += `Total Responses: ${feedback.length}\n\n`;
+    content += `FEEDBACK RESPONSES:\n`;
+    content += `===================\n\n`;
+
+    feedback.forEach((item, index) => {
+      content += `#${index + 1} - ${item.tone.toUpperCase()} - ${formatDate(item.created_at)}\n`;
+      content += `${item.content}\n\n`;
+    });
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // Prepare data for charts
   const sentimentChartData = [
     { name: "Positive", value: analytics.positiveFeedback, color: "#10b981" },
@@ -549,7 +597,7 @@ export default function EventAnalyticsPage() {
 
       {/* Charts and Analytics */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Sentiment Distribution Chart */}
+        {/* Sentiment Distribution Chart (changed from PieChart to BarChart) */}
         <Card>
           <CardHeader>
             <CardTitle>Sentiment Distribution</CardTitle>
@@ -559,26 +607,25 @@ export default function EventAnalyticsPage() {
             <div className="h-[300px]">
               {sentimentChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sentimentChartData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) =>
-                        `${name}: ${(percent * 100).toFixed(0)}%`
-                      }
-                    >
+                  <BarChart
+                    data={sentimentChartData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" name="Responses">
                       {sentimentChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -627,7 +674,7 @@ export default function EventAnalyticsPage() {
         </Card>
       </div>
 
-      {/* Feedback Section */}
+      {/* Feedback Section (with pagination and more compact design) */}
       <Card>
         <CardHeader>
           <CardTitle>Student Feedback</CardTitle>
@@ -681,6 +728,7 @@ export default function EventAnalyticsPage() {
                   setSearchQuery("");
                   setSentimentFilter("all");
                   setSortOrder("newest");
+                  setCurrentPage(1);
                 }}
               >
                 <FilterX className="h-4 w-4" />
@@ -688,7 +736,7 @@ export default function EventAnalyticsPage() {
             </div>
           </div>
 
-          {/* Feedback List */}
+          {/* Feedback List with Pagination */}
           {filteredFeedback.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
@@ -700,11 +748,11 @@ export default function EventAnalyticsPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredFeedback.map((item) => (
+            <div className="space-y-3">
+              {currentFeedback.map((item) => (
                 <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="mb-2 flex items-center justify-between">
+                  <CardContent className="p-3">
+                    <div className="mb-1 flex items-center justify-between">
                       <Badge
                         variant="outline"
                         className={
@@ -721,31 +769,57 @@ export default function EventAnalyticsPage() {
                             item.tone.slice(1)}
                         </span>
                       </Badge>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         <span>{formatRelativeTime(item.created_at)}</span>
                       </div>
                     </div>
-                    <p className="mb-3">{item.content}</p>
-                    <div className="flex justify-end">
-                      <Badge
-                        variant="outline"
-                        className={item.is_reviewed ? "bg-emerald-50" : ""}
-                      >
-                        {item.is_reviewed ? "Reviewed" : "Not reviewed"}
-                      </Badge>
-                    </div>
+                    <p className="text-sm">{item.content}</p>
                   </CardContent>
                 </Card>
               ))}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <div className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-muted-foreground">
-            Showing {filteredFeedback.length} of {feedback.length} responses
+            Showing {Math.min(feedbackPerPage, filteredFeedback.length)} of{" "}
+            {filteredFeedback.length} responses
           </div>
-          <Button variant="outline" disabled={feedback.length === 0}>
+          <Button
+            variant="outline"
+            disabled={feedback.length === 0}
+            onClick={downloadFeedback}
+          >
             Download All Feedback
           </Button>
         </CardFooter>

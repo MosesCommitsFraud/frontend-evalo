@@ -30,6 +30,7 @@ import {
   LineChart as LineChartIcon,
   CalendarIcon,
   Users,
+  Settings,
 } from "lucide-react";
 import CustomTabs from "@/components/custom-tabs";
 import Link from "next/link";
@@ -98,6 +99,7 @@ interface FeedbackItem {
 }
 export default function CoursePage() {
   const { courseId } = useParams() as { courseId: string };
+  const router = useRouter();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +126,20 @@ export default function CoursePage() {
 
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
+  // State for course settings
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [updatedCourse, setUpdatedCourse] = useState<{
+    name: string;
+    code: string;
+    student_count: number;
+  }>({
+    name: "",
+    code: "",
+    student_count: 0,
+  });
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Fetch course data on component mount
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -145,6 +161,12 @@ export default function CoursePage() {
 
         if (data) {
           setCourse(data);
+          // Initialize the form values for course settings
+          setUpdatedCourse({
+            name: data.name,
+            code: data.code || "",
+            student_count: data.student_count || 0,
+          });
         } else {
           setError("Course not found");
         }
@@ -295,6 +317,7 @@ export default function CoursePage() {
 
     fetchEvents();
   };
+
   // Handle status change for events
   const handleStatusChange = async (
     eventId: string,
@@ -345,6 +368,252 @@ export default function CoursePage() {
         description: "An unexpected error occurred",
       });
     }
+  };
+
+  // Course settings functions
+  const handleSaveSettings = async () => {
+    if (!course) return;
+
+    setIsSubmitting(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("courses")
+        .update({
+          name: updatedCourse.name,
+          code: updatedCourse.code,
+          student_count: updatedCourse.student_count,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", courseId)
+        .select();
+
+      if (error) {
+        console.error("Error updating course:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update course settings",
+        });
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setCourse(data[0]);
+        toast({
+          title: "Success",
+          description: "Course settings updated successfully",
+        });
+        setSettingsDialogOpen(false);
+      }
+    } catch (err) {
+      console.error("Exception updating course:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Function to handle course deletion
+  const handleDeleteCourse = async () => {
+    if (!course) return;
+
+    // Verify deletion confirmation
+    if (deleteConfirmation !== course.name) {
+      toast({
+        title: "Error",
+        description:
+          "Please type the course name correctly to confirm deletion",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const supabase = createClient();
+
+      // First delete all related events and feedback
+      // Delete feedback for all events in this course
+      const { data: eventsData } = await supabase
+        .from("events")
+        .select("id")
+        .eq("course_id", courseId);
+
+      if (eventsData && eventsData.length > 0) {
+        const eventIds = eventsData.map((event) => event.id);
+
+        // Delete feedback for these events
+        await supabase.from("feedback").delete().in("event_id", eventIds);
+
+        // Delete the events themselves
+        await supabase.from("events").delete().eq("course_id", courseId);
+      }
+
+      // Finally delete the course
+      const { error } = await supabase
+        .from("courses")
+        .delete()
+        .eq("id", courseId);
+
+      if (error) {
+        console.error("Error deleting course:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete course",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Course deleted successfully",
+      });
+      // Redirect to courses list
+      router.push("/dashboard/courses");
+    } catch (err) {
+      console.error("Exception deleting course:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Course settings dialog component
+  const CourseSettingsDialog = () => {
+    return (
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Course Settings</DialogTitle>
+            <DialogDescription>
+              Update course details or delete the course. Only available to
+              course administrators and assigned teachers.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="courseName" className="text-sm font-medium">
+                Course Name
+              </label>
+              <Input
+                id="courseName"
+                value={updatedCourse.name}
+                onChange={(e) =>
+                  setUpdatedCourse({ ...updatedCourse, name: e.target.value })
+                }
+                placeholder="e.g. Introduction to Psychology"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="courseCode" className="text-sm font-medium">
+                Course Code
+              </label>
+              <Input
+                id="courseCode"
+                value={updatedCourse.code}
+                onChange={(e) =>
+                  setUpdatedCourse({ ...updatedCourse, code: e.target.value })
+                }
+                placeholder="e.g. PSY101"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="studentCount" className="text-sm font-medium">
+                Student Count
+              </label>
+              <Input
+                id="studentCount"
+                type="number"
+                min="0"
+                value={updatedCourse.student_count}
+                onChange={(e) =>
+                  setUpdatedCourse({
+                    ...updatedCourse,
+                    student_count: parseInt(e.target.value) || 0,
+                  })
+                }
+                placeholder="e.g. 30"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col gap-4 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setSettingsDialogOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleSaveSettings}
+              disabled={isSubmitting}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+
+          <div className="mt-8 pt-4 border-t">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-red-600">Danger Zone</h3>
+              <p className="text-sm text-muted-foreground">
+                Deleting a course will permanently remove all associated events
+                and feedback. This action cannot be undone.
+              </p>
+
+              <div className="grid gap-2">
+                <label
+                  htmlFor="deleteConfirmation"
+                  className="text-sm font-medium"
+                >
+                  Type the course name to confirm deletion:{" "}
+                  <span className="font-bold">{course?.name}</span>
+                </label>
+                <Input
+                  id="deleteConfirmation"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder={`Type "${course?.name}" to confirm`}
+                  className="border-red-300 focus-visible:ring-red-500"
+                />
+              </div>
+
+              <Button
+                variant="destructive"
+                onClick={handleDeleteCourse}
+                disabled={isSubmitting || deleteConfirmation !== course?.name}
+                className="w-full"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />{" "}
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Course"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
   // Filter feedback based on current filters
@@ -2037,9 +2306,23 @@ export default function CoursePage() {
               Share Feedback Code
             </Link>
           </Button>
+
+          {/* Course Settings Button */}
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => setSettingsDialogOpen(true)}
+            disabled={loading || !!error}
+          >
+            <Settings className="h-4 w-4" />
+            Course Settings
+          </Button>
         </div>
       </div>
       <CustomTabs tabs={tabData} />
+
+      {/* Course Settings Dialog */}
+      <CourseSettingsDialog />
     </div>
   );
 }

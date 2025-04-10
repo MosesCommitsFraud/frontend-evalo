@@ -73,7 +73,7 @@ interface Course {
   code: string;
   student_count?: number;
   owner_id: string;
-  department_id: string; // Added department_id field
+  department_id?: string; // Made department_id optional to handle existing courses
   profiles?: {
     full_name: string;
   };
@@ -154,6 +154,7 @@ interface Teacher {
   email: string;
   role: string;
   department_id?: string;
+  department?: string; // For backward compatibility with existing data
 }
 
 interface DepartmentData {
@@ -231,16 +232,15 @@ export default function AdminAnalyticsPage() {
       setError(null);
 
       try {
-        // Create Supabase client
         const supabase = createClient();
 
         // Fetch global analytics
         const analyticsData = await dataService.getGlobalAnalytics();
         setAnalytics(analyticsData);
 
-        // Fetch all departments first
+        // Fetch all departments
         const { data: departmentsData, error: departmentsError } =
-          await supabase.from("departments").select("*").order("name");
+          await dataService.getDepartments();
 
         if (departmentsError) {
           console.error("Error fetching departments:", departmentsError);
@@ -248,16 +248,38 @@ export default function AdminAnalyticsPage() {
         }
         setDepartments(departmentsData || []);
 
-        // Fetch all courses with department data
-        const { data: coursesData, error: coursesError } = await supabase
-          .from("courses")
-          .select("*, profiles(full_name), departments(id, name)")
-          .order("name");
+        // Fetch all courses (use dataService for base query)
+        const { data: coursesData, error: coursesError } =
+          await dataService.getAllCourses();
 
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
           throw new Error("Failed to load courses data");
         }
+
+        // Fetch additional department information for each course if needed
+        if (coursesData && coursesData.length > 0) {
+          // Check if department_id exists in the courses
+          const hasDepartmentId = "department_id" in coursesData[0];
+
+          if (hasDepartmentId) {
+            // For courses with department_id, get the department name
+            for (const course of coursesData) {
+              if (course.department_id) {
+                const matchingDept = departmentsData?.find(
+                  (d) => d.id === course.department_id,
+                );
+                if (matchingDept) {
+                  course.departments = {
+                    id: matchingDept.id,
+                    name: matchingDept.name,
+                  };
+                }
+              }
+            }
+          }
+        }
+
         setCourses(coursesData || []);
 
         // Fetch all teachers
@@ -279,9 +301,21 @@ export default function AdminAnalyticsPage() {
             coursesData?.filter((c) => c.department_id === dept.id) || [];
 
           // Find teachers in this department
-          const teachersInDept = teachersList.filter(
-            (t) => t.department_id === dept.id,
-          );
+          // First check if teacher has department_id field
+          const hasTeacherDeptId =
+            teachersList.length > 0 && "department_id" in teachersList[0];
+
+          let teachersInDept = [];
+          if (hasTeacherDeptId) {
+            teachersInDept = teachersList.filter(
+              (t) => t.department_id === dept.id,
+            );
+          } else {
+            // Fallback to checking department field if it exists
+            teachersInDept = teachersList.filter(
+              (t) => t.department === dept.name,
+            );
+          }
 
           const courseIds = coursesInDept.map((c) => c.id);
           let totalStudents = 0;
@@ -302,16 +336,31 @@ export default function AdminAnalyticsPage() {
 
         setDepartmentData(deptData);
 
-        // Fetch all events with course and department data
+        // Fetch all events with course data
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
-          .select("*, courses(name, code, department_id, departments(name))")
+          .select("*, courses(name, code, department_id)")
           .order("created_at", { ascending: false });
 
         if (eventsError) {
           console.error("Error fetching events:", eventsError);
           throw new Error("Failed to load event data");
         }
+
+        // Add department info to the courses in events if needed
+        if (eventsData && eventsData.length > 0 && departmentsData) {
+          eventsData.forEach((event) => {
+            if (event.courses?.department_id) {
+              const matchingDept = departmentsData.find(
+                (d) => d.id === event.courses.department_id,
+              );
+              if (matchingDept) {
+                event.courses.departments = { name: matchingDept.name };
+              }
+            }
+          });
+        }
+
         setEvents(eventsData || []);
 
         // Apply time period filter to events
@@ -610,11 +659,17 @@ export default function AdminAnalyticsPage() {
   const getFilteredCourses = () => {
     return courses.filter((course) => {
       // Department filter
-      if (
-        departmentFilter !== "all" &&
-        course.department_id !== departmentFilter
-      ) {
-        return false;
+      if (departmentFilter !== "all") {
+        // Try both department_id field and departments relationship
+        const courseDeptId = course.department_id;
+        const relationshipDeptId = course.departments?.id;
+
+        if (
+          courseDeptId !== departmentFilter &&
+          relationshipDeptId !== departmentFilter
+        ) {
+          return false;
+        }
       }
 
       // Event count filter
@@ -668,8 +723,21 @@ export default function AdminAnalyticsPage() {
             )
           : 0;
 
-      // Get department
-      const department = course.departments?.name || "Uncategorized";
+      // Get department information
+      let department = "Uncategorized";
+      let departmentId = null;
+
+      if (course.departments?.name) {
+        department = course.departments.name;
+        departmentId = course.departments.id;
+      } else if (course.department_id) {
+        // Find department name from departments list
+        const dept = departments.find((d) => d.id === course.department_id);
+        if (dept) {
+          department = dept.name;
+          departmentId = dept.id;
+        }
+      }
 
       return {
         id: course.id,
@@ -681,7 +749,7 @@ export default function AdminAnalyticsPage() {
         avgSentiment,
         teacher: course.profiles?.full_name || "Unknown Teacher",
         department,
-        departmentId: course.department_id,
+        departmentId: course.department_id || departmentId,
         eventCount: courseEvents.length,
       };
     });

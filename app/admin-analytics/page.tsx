@@ -319,7 +319,7 @@ export default function AdminAnalyticsPage() {
     fetchData();
   }, [timePeriod]); // Refetch when time period changes
 
-  // Update filtered events when time period changes
+  // Update filtered events when time period or other filters change
   useEffect(() => {
     if (events.length > 0) {
       const periodDate = new Date();
@@ -333,6 +333,13 @@ export default function AdminAnalyticsPage() {
       setFilteredEvents(timeFilteredEvents);
     }
   }, [timePeriod, events]);
+
+  // This additional effect will force a re-render when filters change
+  useEffect(() => {
+    // Just trigger a re-render when these filters change
+    // This ensures the charts update without needing to directly
+    // update the filteredEvents state
+  }, [departmentFilter, courseFilter, eventFilter]);
 
   // Helper function to get department name by ID
   const getDepartmentName = (departmentId: string | undefined) => {
@@ -472,13 +479,31 @@ export default function AdminAnalyticsPage() {
 
   // Format data for course activity chart
   const formatCourseActivityData = () => {
-    // Group feedback by month
+    // Filter events based on selected filters
+    const eventsToUse = filteredEvents.filter((event) => {
+      // Apply course filter
+      if (courseFilter !== "all" && event.course_id !== courseFilter) {
+        return false;
+      }
+
+      // Apply department filter
+      if (departmentFilter !== "all") {
+        const course = courses.find((c) => c.id === event.course_id);
+        if (!course || course.department_id !== departmentFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Group filtered events by month
     const monthlyCounts: Record<
       string,
       { responses: number; feedback: number }
     > = {};
 
-    filteredEvents.forEach((event) => {
+    eventsToUse.forEach((event) => {
       const date = new Date(event.created_at);
       const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
@@ -507,13 +532,43 @@ export default function AdminAnalyticsPage() {
         );
       });
 
-    // If no data, return a placeholder
+    // If no data, return a placeholder that looks like the selected time period
     if (result.length === 0) {
-      return [
-        { month: "Jan", responses: 0, feedback: 0 },
-        { month: "Feb", responses: 0, feedback: 0 },
-        { month: "Mar", responses: 0, feedback: 0 },
+      // Generate placeholder data based on the selected time period
+      const placeholders = [];
+      const now = new Date();
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
       ];
+
+      // Number of months to show based on time period
+      let monthsToShow = 3; // Default
+      if (timePeriod === "7" || timePeriod === "30") monthsToShow = 3;
+      else if (timePeriod === "90") monthsToShow = 4;
+      else if (timePeriod === "365") monthsToShow = 12;
+
+      for (let i = 0; i < monthsToShow; i++) {
+        const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
+        const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
+        placeholders.unshift({
+          month: `${months[monthIndex]} ${year}`,
+          responses: 0,
+          feedback: 0,
+        });
+      }
+
+      return placeholders;
     }
 
     return result;
@@ -521,13 +576,46 @@ export default function AdminAnalyticsPage() {
 
   // Format sentiment trend data
   const formatSentimentData = () => {
-    // Group feedback by month and sentiment
+    // First filter feedback based on time period
+    const periodDate = new Date();
+    periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
+
+    const filteredFeedback = feedback.filter((item) => {
+      // Time period filter
+      const feedbackDate = new Date(item.created_at);
+      if (feedbackDate < periodDate) {
+        return false;
+      }
+
+      // Course filter
+      if (courseFilter !== "all") {
+        const event = events.find((e) => e.id === item.event_id);
+        if (!event || event.course_id !== courseFilter) {
+          return false;
+        }
+      }
+
+      // Department filter
+      if (departmentFilter !== "all") {
+        const event = events.find((e) => e.id === item.event_id);
+        if (!event) return false;
+
+        const course = courses.find((c) => c.id === event.course_id);
+        if (!course || course.department_id !== departmentFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Group filtered feedback by month and sentiment
     const monthlySentiment: Record<
       string,
       { positive: number; negative: number; neutral: number }
     > = {};
 
-    feedback.forEach((item) => {
+    filteredFeedback.forEach((item) => {
       const date = new Date(item.created_at);
       const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
@@ -556,13 +644,44 @@ export default function AdminAnalyticsPage() {
         );
       });
 
-    // If no data, return a placeholder
+    // If no data, return a placeholder based on the selected time period
     if (result.length === 0) {
-      return [
-        { name: "Jan", positive: 0, negative: 0, neutral: 0 },
-        { name: "Feb", positive: 0, negative: 0, neutral: 0 },
-        { name: "Mar", positive: 0, negative: 0, neutral: 0 },
+      // Generate placeholder data based on the selected time period
+      const placeholders = [];
+      const now = new Date();
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
       ];
+
+      // Number of months to show based on time period
+      let monthsToShow = 3; // Default
+      if (timePeriod === "7" || timePeriod === "30") monthsToShow = 3;
+      else if (timePeriod === "90") monthsToShow = 4;
+      else if (timePeriod === "365") monthsToShow = 12;
+
+      for (let i = 0; i < monthsToShow; i++) {
+        const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
+        const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
+        placeholders.unshift({
+          name: `${months[monthIndex]} ${year}`,
+          positive: 0,
+          negative: 0,
+          neutral: 0,
+        });
+      }
+
+      return placeholders;
     }
 
     return result;

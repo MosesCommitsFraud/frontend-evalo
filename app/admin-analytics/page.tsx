@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  Cell,
   Legend,
   CartesianGrid,
   AreaChart,
@@ -135,6 +136,14 @@ interface Teacher {
   department?: string;
 }
 
+interface Department {
+  name: string;
+  courseIds: string[];
+  students: number;
+  teachers: number;
+  courses: number;
+}
+
 interface SyncResultDetail {
   id: string;
   success: boolean;
@@ -171,6 +180,9 @@ export default function AdminAnalyticsPage() {
   const [eventFilter, setEventFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [showAllCourses, setShowAllCourses] = useState(false);
+  const [courseSearchQuery, setCourseSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const coursesPerPage = 12;
 
   // Data state
   const [isLoading, setIsLoading] = useState(true);
@@ -181,6 +193,9 @@ export default function AdminAnalyticsPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
+
+  // Department specific state
+  const [departmentData, setDepartmentData] = useState<Department[]>([]);
 
   // Counter synchronization state
   const [isSyncingCounters, setIsSyncingCounters] = useState(false);
@@ -224,6 +239,34 @@ export default function AdminAnalyticsPage() {
           new Set(teachersList.map((t) => t.department).filter(Boolean)),
         );
         setDepartments(uniqueDepartments as string[]);
+
+        // Calculate department data
+        const deptData = uniqueDepartments.map((dept) => {
+          const teachersInDept = teachersList.filter(
+            (t) => t.department === dept,
+          );
+          const teacherIds = teachersInDept.map((t) => t.id);
+          const coursesInDept =
+            coursesData?.filter((c) => teacherIds.includes(c.owner_id)) || [];
+          const courseIds = coursesInDept.map((c) => c.id);
+
+          let totalStudents = 0;
+
+          coursesInDept.forEach((course) => {
+            totalStudents += course.student_count || 0;
+          });
+
+          return {
+            name: dept,
+            teachers: teachersInDept.length,
+            courses: coursesInDept.length,
+            students: totalStudents,
+            teacherIds,
+            courseIds,
+          };
+        });
+
+        setDepartmentData(deptData);
 
         // Fetch all events
         const supabase = createClient();
@@ -506,42 +549,54 @@ export default function AdminAnalyticsPage() {
 
   // Format participation trend data
   const formatParticipationData = () => {
-    // Group courses by department or some other category
-    const coursesByCategory = courses.reduce(
-      (acc, course) => {
-        const teacher = teachers.find((t) => t.id === course.owner_id);
-        const category = teacher?.department || "Uncategorized";
+    // We'll create time-series data for participation trends
+    if (
+      !analytics?.monthlyTrendData ||
+      analytics.monthlyTrendData.length === 0
+    ) {
+      return [
+        { month: "Jan", participation: 0, activeStudents: 0 },
+        { month: "Feb", participation: 0, activeStudents: 0 },
+        { month: "Mar", participation: 0, activeStudents: 0 },
+      ];
+    }
 
-        if (!acc[category]) {
-          acc[category] = {
-            name: category,
-            students: 0,
-            courses: 0,
-            participation: 0,
-          };
-        }
+    return analytics.monthlyTrendData.map((item) => {
+      // Get events for this month
+      const monthStart = new Date(item.month + "-01");
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
 
-        acc[category].students += course.student_count || 0;
-        acc[category].courses += 1;
+      // Find active courses and students for this month
+      const monthEvents = events.filter((e) => {
+        const eventDate = new Date(e.event_date);
+        return eventDate >= monthStart && eventDate < monthEnd;
+      });
 
-        // Calculate participation as avg students per course
-        acc[category].participation =
-          acc[category].students / acc[category].courses;
+      const activeCourseIds = Array.from(
+        new Set(monthEvents.map((e) => e.course_id)),
+      );
+      const activeCourses = courses.filter((c) =>
+        activeCourseIds.includes(c.id),
+      );
 
-        return acc;
-      },
-      {} as Record<
-        string,
-        {
-          name: string;
-          students: number;
-          courses: number;
-          participation: number;
-        }
-      >,
-    );
+      // Calculate total students in active courses
+      const totalStudents = activeCourses.reduce(
+        (sum, course) => sum + (course.student_count || 0),
+        0,
+      );
 
-    return Object.values(coursesByCategory);
+      // Calculate participation as responses per student
+      const participation =
+        totalStudents > 0 ? Math.round((item.total / totalStudents) * 100) : 0;
+
+      return {
+        month: formatMonth(item.month),
+        participation: participation,
+        activeStudents: totalStudents,
+        responses: item.total,
+      };
+    });
   };
 
   // Filter courses based on filter criteria
@@ -570,37 +625,22 @@ export default function AdminAnalyticsPage() {
     });
   };
 
-  // Filter feedback based on filters
-  const filteredFeedback = feedback.filter((item) => {
-    // Search filter
-    if (
-      searchQuery &&
-      !item.content.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
-
-    // Course filter (if we had course_id in feedback directly)
-    if (courseFilter !== "all") {
-      const event = events.find((e) => e.id === item.event_id);
-      if (!event || event.course_id !== courseFilter) {
-        return false;
-      }
-    }
-
-    // Sentiment filter
-    if (sentimentFilter !== "all" && item.tone !== sentimentFilter) {
-      return false;
-    }
-
-    return true;
-  });
-
   // Format course data
   const formatCourseData = () => {
+    // Apply time period filtering to events
+    const periodDate = new Date();
+    periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
+
+    const filteredEvents = events.filter((event) => {
+      const eventDate = new Date(event.created_at);
+      return eventDate >= periodDate;
+    });
+
     return getFilteredCourses().map((course) => {
-      // Find events for this course
-      const courseEvents = events.filter((e) => e.course_id === course.id);
+      // Find events for this course (applying time period filter)
+      const courseEvents = filteredEvents.filter(
+        (e) => e.course_id === course.id,
+      );
 
       // Calculate totals
       const feedbackCount = courseEvents.reduce(
@@ -645,6 +685,32 @@ export default function AdminAnalyticsPage() {
       };
     });
   };
+
+  // Filter feedback based on filters
+  const filteredFeedback = feedback.filter((item) => {
+    // Search filter
+    if (
+      searchQuery &&
+      !item.content.toLowerCase().includes(searchQuery.toLowerCase())
+    ) {
+      return false;
+    }
+
+    // Course filter (if we had course_id in feedback directly)
+    if (courseFilter !== "all") {
+      const event = events.find((e) => e.id === item.event_id);
+      if (!event || event.course_id !== courseFilter) {
+        return false;
+      }
+    }
+
+    // Sentiment filter
+    if (sentimentFilter !== "all" && item.tone !== sentimentFilter) {
+      return false;
+    }
+
+    return true;
+  });
 
   // Get event name by ID
   const getEventName = (eventId: string) => {
@@ -792,7 +858,7 @@ export default function AdminAnalyticsPage() {
           {/* Activity Charts */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Course Activity - Improved sleeker design */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden rounded-lg border bg-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Platform Activity</CardTitle>
                 <CardDescription>
@@ -843,9 +909,19 @@ export default function AdminAnalyticsPage() {
                       </defs>
                       <XAxis dataKey="month" stroke="#888888" />
                       <YAxis stroke="#888888" />
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f5f5f5"
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "none",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        }}
+                      />
+                      <Legend iconType="circle" />
                       <Area
                         type="monotone"
                         dataKey="responses"
@@ -853,6 +929,7 @@ export default function AdminAnalyticsPage() {
                         stroke="#10b981"
                         fillOpacity={1}
                         fill="url(#colorResponses)"
+                        strokeWidth={2}
                       />
                       <Area
                         type="monotone"
@@ -861,6 +938,7 @@ export default function AdminAnalyticsPage() {
                         stroke="#60a5fa"
                         fillOpacity={1}
                         fill="url(#colorFeedback)"
+                        strokeWidth={2}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -869,7 +947,7 @@ export default function AdminAnalyticsPage() {
             </Card>
 
             {/* Sentiment Analysis - Improved sleeker design */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow">
+            <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden rounded-lg border bg-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Sentiment Trend</CardTitle>
                 <CardDescription>
@@ -882,17 +960,27 @@ export default function AdminAnalyticsPage() {
                     <LineChart data={formatSentimentData()}>
                       <XAxis dataKey="name" stroke="#888888" />
                       <YAxis stroke="#888888" />
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <Tooltip />
-                      <Legend />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f5f5f5"
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "none",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        }}
+                      />
+                      <Legend iconType="circle" />
                       <Line
                         type="monotone"
                         dataKey="positive"
                         name="Positive"
                         stroke="#16a34a"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
+                        strokeWidth={3}
+                        dot={{ r: 4, fill: "#16a34a" }}
+                        activeDot={{ r: 7, stroke: "#16a34a", strokeWidth: 2 }}
                       />
                       <Line
                         type="monotone"
@@ -900,8 +988,8 @@ export default function AdminAnalyticsPage() {
                         name="Neutral"
                         stroke="#737373"
                         strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
+                        dot={{ r: 3, fill: "#737373" }}
+                        activeDot={{ r: 6, stroke: "#737373", strokeWidth: 2 }}
                       />
                       <Line
                         type="monotone"
@@ -909,8 +997,8 @@ export default function AdminAnalyticsPage() {
                         name="Negative"
                         stroke="#dc2626"
                         strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
+                        dot={{ r: 3, fill: "#dc2626" }}
+                        activeDot={{ r: 6, stroke: "#dc2626", strokeWidth: 2 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -919,35 +1007,76 @@ export default function AdminAnalyticsPage() {
             </Card>
           </div>
 
-          {/* Participation Trend - New chart showing students per course */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow">
+          {/* Participation Trend - Updated to classic time-series chart */}
+          <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden rounded-lg border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Participation Trend</CardTitle>
               <CardDescription>
-                Average student participation across departments
+                Student participation rates across all courses over time
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={formatParticipationData()}>
-                    <XAxis dataKey="name" stroke="#888888" />
-                    <YAxis stroke="#888888" />
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <Tooltip
-                      formatter={(value, name) => [
-                        typeof value === "number" ? value.toFixed(1) : value,
-                        name === "participation" ? "Students per Course" : name,
-                      ]}
-                    />{" "}
-                    <Legend />
-                    <Bar
-                      dataKey="participation"
-                      name="Students per Course"
-                      fill="#8884d8"
-                      radius={[4, 4, 0, 0]}
+                  <LineChart data={formatParticipationData()}>
+                    <defs>
+                      <linearGradient
+                        id="colorParticipation"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#8884d8"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#8884d8"
+                          stopOpacity={0.1}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="month" stroke="#888888" />
+                    <YAxis stroke="#888888" domain={[0, 100]} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#f5f5f5"
                     />
-                  </BarChart>
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "participation")
+                          return [`${value}%`, "Participation Rate"];
+                        if (name === "activeStudents")
+                          return [value, "Active Students"];
+                        if (name === "responses")
+                          return [value, "Total Responses"];
+                        return [value, name];
+                      }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="participation"
+                      name="Participation Rate"
+                      stroke="#8884d8"
+                      strokeWidth={3}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="activeStudents"
+                      name="Active Students"
+                      stroke="#82ca9d"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
@@ -1030,239 +1159,560 @@ export default function AdminAnalyticsPage() {
         <ErrorState message={error} />
       ) : (
         <>
-          {/* Course Performance Cards */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {formatCourseData().map((course) => (
-              <Card
-                key={course.id}
-                className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+          {/* Search and Filter Bar */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-muted/30 rounded-lg border">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search courses..."
+                className="pl-9"
+                value={courseSearchQuery}
+                onChange={(e) => setCourseSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select
+                value={departmentFilter}
+                onValueChange={setDepartmentFilter}
               >
-                <div className="h-2 bg-emerald-500"></div>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>{course.name}</CardTitle>
-                    <Badge variant="outline">{course.code}</Badge>
-                  </div>
-                  <CardDescription>
-                    {course.students} enrolled students • Taught by{" "}
-                    {course.teacher}
-                    <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
-                      {course.department}
-                    </span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        Feedback
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {course.feedbackCount}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        Response Rate
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {course.responseRate}%
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        Sentiment
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {course.avgSentiment}%
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm text-muted-foreground">
-                        Engagement
-                      </div>
-                      <div className="text-lg font-semibold">
-                        {course.responseRate > 70
-                          ? "High"
-                          : course.responseRate > 50
-                            ? "Medium"
-                            : "Low"}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/courses/${course.id}/analytics`}>
-                        View Details
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Activity Charts */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Student Activity Times */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">
-                  Student Activity Times
-                </CardTitle>
-                <CardDescription>
-                  When students are most active across all courses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={(() => {
-                        // Process feedback to calculate activity by time of day
-                        const hourCounts = {
-                          Morning: 0,
-                          Afternoon: 0,
-                          Evening: 0,
-                          Night: 0,
-                        };
+          {/* Course Cards - using the style from normal analytics */}
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {(() => {
+              // Filter and paginate courses
+              const filteredCourses = formatCourseData().filter((course) => {
+                // Apply search filter
+                if (
+                  courseSearchQuery &&
+                  !course.name
+                    .toLowerCase()
+                    .includes(courseSearchQuery.toLowerCase()) &&
+                  !course.code
+                    .toLowerCase()
+                    .includes(courseSearchQuery.toLowerCase())
+                ) {
+                  return false;
+                }
 
-                        feedback.forEach((item) => {
-                          if (!item.created_at) return;
+                // Apply department filter
+                if (
+                  departmentFilter !== "all" &&
+                  course.department !== departmentFilter
+                ) {
+                  return false;
+                }
 
-                          const date = new Date(item.created_at);
-                          const hour = date.getHours();
+                return true;
+              });
 
-                          if (hour >= 5 && hour < 12) hourCounts.Morning++;
-                          else if (hour >= 12 && hour < 17)
-                            hourCounts.Afternoon++;
-                          else if (hour >= 17 && hour < 22)
-                            hourCounts.Evening++;
-                          else hourCounts.Night++;
-                        });
+              // State for pagination
+              const pageCount = Math.ceil(
+                filteredCourses.length / coursesPerPage,
+              );
 
-                        return [
-                          { time: "Morning (5-12)", count: hourCounts.Morning },
-                          {
-                            time: "Afternoon (12-17)",
-                            count: hourCounts.Afternoon,
-                          },
-                          {
-                            time: "Evening (17-22)",
-                            count: hourCounts.Evening,
-                          },
-                          { time: "Night (22-5)", count: hourCounts.Night },
-                        ];
-                      })()}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="time" stroke="#888888" />
-                      <YAxis stroke="#888888" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar
-                        dataKey="count"
-                        name="Student Activity"
-                        fill="#10b981"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+              // Get current page slice
+              const currentCourses = filteredCourses.slice(
+                currentPage * coursesPerPage,
+                (currentPage + 1) * coursesPerPage,
+              );
 
-            {/* Feedback by Day */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Feedback by Day</CardTitle>
-                <CardDescription>
-                  Submission distribution by day of week
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={(() => {
-                        // Process feedback to calculate submissions by day of week
-                        const weekdayCounts = {
-                          Mon: 0,
-                          Tue: 0,
-                          Wed: 0,
-                          Thu: 0,
-                          Fri: 0,
-                          Sat: 0,
-                          Sun: 0,
-                        };
+              return (
+                <>
+                  {currentCourses.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                      <Book className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">
+                        No courses found
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Try adjusting your search or filter criteria
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {currentCourses.map((course) => (
+                        <Link
+                          key={course.id}
+                          href={`/dashboard/courses/${course.id}`}
+                        >
+                          <Card className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer h-full shadow-sm hover:shadow-md">
+                            <div className="h-2 bg-emerald-500"></div>
+                            <CardContent className="p-4 flex flex-col h-full">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <h3 className="font-medium">{course.name}</h3>
+                                  <Badge variant="outline" className="mt-1">
+                                    {course.code}
+                                  </Badge>
+                                </div>
+                                <Badge
+                                  className={
+                                    course.avgSentiment > 70
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : course.avgSentiment > 40
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-red-100 text-red-800"
+                                  }
+                                >
+                                  {course.avgSentiment}% Positive
+                                </Badge>
+                              </div>
 
-                        feedback.forEach((item) => {
-                          if (!item.created_at) return;
+                              <div className="text-sm text-muted-foreground mt-1 mb-2">
+                                {course.students} students • {course.teacher}
+                              </div>
 
-                          const date = new Date(item.created_at);
-                          // Define a type for the weekday keys
-                          type WeekdayKey =
-                            | "Mon"
-                            | "Tue"
-                            | "Wed"
-                            | "Thu"
-                            | "Fri"
-                            | "Sat"
-                            | "Sun";
+                              <div className="mt-auto grid grid-cols-2 gap-2 pt-2 border-t text-sm">
+                                <div>
+                                  <div className="text-muted-foreground">
+                                    Feedback
+                                  </div>
+                                  <div className="font-medium">
+                                    {course.feedbackCount}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-muted-foreground">
+                                    Department
+                                  </div>
+                                  <div className="font-medium">
+                                    {course.department}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
 
-                          const weekdayCounts: Record<WeekdayKey, number> = {
-                            Mon: 0,
-                            Tue: 0,
-                            Wed: 0,
-                            Thu: 0,
-                            Fri: 0,
-                            Sat: 0,
-                            Sun: 0,
-                          };
-
-                          // Later in the code
-                          const weekdays = [
-                            "Sun",
-                            "Mon",
-                            "Tue",
-                            "Wed",
-                            "Thu",
-                            "Fri",
-                            "Sat",
-                          ];
-                          const weekday = weekdays[date.getDay()];
-                          weekdayCounts[weekday as WeekdayKey]++; // Add type assertion
-                        });
-
-                        // Convert to array for charting
-                        return [
-                          { day: "Mon", count: weekdayCounts.Mon },
-                          { day: "Tue", count: weekdayCounts.Tue },
-                          { day: "Wed", count: weekdayCounts.Wed },
-                          { day: "Thu", count: weekdayCounts.Thu },
-                          { day: "Fri", count: weekdayCounts.Fri },
-                          { day: "Sat", count: weekdayCounts.Sat },
-                          { day: "Sun", count: weekdayCounts.Sun },
-                        ];
-                      })()}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="day" stroke="#888888" />
-                      <YAxis stroke="#888888" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar
-                        dataKey="count"
-                        name="Submissions"
-                        fill="#60a5fa"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* Pagination Controls */}
+                      {pageCount > 1 && (
+                        <div className="col-span-full flex justify-center mt-6">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(0)}
+                              disabled={currentPage === 0}
+                            >
+                              First
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setCurrentPage((prev) => Math.max(0, prev - 1))
+                              }
+                              disabled={currentPage === 0}
+                            >
+                              Previous
+                            </Button>
+                            <div className="flex items-center px-3 text-sm text-muted-foreground">
+                              Page {currentPage + 1} of {pageCount}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setCurrentPage((prev) =>
+                                  Math.min(pageCount - 1, prev + 1),
+                                )
+                              }
+                              disabled={currentPage === pageCount - 1}
+                            >
+                              Next
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(pageCount - 1)}
+                              disabled={currentPage === pageCount - 1}
+                            >
+                              Last
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
+        </>
+      )}
+    </div>
+  );
+
+  // Add Departments tab content
+  const departmentsTabContent = (
+    <div className="space-y-6">
+      {isLoading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState message={error} />
+      ) : (
+        <>
+          {/* Department Selection */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Department Comparison</CardTitle>
+              <CardDescription>
+                Compare sentiment and engagement metrics across departments
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={departmentData.map((dept) => {
+                      // Calculate department metrics
+                      const deptCourses = courses.filter((c) =>
+                        dept.courseIds.includes(c.id),
+                      );
+
+                      // Get feedback metrics
+                      let positive = 0,
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        negative = 0,
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        neutral = 0,
+                        total = 0;
+
+                      deptCourses.forEach((course) => {
+                        const courseEvents = events.filter(
+                          (e) => e.course_id === course.id,
+                        );
+
+                        courseEvents.forEach((event) => {
+                          positive += event.positive_feedback_count || 0;
+                          negative += event.negative_feedback_count || 0;
+                          neutral += event.neutral_feedback_count || 0;
+                          total += event.total_feedback_count || 0;
+                        });
+                      });
+
+                      // Calculate percentages
+                      const sentimentScore =
+                        total > 0 ? Math.round((positive / total) * 100) : 0;
+                      const responseRate =
+                        dept.students > 0
+                          ? Math.round((total / dept.students) * 100)
+                          : 0;
+
+                      return {
+                        name: dept.name,
+                        sentimentScore,
+                        responseRate,
+                        feedbackCount: total,
+                        teacherCount: dept.teachers,
+                        studentCount: dept.students,
+                        courseCount: dept.courses,
+                      };
+                    })}
+                    layout="vertical"
+                    margin={{ top: 20, right: 20, bottom: 20, left: 100 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                    <XAxis type="number" domain={[0, 100]} />
+                    <YAxis type="category" dataKey="name" width={80} />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "sentimentScore")
+                          return [`${value}%`, "Positive Sentiment"];
+                        if (name === "responseRate")
+                          return [`${value}%`, "Response Rate"];
+                        return [value, name];
+                      }}
+                      labelFormatter={(value) => `Department: ${value}`}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Legend iconType="circle" />
+                    <Bar
+                      dataKey="sentimentScore"
+                      name="Sentiment Score"
+                      fill="#16a34a"
+                      radius={[0, 4, 4, 0]}
+                    >
+                      {departmentData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`rgba(22, 163, 74, ${0.5 + index * 0.1})`}
+                        />
+                      ))}
+                    </Bar>
+                    <Bar
+                      dataKey="responseRate"
+                      name="Response Rate"
+                      fill="#3b82f6"
+                      radius={[0, 4, 4, 0]}
+                    >
+                      {departmentData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={`rgba(59, 130, 246, ${0.5 + index * 0.1})`}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Department Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {departmentData.map((dept) => {
+              // Calculate department metrics
+              const deptCourses = courses.filter((c) =>
+                dept.courseIds.includes(c.id),
+              );
+
+              // Get feedback metrics
+              let positive = 0;
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              let negative = 0;
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              let neutral = 0;
+              let total = 0;
+
+              deptCourses.forEach((course) => {
+                const courseEvents = events.filter(
+                  (e) => e.course_id === course.id,
+                );
+
+                courseEvents.forEach((event) => {
+                  positive += event.positive_feedback_count || 0;
+                  negative += event.negative_feedback_count || 0;
+                  neutral += event.neutral_feedback_count || 0;
+                  total += event.total_feedback_count || 0;
+                });
+              });
+
+              // Calculate percentages
+              const sentimentScore =
+                total > 0 ? Math.round((positive / total) * 100) : 0;
+              const responseRate =
+                dept.students > 0
+                  ? Math.round((total / dept.students) * 100)
+                  : 0;
+
+              return (
+                <Card
+                  key={dept.name}
+                  className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="h-2 bg-blue-500"></div>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>{dept.name}</CardTitle>
+                      <Badge
+                        className={
+                          sentimentScore > 70
+                            ? "bg-emerald-100 text-emerald-800"
+                            : sentimentScore > 40
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                        }
+                      >
+                        {sentimentScore}% Positive
+                      </Badge>
+                    </div>
+                    <CardDescription>
+                      {dept.courses} courses • {dept.teachers} teachers •{" "}
+                      {dept.students} students
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">
+                          Feedback
+                        </div>
+                        <div className="text-lg font-semibold">{total}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">
+                          Response Rate
+                        </div>
+                        <div className="text-lg font-semibold">
+                          {responseRate}%
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">
+                          Avg Feedback per Course
+                        </div>
+                        <div className="text-lg font-semibold">
+                          {dept.courses > 0
+                            ? Math.round(total / dept.courses)
+                            : 0}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm text-muted-foreground">
+                          Avg Students per Course
+                        </div>
+                        <div className="text-lg font-semibold">
+                          {dept.courses > 0
+                            ? Math.round(dept.students / dept.courses)
+                            : 0}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Department Sentiment Benchmarking */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">
+                Department Sentiment Benchmarking
+              </CardTitle>
+              <CardDescription>
+                Comparing sentiment scores across departments
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={departmentData.map((dept) => {
+                      // Calculate department metrics for each sentiment category
+                      const deptCourses = courses.filter((c) =>
+                        dept.courseIds.includes(c.id),
+                      );
+
+                      // Get feedback metrics
+                      let positive = 0,
+                        negative = 0,
+                        neutral = 0,
+                        total = 0;
+
+                      deptCourses.forEach((course) => {
+                        const courseEvents = events.filter(
+                          (e) => e.course_id === course.id,
+                        );
+
+                        courseEvents.forEach((event) => {
+                          positive += event.positive_feedback_count || 0;
+                          negative += event.negative_feedback_count || 0;
+                          neutral += event.neutral_feedback_count || 0;
+                          total += event.total_feedback_count || 0;
+                        });
+                      });
+
+                      // Calculate percentages
+                      const positivePercent =
+                        total > 0 ? Math.round((positive / total) * 100) : 0;
+                      const negativePercent =
+                        total > 0 ? Math.round((negative / total) * 100) : 0;
+                      const neutralPercent =
+                        total > 0 ? Math.round((neutral / total) * 100) : 0;
+
+                      return {
+                        name: dept.name,
+                        positive: positivePercent,
+                        negative: negativePercent,
+                        neutral: neutralPercent,
+                        benchmark: 70, // Set a benchmark line at 70% positive
+                      };
+                    })}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                    <XAxis dataKey="name" />
+                    <YAxis
+                      domain={[0, 100]}
+                      label={{
+                        value: "Percentage",
+                        angle: -90,
+                        position: "insideLeft",
+                      }}
+                    />
+                    <Tooltip
+                      formatter={(value) => [`${value}%`, ""]}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Legend iconType="circle" />
+                    <Bar
+                      dataKey="positive"
+                      name="Positive"
+                      fill="#16a34a"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {departmentData.map((entry, index) => (
+                        <Cell
+                          key={`positive-${index}`}
+                          fill={`rgba(22, 163, 74, ${0.7 + index * 0.05})`}
+                        />
+                      ))}
+                    </Bar>
+                    <Bar
+                      dataKey="neutral"
+                      name="Neutral"
+                      fill="#737373"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {departmentData.map((entry, index) => (
+                        <Cell
+                          key={`neutral-${index}`}
+                          fill={`rgba(115, 115, 115, ${0.7 + index * 0.05})`}
+                        />
+                      ))}
+                    </Bar>
+                    <Bar
+                      dataKey="negative"
+                      name="Negative"
+                      fill="#dc2626"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {departmentData.map((entry, index) => (
+                        <Cell
+                          key={`negative-${index}`}
+                          fill={`rgba(220, 38, 38, ${0.7 + index * 0.05})`}
+                        />
+                      ))}
+                    </Bar>
+                    <Line
+                      type="monotone"
+                      dataKey="benchmark"
+                      name="Benchmark (70%)"
+                      stroke="#ff8c00"
+                      strokeWidth={3}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      activeDot={false}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
@@ -1406,6 +1856,15 @@ export default function AdminAnalyticsPage() {
         </span>
       ),
       content: coursesTabContent,
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          Departments
+        </span>
+      ),
+      content: departmentsTabContent,
     },
     {
       label: (

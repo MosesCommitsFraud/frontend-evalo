@@ -172,7 +172,7 @@ interface SyncResults {
 
 export default function AdminAnalyticsPage() {
   // UI state
-  const [timePeriod, setTimePeriod] = useState("30");
+  const [timePeriod, setTimePeriod] = useState("7"); // Changed default to 7 days
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
@@ -545,58 +545,6 @@ export default function AdminAnalyticsPage() {
       negative: item.negative,
       neutral: item.neutral,
     }));
-  };
-
-  // Format participation trend data
-  const formatParticipationData = () => {
-    // We'll create time-series data for participation trends
-    if (
-      !analytics?.monthlyTrendData ||
-      analytics.monthlyTrendData.length === 0
-    ) {
-      return [
-        { month: "Jan", participation: 0, activeStudents: 0 },
-        { month: "Feb", participation: 0, activeStudents: 0 },
-        { month: "Mar", participation: 0, activeStudents: 0 },
-      ];
-    }
-
-    return analytics.monthlyTrendData.map((item) => {
-      // Get events for this month
-      const monthStart = new Date(item.month + "-01");
-      const monthEnd = new Date(monthStart);
-      monthEnd.setMonth(monthEnd.getMonth() + 1);
-
-      // Find active courses and students for this month
-      const monthEvents = events.filter((e) => {
-        const eventDate = new Date(e.event_date);
-        return eventDate >= monthStart && eventDate < monthEnd;
-      });
-
-      const activeCourseIds = Array.from(
-        new Set(monthEvents.map((e) => e.course_id)),
-      );
-      const activeCourses = courses.filter((c) =>
-        activeCourseIds.includes(c.id),
-      );
-
-      // Calculate total students in active courses
-      const totalStudents = activeCourses.reduce(
-        (sum, course) => sum + (course.student_count || 0),
-        0,
-      );
-
-      // Calculate participation as responses per student
-      const participation =
-        totalStudents > 0 ? Math.round((item.total / totalStudents) * 100) : 0;
-
-      return {
-        month: formatMonth(item.month),
-        participation: participation,
-        activeStudents: totalStudents,
-        responses: item.total,
-      };
-    });
   };
 
   // Filter courses based on filter criteria
@@ -1007,81 +955,6 @@ export default function AdminAnalyticsPage() {
             </Card>
           </div>
 
-          {/* Participation Trend - Updated to classic time-series chart */}
-          <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden rounded-lg border bg-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Participation Trend</CardTitle>
-              <CardDescription>
-                Student participation rates across all courses over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={formatParticipationData()}>
-                    <defs>
-                      <linearGradient
-                        id="colorParticipation"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor="#8884d8"
-                          stopOpacity={0.8}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="#8884d8"
-                          stopOpacity={0.1}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="month" stroke="#888888" />
-                    <YAxis stroke="#888888" domain={[0, 100]} />
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      stroke="#f5f5f5"
-                    />
-                    <Tooltip
-                      formatter={(value, name) => {
-                        if (name === "participation")
-                          return [`${value}%`, "Participation Rate"];
-                        if (name === "activeStudents")
-                          return [value, "Active Students"];
-                        if (name === "responses")
-                          return [value, "Total Responses"];
-                        return [value, name];
-                      }}
-                    />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="participation"
-                      name="Participation Rate"
-                      stroke="#8884d8"
-                      strokeWidth={3}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="activeStudents"
-                      name="Active Students"
-                      stroke="#82ca9d"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Top Courses Summary with Show More button */}
           <Card className="shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
@@ -1190,7 +1063,7 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
 
-          {/* Course Cards - using the style from normal analytics */}
+          {/* Course Cards - Simplified like in normal analytics */}
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
             {(() => {
               // Filter and paginate courses
@@ -1251,48 +1124,15 @@ export default function AdminAnalyticsPage() {
                         >
                           <Card className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer h-full shadow-sm hover:shadow-md">
                             <div className="h-2 bg-emerald-500"></div>
-                            <CardContent className="p-4 flex flex-col h-full">
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <h3 className="font-medium">{course.name}</h3>
-                                  <Badge variant="outline" className="mt-1">
-                                    {course.code}
-                                  </Badge>
-                                </div>
-                                <Badge
-                                  className={
-                                    course.avgSentiment > 70
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : course.avgSentiment > 40
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-red-100 text-red-800"
-                                  }
-                                >
-                                  {course.avgSentiment}% Positive
+                            <CardContent className="p-4">
+                              <div className="flex flex-col items-center justify-center text-center mb-2">
+                                <h3 className="font-medium">{course.name}</h3>
+                                <Badge variant="outline" className="mt-1">
+                                  {course.code}
                                 </Badge>
                               </div>
-
-                              <div className="text-sm text-muted-foreground mt-1 mb-2">
-                                {course.students} students • {course.teacher}
-                              </div>
-
-                              <div className="mt-auto grid grid-cols-2 gap-2 pt-2 border-t text-sm">
-                                <div>
-                                  <div className="text-muted-foreground">
-                                    Feedback
-                                  </div>
-                                  <div className="font-medium">
-                                    {course.feedbackCount}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-muted-foreground">
-                                    Department
-                                  </div>
-                                  <div className="font-medium">
-                                    {course.department}
-                                  </div>
-                                </div>
+                              <div className="text-sm text-center text-muted-foreground">
+                                {course.department}
                               </div>
                             </CardContent>
                           </Card>

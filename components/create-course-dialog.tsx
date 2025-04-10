@@ -36,12 +36,19 @@ export interface Course {
   teacher?: string;
   cycle?: string;
   organization_id?: string;
+  department: string; // Required field for department
 }
 
 interface Teacher {
   id: string;
   full_name: string;
   email: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  code: string;
 }
 
 interface CreateCourseDialogProps {
@@ -60,19 +67,23 @@ const AdminCreateCourseDialog = ({
   const [description, setDescription] = useState("");
   const [studentCount, setStudentCount] = useState("");
   const [teacherId, setTeacherId] = useState("");
-  const [orgId, setOrgId] = useState(""); // new state for organization id
+  const [departmentId, setDepartmentId] = useState("");
+  const [orgId, setOrgId] = useState(""); // state for organization id
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
 
-  // Check if user is admin and load teachers when dialog opens
+  // Check if user is admin and load teachers and departments when dialog opens
   useEffect(() => {
     if (!open || !user) return;
 
-    const checkAdminAndLoadTeachers = async () => {
+    const checkAdminAndLoadData = async () => {
       setLoadingTeachers(true);
+      setLoadingDepartments(true);
       setError("");
 
       try {
@@ -130,19 +141,36 @@ const AdminCreateCourseDialog = ({
         }
 
         setTeachers(updatedTeachers);
+
+        // Fetch departments for the organization
+        const { data: departmentsData, error: departmentsError } =
+          await supabase
+            .from("departments")
+            .select("id, name, code")
+            .eq("organization_id", profileData.organization_id)
+            .order("name", { ascending: true });
+
+        if (departmentsError) {
+          console.error("Error fetching departments:", departmentsError);
+          setError("Failed to load departments");
+          return;
+        }
+
+        setDepartments(departmentsData || []);
         console.log(
-          `Loaded ${updatedTeachers.length} teachers:`,
-          updatedTeachers,
+          `Loaded ${departmentsData?.length || 0} departments:`,
+          departmentsData,
         );
       } catch (err) {
         console.error("Error:", err);
         setError("An unexpected error occurred");
       } finally {
         setLoadingTeachers(false);
+        setLoadingDepartments(false);
       }
     };
 
-    checkAdminAndLoadTeachers();
+    checkAdminAndLoadData();
   }, [open, user]);
 
   const resetForm = () => {
@@ -151,10 +179,9 @@ const AdminCreateCourseDialog = ({
     setDescription("");
     setStudentCount("");
     setTeacherId("");
+    setDepartmentId("");
     setError("");
   };
-
-  // The handleSubmit function improvements for better course creation
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -184,6 +211,11 @@ const AdminCreateCourseDialog = ({
       return;
     }
 
+    if (!departmentId) {
+      setError("Please select a department for this course");
+      return;
+    }
+
     if (!orgId) {
       setError("Organization information is missing");
       return;
@@ -202,10 +234,11 @@ const AdminCreateCourseDialog = ({
         student_count: studentCount ? parseInt(studentCount, 10) : 0,
         owner_id: teacherId,
         teacher: teacherId,
+        department: departmentId,
         organization_id: orgId,
       });
 
-      // Create the new course in Supabase, including organization_id
+      // Create the new course in Supabase, including organization_id and department
       const { data, error } = await supabase
         .from("courses")
         .insert({
@@ -214,6 +247,7 @@ const AdminCreateCourseDialog = ({
           student_count: studentCount ? parseInt(studentCount, 10) : 0,
           owner_id: teacherId, // Both owner_id and teacher are set to the same value
           teacher: teacherId, // This is important for multiple courses per teacher
+          department: departmentId, // Added department field as required
           organization_id: orgId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -314,6 +348,35 @@ const AdminCreateCourseDialog = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              {loadingDepartments ? (
+                <div className="flex items-center h-10 px-3 py-2 rounded-md border text-sm">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading departments...
+                </div>
+              ) : (
+                <Select
+                  value={departmentId}
+                  onValueChange={(value) => {
+                    console.log("Department selected:", value);
+                    setDepartmentId(value);
+                  }}
+                >
+                  <SelectTrigger id="department" className="w-full">
+                    <SelectValue placeholder="Select a department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((department) => (
+                      <SelectItem key={department.id} value={department.id}>
+                        {department.name} ({department.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="studentCount">Initial Student Count</Label>
               <Input
                 id="studentCount"
@@ -324,38 +387,38 @@ const AdminCreateCourseDialog = ({
                 disabled={isSubmitting}
               />
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="teacher">Teacher</Label>
-              {loadingTeachers ? (
-                <div className="flex items-center h-10 px-3 py-2 rounded-md border text-sm">
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading teachers...
-                </div>
-              ) : (
-                <Select
-                  value={teacherId}
-                  onValueChange={(value) => {
-                    console.log("Teacher selected:", value);
-                    setTeacherId(value);
-                  }}
-                >
-                  <SelectTrigger id="teacher" className="w-full">
-                    <SelectValue placeholder="Select a teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers.map((teacher) => (
-                      <SelectItem key={teacher.id} value={teacher.id}>
-                        {teacher.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <p className="text-xs text-muted-foreground mt-1">
-                Teachers can have multiple courses assigned to them
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="teacher">Teacher</Label>
+            {loadingTeachers ? (
+              <div className="flex items-center h-10 px-3 py-2 rounded-md border text-sm">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading teachers...
+              </div>
+            ) : (
+              <Select
+                value={teacherId}
+                onValueChange={(value) => {
+                  console.log("Teacher selected:", value);
+                  setTeacherId(value);
+                }}
+              >
+                <SelectTrigger id="teacher" className="w-full">
+                  <SelectValue placeholder="Select a teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.map((teacher) => (
+                    <SelectItem key={teacher.id} value={teacher.id}>
+                      {teacher.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Teachers can have multiple courses assigned to them
+            </p>
           </div>
 
           <DialogFooter>
@@ -370,7 +433,10 @@ const AdminCreateCourseDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !teacherId}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || !teacherId || !departmentId}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

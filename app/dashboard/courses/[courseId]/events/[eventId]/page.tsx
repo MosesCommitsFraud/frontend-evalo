@@ -585,9 +585,10 @@ export default function EventAnalyticsPage() {
             <CardTitle>Sentiment Distribution</CardTitle>
             <CardDescription>Breakdown of feedback sentiment</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-between pb-6">
-            <div className="space-y-4">
-              <div className="relative h-5 w-full overflow-hidden rounded-full bg-neutral-100">
+          <CardContent className="flex-1 flex flex-col">
+            <div className="space-y-6">
+              {/* Taller bar for sentiment */}
+              <div className="relative h-8 w-full overflow-hidden rounded-full bg-neutral-100 mt-2">
                 {/* Positive section (left) */}
                 <div
                   className="absolute left-0 top-0 h-full bg-emerald-500"
@@ -595,18 +596,6 @@ export default function EventAnalyticsPage() {
                     width: `${Math.round(analytics.positivePercentage)}%`,
                   }}
                 />
-
-                {/* Neutral marker (middle) */}
-                {analytics.neutralPercentage > 1 && (
-                  <div className="absolute top-0 h-full">
-                    <div
-                      className="relative h-5 w-5 -ml-2.5 rounded-full border-2 border-white bg-gray-400"
-                      style={{
-                        left: `${Math.round(analytics.positivePercentage + analytics.neutralPercentage / 2)}%`,
-                      }}
-                    />
-                  </div>
-                )}
 
                 {/* Negative section (right) */}
                 <div
@@ -617,8 +606,8 @@ export default function EventAnalyticsPage() {
                 />
               </div>
 
-              {/* Labels */}
-              <div className="flex justify-between text-sm">
+              {/* Simple percentage labels */}
+              <div className="flex justify-between text-sm mb-2">
                 <div className="flex items-center">
                   <div className="h-3 w-3 rounded-full bg-emerald-500 mr-2"></div>
                   <span>{Math.round(analytics.positivePercentage)}%</span>
@@ -638,47 +627,45 @@ export default function EventAnalyticsPage() {
               </div>
             </div>
 
-            {/* Add sentiment insights to fill the space */}
-            <div className="mt-5 pt-5 border-t border-gray-100">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-emerald-600 font-medium">
-                    {analytics.positiveFeedback}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Positive</div>
+            {/* Count display in three columns */}
+            <div className="flex justify-between mt-5 mb-8">
+              <div className="text-center">
+                <div className="text-emerald-600 font-medium">
+                  {analytics.positiveFeedback}
                 </div>
-
-                <div className="text-center">
-                  <div className="text-gray-600 font-medium">
-                    {analytics.neutralFeedback}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Neutral</div>
-                </div>
-
-                <div className="text-center">
-                  <div className="text-red-600 font-medium">
-                    {analytics.negativeFeedback}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Negative</div>
-                </div>
+                <div className="text-xs text-muted-foreground">Positive</div>
               </div>
 
-              {/* Sentiment summary */}
-              <div className="mt-5 text-sm text-center text-muted-foreground">
-                {analytics.positivePercentage > 65 ? (
-                  <span>Overall positive feedback</span>
-                ) : analytics.negativePercentage > 65 ? (
-                  <span>Overall negative feedback</span>
-                ) : analytics.positivePercentage >
-                  analytics.negativePercentage ? (
-                  <span>Slightly more positive than negative</span>
-                ) : analytics.negativePercentage >
-                  analytics.positivePercentage ? (
-                  <span>Slightly more negative than positive</span>
-                ) : (
-                  <span>Balanced feedback</span>
-                )}
+              <div className="text-center">
+                <div className="text-gray-600 font-medium">
+                  {analytics.neutralFeedback}
+                </div>
+                <div className="text-xs text-muted-foreground">Neutral</div>
               </div>
+
+              <div className="text-center">
+                <div className="text-red-600 font-medium">
+                  {analytics.negativeFeedback}
+                </div>
+                <div className="text-xs text-muted-foreground">Negative</div>
+              </div>
+            </div>
+
+            {/* Summary at the bottom, matching layout with Common Terms */}
+            <div className="mt-auto text-sm text-center text-muted-foreground">
+              {analytics.positivePercentage > 65 ? (
+                <span>Overall positive feedback</span>
+              ) : analytics.negativePercentage > 65 ? (
+                <span>Overall negative feedback</span>
+              ) : analytics.positivePercentage >
+                analytics.negativePercentage ? (
+                <span>Slightly more positive than negative</span>
+              ) : analytics.negativePercentage >
+                analytics.positivePercentage ? (
+                <span>Slightly more negative than positive</span>
+              ) : (
+                <span>Balanced feedback</span>
+              )}
             </div>
           </CardContent>
         </Card>

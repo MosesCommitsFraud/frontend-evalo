@@ -370,52 +370,6 @@ export default function CoursePage() {
     }
   };
 
-  // Course settings functions
-  const handleSaveSettings = async () => {
-    if (!course) return;
-
-    setIsSubmitting(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("courses")
-        .update({
-          name: updatedCourse.name,
-          code: updatedCourse.code,
-          student_count: updatedCourse.student_count,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", courseId)
-        .select();
-
-      if (error) {
-        console.error("Error updating course:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update course settings",
-        });
-        return;
-      }
-
-      if (data && data.length > 0) {
-        setCourse(data[0]);
-        toast({
-          title: "Success",
-          description: "Course settings updated successfully",
-        });
-        setSettingsDialogOpen(false);
-      }
-    } catch (err) {
-      console.error("Exception updating course:", err);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // Function to handle course deletion
   const handleDeleteCourse = async () => {
     if (!course) return;
@@ -522,10 +476,61 @@ export default function CoursePage() {
     // Handle form submission
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      // Set the updatedCourse state from our local form values
-      setUpdatedCourse(formValues);
-      // Then proceed with save
-      await handleSaveSettings();
+
+      // Instead of updating state and then calling handleSaveSettings,
+      // pass the formValues directly to a modified version of handleSaveSettings
+      await handleSaveSettingsWithValues(formValues);
+    };
+
+    // New function to handle saving with directly provided values
+    const handleSaveSettingsWithValues = async (values: {
+      name: string;
+      code: string;
+      student_count: number;
+    }) => {
+      if (!course) return;
+
+      setIsSubmitting(true);
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("courses")
+          .update({
+            name: values.name,
+            code: values.code,
+            student_count: values.student_count,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", courseId)
+          .select();
+
+        if (error) {
+          console.error("Error updating course:", error);
+          toast({
+            title: "Error",
+            description: "Failed to update course settings",
+          });
+          return;
+        }
+
+        if (data && data.length > 0) {
+          setCourse(data[0]);
+          setUpdatedCourse(values); // Update the state after successful API call
+          toast({
+            title: "Success",
+            description: "Course settings updated successfully",
+          });
+          setSettingsDialogOpen(false);
+        }
+      } catch (err) {
+        console.error("Exception updating course:", err);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred",
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
     };
 
     return (

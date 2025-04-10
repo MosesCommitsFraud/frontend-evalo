@@ -40,9 +40,7 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Cell,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { useParams } from "next/navigation";
@@ -472,13 +470,6 @@ export default function EventAnalyticsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Prepare data for charts
-  const sentimentChartData = [
-    { name: "Positive", value: analytics.positiveFeedback, color: "#10b981" },
-    { name: "Neutral", value: analytics.neutralFeedback, color: "#6b7280" },
-    { name: "Negative", value: analytics.negativeFeedback, color: "#ef4444" },
-  ].filter((item) => item.value > 0);
-
   // Get top words for word cloud
   const topWords = analytics.commonWords;
 
@@ -597,38 +588,98 @@ export default function EventAnalyticsPage() {
 
       {/* Charts and Analytics */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Sentiment Distribution Chart (changed from PieChart to BarChart) */}
+        {/* Sleek Sentiment Distribution */}
         <Card>
           <CardHeader>
             <CardTitle>Sentiment Distribution</CardTitle>
             <CardDescription>Breakdown of feedback sentiment</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              {sentimentChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={sentimentChartData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" name="Responses">
-                      {sentimentChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <div className="py-6">
+              {analytics.totalFeedback > 0 ? (
+                <div className="space-y-4">
+                  <div className="relative h-5 w-full overflow-hidden rounded-full bg-neutral-100">
+                    {/* Positive section (left) */}
+                    <div
+                      className="absolute left-0 top-0 h-full bg-emerald-500"
+                      style={{
+                        width: `${Math.round(analytics.positivePercentage)}%`,
+                      }}
+                    />
+
+                    {/* Neutral marker (middle) */}
+                    {analytics.neutralPercentage > 1 && (
+                      <div className="absolute top-0 h-full">
+                        <div
+                          className="relative h-5 w-5 -ml-2.5 rounded-full border-2 border-white bg-gray-400"
+                          style={{
+                            left: `${Math.round(analytics.positivePercentage + analytics.neutralPercentage / 2)}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Negative section (right) */}
+                    <div
+                      className="absolute right-0 top-0 h-full bg-red-500"
+                      style={{
+                        width: `${Math.round(analytics.negativePercentage)}%`,
+                      }}
+                    />
+                  </div>
+
+                  {/* Labels */}
+                  <div className="flex justify-between text-sm">
+                    <div className="flex items-center">
+                      <div className="h-3 w-3 rounded-full bg-emerald-500 mr-2"></div>
+                      <span>{Math.round(analytics.positivePercentage)}%</span>
+                    </div>
+
+                    {analytics.neutralPercentage > 0 && (
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-gray-400 mr-2"></div>
+                        <span>{Math.round(analytics.neutralPercentage)}%</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center">
+                      <div className="h-3 w-3 rounded-full bg-red-500 mr-2"></div>
+                      <span>{Math.round(analytics.negativePercentage)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Counts */}
+                  <div className="grid grid-cols-3 gap-4 pt-2">
+                    <div className="text-center">
+                      <div className="text-emerald-600 font-medium">
+                        {analytics.positiveFeedback}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Positive
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-gray-600 font-medium">
+                        {analytics.neutralFeedback}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Neutral
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-red-600 font-medium">
+                        {analytics.negativeFeedback}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Negative
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
+                <div className="flex h-32 items-center justify-center text-muted-foreground">
                   No sentiment data available
                 </div>
               )}

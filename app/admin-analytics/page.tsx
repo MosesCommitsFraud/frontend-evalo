@@ -73,20 +73,16 @@ interface Course {
   code: string;
   student_count?: number;
   owner_id: string;
-  department_id?: string; // Made department_id optional to handle existing courses
+  department_id?: string;
   profiles?: {
     full_name: string;
-  };
-  departments?: {
-    // Added departments relationship
-    id: string;
-    name: string;
   };
 }
 
 interface Department {
   id: string;
   name: string;
+  code?: string;
   organization_id?: string;
   created_at?: string;
   updated_at?: string;
@@ -108,9 +104,6 @@ interface Event {
     name: string;
     code: string;
     department_id?: string;
-    departments?: {
-      name: string;
-    };
   };
 }
 
@@ -123,9 +116,6 @@ interface Feedback {
   created_at: string;
   events?: {
     course_id: string;
-    courses?: {
-      department_id?: string;
-    };
   };
 }
 
@@ -153,8 +143,6 @@ interface Teacher {
   full_name: string;
   email: string;
   role: string;
-  department_id?: string;
-  department?: string; // For backward compatibility with existing data
 }
 
 interface DepartmentData {
@@ -232,14 +220,13 @@ export default function AdminAnalyticsPage() {
       setError(null);
 
       try {
-        // Create a clean supabase client for direct queries
         const supabase = createClient();
 
         // Fetch global analytics
         const analyticsData = await dataService.getGlobalAnalytics();
         setAnalytics(analyticsData);
 
-        // Fetch all departments using a direct query to avoid relationship issues
+        // Fetch departments directly - no joins
         const { data: departmentsData, error: departmentsError } =
           await supabase.from("departments").select("*").order("name");
 
@@ -249,7 +236,7 @@ export default function AdminAnalyticsPage() {
         }
         setDepartments(departmentsData || []);
 
-        // Fetch all courses using a direct query without trying to join departments
+        // Fetch all courses directly - no joins
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
           .select("*, profiles(full_name)")
@@ -261,52 +248,39 @@ export default function AdminAnalyticsPage() {
         }
         setCourses(coursesData || []);
 
-        // Fetch all teachers
-        const { data: teachersData, error: teachersError } =
-          await dataService.getAllProfiles();
+        // Fetch teachers
+        const { data: teachersData, error: teachersError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, role")
+          .eq("role", "teacher")
+          .order("full_name");
+
         if (teachersError) {
           console.error("Error fetching teachers:", teachersError);
           throw new Error("Failed to load teacher data");
         }
+        setTeachers(teachersData || []);
 
-        const teachersList =
-          teachersData?.filter((t) => t.role === "teacher") || [];
-        setTeachers(teachersList);
-
-        // Calculate department data
+        // Calculate department data based on courses' department_id
         const deptData = departmentsData.map((dept) => {
           // Find courses in this department
           const coursesInDept =
             coursesData?.filter((c) => c.department_id === dept.id) || [];
-
-          // Find teachers in this department
-          // First check if teacher has department_id field
-          const hasTeacherDeptId =
-            teachersList.length > 0 && "department_id" in teachersList[0];
-
-          let teachersInDept = [];
-          if (hasTeacherDeptId) {
-            teachersInDept = teachersList.filter(
-              (t) => t.department_id === dept.id,
-            );
-          } else {
-            // Fallback to checking department field if it exists
-            teachersInDept = teachersList.filter(
-              (t) => t.department === dept.name,
-            );
-          }
-
           const courseIds = coursesInDept.map((c) => c.id);
-          let totalStudents = 0;
 
+          // Calculate total students
+          let totalStudents = 0;
           coursesInDept.forEach((course) => {
             totalStudents += course.student_count || 0;
           });
 
+          // Find teachers teaching courses in this department
+          const teacherIds = [...new Set(coursesInDept.map((c) => c.owner_id))];
+
           return {
             id: dept.id,
             name: dept.name,
-            teachers: teachersInDept.length,
+            teachers: teacherIds.length,
             courses: coursesInDept.length,
             students: totalStudents,
             courseIds,
@@ -315,10 +289,10 @@ export default function AdminAnalyticsPage() {
 
         setDepartmentData(deptData);
 
-        // Fetch all events with a direct query without complex joins
+        // Fetch all events
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
-          .select("*, courses(name, code)")
+          .select("*, courses(name, code, department_id)")
           .order("created_at", { ascending: false });
 
         if (eventsError) {
@@ -338,10 +312,10 @@ export default function AdminAnalyticsPage() {
 
         setFilteredEvents(timeFilteredEvents);
 
-        // Fetch all feedback with event and course data
+        // Fetch all feedback
         const { data: feedbackData, error: feedbackError } = await supabase
           .from("feedback")
-          .select("*, events!inner(course_id, courses(department_id))")
+          .select("*, events!inner(course_id)")
           .order("created_at", { ascending: false });
 
         if (feedbackError) {
@@ -535,6 +509,13 @@ export default function AdminAnalyticsPage() {
     }
   };
 
+  // Helper function to get department name by id
+  const getDepartmentName = (departmentId: string | undefined) => {
+    if (!departmentId) return "Uncategorized";
+    const department = departments.find((d) => d.id === departmentId);
+    return department ? department.name : "Uncategorized";
+  };
+
   // Format month for display
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split("-");
@@ -623,14 +604,11 @@ export default function AdminAnalyticsPage() {
   const getFilteredCourses = () => {
     return courses.filter((course) => {
       // Department filter
-      if (departmentFilter !== "all") {
-        // We're using a direct match on department_id field only
-        if (
-          !course.department_id ||
-          course.department_id !== departmentFilter
-        ) {
-          return false;
-        }
+      if (
+        departmentFilter !== "all" &&
+        course.department_id !== departmentFilter
+      ) {
+        return false;
       }
 
       // Event count filter
@@ -684,16 +662,11 @@ export default function AdminAnalyticsPage() {
             )
           : 0;
 
-      // Get department information
-      let department = "Uncategorized";
+      // Get department name
+      const department = getDepartmentName(course.department_id);
 
-      if (course.department_id) {
-        // Find department name from departments list
-        const dept = departments.find((d) => d.id === course.department_id);
-        if (dept) {
-          department = dept.name;
-        }
-      }
+      // Get teacher name
+      const teacher = course.profiles?.full_name || "Unknown Teacher";
 
       return {
         id: course.id,
@@ -703,7 +676,7 @@ export default function AdminAnalyticsPage() {
         feedbackCount,
         responseRate,
         avgSentiment,
-        teacher: course.profiles?.full_name || "Unknown Teacher",
+        teacher,
         department,
         departmentId: course.department_id,
         eventCount: courseEvents.length,
@@ -743,7 +716,10 @@ export default function AdminAnalyticsPage() {
       // Department filter
       if (departmentFilter !== "all") {
         const event = events.find((e) => e.id === item.event_id);
-        if (!event || event.courses?.department_id !== departmentFilter) {
+        if (!event) return false;
+
+        const course = courses.find((c) => c.id === event.course_id);
+        if (!course || course.department_id !== departmentFilter) {
           return false;
         }
       }
@@ -1060,80 +1036,62 @@ export default function AdminAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(() => {
-                  // Get formatted course data and sort by feedback count
-                  const sortedCourses = formatCourseData().sort(
-                    (a, b) => b.feedbackCount - a.feedbackCount,
-                  );
-
-                  // Display top courses or show "no data" message
-                  if (sortedCourses.length === 0) {
-                    return (
-                      <div className="text-center py-6 text-muted-foreground">
-                        No courses match your filter criteria
-                      </div>
-                    );
-                  }
-
-                  // Display courses
-                  return sortedCourses
-                    .slice(0, showAllCourses ? undefined : 5)
-                    .map((course) => (
-                      <div
-                        key={course.id}
-                        className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Book className="h-5 w-5 text-emerald-600" />
-                          <div>
-                            <div className="font-medium">{course.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {course.code} • {course.teacher}
-                              <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
-                                {course.department}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-center">
-                            <div className="text-sm font-semibold">
-                              {course.feedbackCount}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Feedback
-                            </div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-sm font-semibold">
-                              {course.avgSentiment}%
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Positive
-                            </div>
+                {formatCourseData()
+                  .sort((a, b) => b.feedbackCount - a.feedbackCount)
+                  .slice(0, showAllCourses ? undefined : 5)
+                  .map((course) => (
+                    <div
+                      key={course.id}
+                      className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Book className="h-5 w-5 text-emerald-600" />
+                        <div>
+                          <div className="font-medium">{course.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {course.code} • {course.teacher}
+                            <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
+                              {course.department}
+                            </span>
                           </div>
                         </div>
                       </div>
-                    ));
-                })()}
+                      <div className="flex items-center gap-4">
+                        <div className="text-center">
+                          <div className="text-sm font-semibold">
+                            {course.feedbackCount}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Feedback
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-semibold">
+                            {course.avgSentiment}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Positive
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
             </CardContent>
-            {formatCourseData().length > 5 && (
-              <CardFooter className="pt-2 pb-4 flex justify-center">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAllCourses(!showAllCourses)}
-                  className="w-full max-w-xs text-sm"
-                >
-                  {showAllCourses ? "Show Less" : "Show All Courses"}
-                  <ChevronDown
-                    className={`h-4 w-4 ml-1 ${
-                      showAllCourses ? "rotate-180" : ""
-                    }`}
-                  />
-                </Button>
-              </CardFooter>
-            )}
+            <CardFooter className="pt-2 pb-4 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllCourses(!showAllCourses)}
+                className="w-full max-w-xs text-sm"
+              >
+                {showAllCourses ? "Show Less" : "Show All Courses"}
+                <ChevronDown
+                  className={`h-4 w-4 ml-1 ${
+                    showAllCourses ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+            </CardFooter>
           </Card>
         </>
       )}

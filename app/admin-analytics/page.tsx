@@ -73,10 +73,23 @@ interface Course {
   code: string;
   student_count?: number;
   owner_id: string;
+  department_id: string; // Added department_id field
   profiles?: {
     full_name: string;
-    department?: string;
   };
+  departments?: {
+    // Added departments relationship
+    id: string;
+    name: string;
+  };
+}
+
+interface Department {
+  id: string;
+  name: string;
+  organization_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Event {
@@ -94,6 +107,10 @@ interface Event {
   courses?: {
     name: string;
     code: string;
+    department_id?: string;
+    departments?: {
+      name: string;
+    };
   };
 }
 
@@ -106,6 +123,9 @@ interface Feedback {
   created_at: string;
   events?: {
     course_id: string;
+    courses?: {
+      department_id?: string;
+    };
   };
 }
 
@@ -133,10 +153,11 @@ interface Teacher {
   full_name: string;
   email: string;
   role: string;
-  department?: string;
+  department_id?: string;
 }
 
-interface Department {
+interface DepartmentData {
+  id: string;
   name: string;
   courseIds: string[];
   students: number;
@@ -172,7 +193,7 @@ interface SyncResults {
 
 export default function AdminAnalyticsPage() {
   // UI state
-  const [timePeriod, setTimePeriod] = useState("7"); // Changed default to 7 days
+  const [timePeriod, setTimePeriod] = useState("7");
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
@@ -193,10 +214,10 @@ export default function AdminAnalyticsPage() {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [departments, setDepartments] = useState<string[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   // Department specific state
-  const [departmentData, setDepartmentData] = useState<Department[]>([]);
+  const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
 
   // Counter synchronization state
   const [isSyncingCounters, setIsSyncingCounters] = useState(false);
@@ -210,13 +231,29 @@ export default function AdminAnalyticsPage() {
       setError(null);
 
       try {
+        // Create Supabase client
+        const supabase = createClient();
+
         // Fetch global analytics
         const analyticsData = await dataService.getGlobalAnalytics();
         setAnalytics(analyticsData);
 
-        // Fetch all courses
-        const { data: coursesData, error: coursesError } =
-          await dataService.getAllCourses();
+        // Fetch all departments first
+        const { data: departmentsData, error: departmentsError } =
+          await supabase.from("departments").select("*").order("name");
+
+        if (departmentsError) {
+          console.error("Error fetching departments:", departmentsError);
+          throw new Error("Failed to load departments data");
+        }
+        setDepartments(departmentsData || []);
+
+        // Fetch all courses with department data
+        const { data: coursesData, error: coursesError } = await supabase
+          .from("courses")
+          .select("*, profiles(full_name), departments(id, name)")
+          .order("name");
+
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
           throw new Error("Failed to load courses data");
@@ -235,27 +272,18 @@ export default function AdminAnalyticsPage() {
           teachersData?.filter((t) => t.role === "teacher") || [];
         setTeachers(teachersList);
 
-        // Extract unique departments
-        const uniqueDepartments = Array.from(
-          new Set(
-            teachersList
-              .map((t) => t.department)
-              .filter((dept): dept is string => !!dept && dept.trim() !== ""),
-          ),
-        );
-
-        setDepartments(uniqueDepartments);
-
         // Calculate department data
-        const deptData = uniqueDepartments.map((dept) => {
-          const teachersInDept = teachersList.filter(
-            (t) => t.department === dept,
-          );
-          const teacherIds = teachersInDept.map((t) => t.id);
+        const deptData = departmentsData.map((dept) => {
+          // Find courses in this department
           const coursesInDept =
-            coursesData?.filter((c) => teacherIds.includes(c.owner_id)) || [];
-          const courseIds = coursesInDept.map((c) => c.id);
+            coursesData?.filter((c) => c.department_id === dept.id) || [];
 
+          // Find teachers in this department
+          const teachersInDept = teachersList.filter(
+            (t) => t.department_id === dept.id,
+          );
+
+          const courseIds = coursesInDept.map((c) => c.id);
           let totalStudents = 0;
 
           coursesInDept.forEach((course) => {
@@ -263,22 +291,21 @@ export default function AdminAnalyticsPage() {
           });
 
           return {
-            name: dept,
+            id: dept.id,
+            name: dept.name,
             teachers: teachersInDept.length,
             courses: coursesInDept.length,
             students: totalStudents,
-            teacherIds,
             courseIds,
           };
         });
 
         setDepartmentData(deptData);
 
-        // Fetch all events
-        const supabase = createClient();
+        // Fetch all events with course and department data
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
-          .select("*, courses(name, code)")
+          .select("*, courses(name, code, department_id, departments(name))")
           .order("created_at", { ascending: false });
 
         if (eventsError) {
@@ -298,10 +325,10 @@ export default function AdminAnalyticsPage() {
 
         setFilteredEvents(timeFilteredEvents);
 
-        // Fetch all feedback
+        // Fetch all feedback with event and course data
         const { data: feedbackData, error: feedbackError } = await supabase
           .from("feedback")
-          .select("*, events!inner(course_id)")
+          .select("*, events!inner(course_id, courses(department_id))")
           .order("created_at", { ascending: false });
 
         if (feedbackError) {
@@ -583,18 +610,11 @@ export default function AdminAnalyticsPage() {
   const getFilteredCourses = () => {
     return courses.filter((course) => {
       // Department filter
-      if (departmentFilter !== "all") {
-        // Find the teacher for this course
-        const teacher = teachers.find((t) => t.id === course.owner_id);
-
-        // If no teacher found or teacher has no department or department doesn't match filter
-        if (
-          !teacher ||
-          !teacher.department ||
-          teacher.department !== departmentFilter
-        ) {
-          return false;
-        }
+      if (
+        departmentFilter !== "all" &&
+        course.department_id !== departmentFilter
+      ) {
+        return false;
       }
 
       // Event count filter
@@ -648,9 +668,8 @@ export default function AdminAnalyticsPage() {
             )
           : 0;
 
-      // Find teacher/department
-      const teacher = teachers.find((t) => t.id === course.owner_id);
-      const department = teacher?.department || "Uncategorized";
+      // Get department
+      const department = course.departments?.name || "Uncategorized";
 
       return {
         id: course.id,
@@ -660,9 +679,9 @@ export default function AdminAnalyticsPage() {
         feedbackCount,
         responseRate,
         avgSentiment,
-        teacher:
-          course.profiles?.full_name || teacher?.full_name || "Unknown Teacher",
+        teacher: course.profiles?.full_name || "Unknown Teacher",
         department,
+        departmentId: course.department_id,
         eventCount: courseEvents.length,
       };
     });
@@ -693,6 +712,14 @@ export default function AdminAnalyticsPage() {
       if (courseFilter !== "all") {
         const event = events.find((e) => e.id === item.event_id);
         if (!event || event.course_id !== courseFilter) {
+          return false;
+        }
+      }
+
+      // Department filter
+      if (departmentFilter !== "all") {
+        const event = events.find((e) => e.id === item.event_id);
+        if (!event || event.courses?.department_id !== departmentFilter) {
           return false;
         }
       }
@@ -841,8 +868,8 @@ export default function AdminAnalyticsPage() {
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
                 {departments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1009,62 +1036,80 @@ export default function AdminAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {formatCourseData()
-                  .sort((a, b) => b.feedbackCount - a.feedbackCount)
-                  .slice(0, showAllCourses ? undefined : 5)
-                  .map((course) => (
-                    <div
-                      key={course.id}
-                      className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Book className="h-5 w-5 text-emerald-600" />
-                        <div>
-                          <div className="font-medium">{course.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {course.code} • {course.teacher}
-                            <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
-                              {course.department}
-                            </span>
+                {(() => {
+                  // Get formatted course data and sort by feedback count
+                  const sortedCourses = formatCourseData().sort(
+                    (a, b) => b.feedbackCount - a.feedbackCount,
+                  );
+
+                  // Display top courses or show "no data" message
+                  if (sortedCourses.length === 0) {
+                    return (
+                      <div className="text-center py-6 text-muted-foreground">
+                        No courses match your filter criteria
+                      </div>
+                    );
+                  }
+
+                  // Display courses
+                  return sortedCourses
+                    .slice(0, showAllCourses ? undefined : 5)
+                    .map((course) => (
+                      <div
+                        key={course.id}
+                        className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Book className="h-5 w-5 text-emerald-600" />
+                          <div>
+                            <div className="font-medium">{course.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {course.code} • {course.teacher}
+                              <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
+                                {course.department}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <div className="text-sm font-semibold">
+                              {course.feedbackCount}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Feedback
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-semibold">
+                              {course.avgSentiment}%
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Positive
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <div className="text-sm font-semibold">
-                            {course.feedbackCount}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Feedback
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-semibold">
-                            {course.avgSentiment}%
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Positive
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ));
+                })()}
               </div>
             </CardContent>
-            <CardFooter className="pt-2 pb-4 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => setShowAllCourses(!showAllCourses)}
-                className="w-full max-w-xs text-sm"
-              >
-                {showAllCourses ? "Show Less" : "Show All Courses"}
-                <ChevronDown
-                  className={`h-4 w-4 ml-1 ${
-                    showAllCourses ? "rotate-180" : ""
-                  }`}
-                />
-              </Button>
-            </CardFooter>
+            {formatCourseData().length > 5 && (
+              <CardFooter className="pt-2 pb-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAllCourses(!showAllCourses)}
+                  className="w-full max-w-xs text-sm"
+                >
+                  {showAllCourses ? "Show Less" : "Show All Courses"}
+                  <ChevronDown
+                    className={`h-4 w-4 ml-1 ${
+                      showAllCourses ? "rotate-180" : ""
+                    }`}
+                  />
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         </>
       )}
@@ -1102,8 +1147,8 @@ export default function AdminAnalyticsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
                   {departments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1132,7 +1177,7 @@ export default function AdminAnalyticsPage() {
                 // Apply department filter
                 if (
                   departmentFilter !== "all" &&
-                  course.department !== departmentFilter
+                  course.departmentId !== departmentFilter
                 ) {
                   return false;
                 }
@@ -1260,8 +1305,7 @@ export default function AdminAnalyticsPage() {
               <Users className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No departments found</h3>
               <p className="text-muted-foreground">
-                There are no departments set up in the system yet. Teachers need
-                to update their profiles with department information.
+                There are no departments set up in the system yet.
               </p>
             </div>
           ) : (
@@ -1420,7 +1464,7 @@ export default function AdminAnalyticsPage() {
 
                   return (
                     <Card
-                      key={dept.name}
+                      key={dept.id}
                       className="overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div className="h-2 bg-blue-500"></div>
@@ -1667,6 +1711,23 @@ export default function AdminAnalyticsPage() {
                       {courses.map((course) => (
                         <SelectItem key={course.id} value={course.id}>
                           {course.code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={departmentFilter}
+                    onValueChange={setDepartmentFilter}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Departments</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -474,26 +474,6 @@ export default function CoursePage() {
             </Card>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <CreateEventDialog
-              courseId={courseId}
-              onEventCreated={handleEventCreated}
-            >
-              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="h-4 w-4" />
-                Create Event
-              </Button>
-            </CreateEventDialog>
-
-            <Button variant="outline" className="gap-2" asChild>
-              <Link href={`/dashboard/courses/${courseId}/share`}>
-                <QrCode className="h-4 w-4" />
-                Share Feedback Code
-              </Link>
-            </Button>
-          </div>
-
           {/* Quick Overview Cards */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Recent Feedback */}
@@ -1578,7 +1558,7 @@ export default function CoursePage() {
           </div>
         </div>
 
-        {/* Feedback List */}
+        {/* Feedback List - Grouped by Events */}
         {loadingFeedback ? (
           <div className="flex justify-center items-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
@@ -1599,12 +1579,6 @@ export default function CoursePage() {
                   Feedback from students will appear here once they submit it
                   using your course feedback codes.
                 </p>
-                <Button asChild className="mt-4 gap-2">
-                  <Link href={`/dashboard/courses/${courseId}/share`}>
-                    <QrCode className="h-4 w-4" />
-                    Share Feedback Code
-                  </Link>
-                </Button>
               </>
             ) : (
               <>
@@ -1630,44 +1604,116 @@ export default function CoursePage() {
             )}
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredFeedback.map((item) => (
-              <Card key={item.id} className="overflow-hidden">
-                <CardContent className="p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={
-                          item.tone === "positive"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : item.tone === "negative"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                        }
-                      >
-                        <span className="flex items-center gap-1">
-                          {getSentimentIcon(item.tone)}
-                          {item.tone.charAt(0).toUpperCase() +
-                            item.tone.slice(1)}
-                        </span>
-                      </Badge>
+          <div className="space-y-6">
+            {(() => {
+              // Group feedback by events
+              const eventGroups: Record<string, FeedbackItem[]> = {};
+
+              // First, group all feedback by event_id
+              filteredFeedback.forEach((item) => {
+                if (!eventGroups[item.event_id]) {
+                  eventGroups[item.event_id] = [];
+                }
+                eventGroups[item.event_id].push(item);
+              });
+
+              // Create an array of event IDs sorted by date (most recent first)
+              const sortedEventIds = Object.keys(eventGroups).sort((a, b) => {
+                const eventA = events.find((e) => e.id === a);
+                const eventB = events.find((e) => e.id === b);
+                if (!eventA || !eventB) return 0;
+                return (
+                  new Date(eventB.event_date).getTime() -
+                  new Date(eventA.event_date).getTime()
+                );
+              });
+
+              // Render each event group
+              return sortedEventIds.map((eventId) => {
+                const event = events.find((e) => e.id === eventId);
+                const eventFeedback = eventGroups[eventId];
+
+                return (
+                  <div key={eventId} className="space-y-3">
+                    <div className="border-b pb-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium flex items-center">
+                          <Calendar className="h-4 w-4 mr-2 text-emerald-600" />
+                          {event ? (
+                            <>
+                              Event on{" "}
+                              {new Date(event.event_date).toLocaleDateString()}{" "}
+                              at{" "}
+                              {new Date(event.event_date).toLocaleTimeString(
+                                [],
+                                { hour: "2-digit", minute: "2-digit" },
+                              )}
+                            </>
+                          ) : (
+                            "Unknown Event"
+                          )}
+                        </h3>
+                        <Badge variant="outline">
+                          {eventFeedback.length}{" "}
+                          {eventFeedback.length === 1
+                            ? "response"
+                            : "responses"}
+                        </Badge>
+                      </div>
+                      {event && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          <span className="inline-flex items-center">
+                            <MessageSquare className="h-3 w-3 mr-1" />
+                            Code: {event.entry_code}
+                          </span>
+                          <span className="mx-2">•</span>
+                          <span className="inline-flex items-center">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Status:{" "}
+                            {event.status.charAt(0).toUpperCase() +
+                              event.status.slice(1)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>{new Date(item.created_at).toLocaleString()}</span>
+
+                    <div className="space-y-3 pl-4 border-l-2 border-emerald-100 dark:border-emerald-900/30">
+                      {eventFeedback.map((item: FeedbackItem) => (
+                        <Card key={item.id} className="overflow-hidden">
+                          <CardContent className="p-4">
+                            <div className="mb-2 flex items-center justify-between">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  item.tone === "positive"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                    : item.tone === "negative"
+                                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                      : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                }
+                              >
+                                <span className="flex items-center gap-1">
+                                  {getSentimentIcon(item.tone)}
+                                  {item.tone.charAt(0).toUpperCase() +
+                                    item.tone.slice(1)}
+                                </span>
+                              </Badge>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  {formatRelativeTime(item.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="mb-0">{item.content}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
                   </div>
-
-                  <p className="mb-3">{item.content}</p>
-
-                  <div className="text-sm text-muted-foreground flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    <span>{getEventName(item.event_id)}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                );
+              });
+            })()}
           </div>
         )}
       </CardContent>
@@ -1965,6 +2011,20 @@ export default function CoursePage() {
           </h1>
         )}
         <div className="flex gap-2">
+          {/* Create Event Button */}
+          <CreateEventDialog
+            courseId={courseId}
+            onEventCreated={handleEventCreated}
+          >
+            <Button
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+              disabled={loading || !!error}
+            >
+              <Plus className="h-4 w-4" />
+              Create Event
+            </Button>
+          </CreateEventDialog>
+
           {/* Share Feedback Code Button */}
           <Button
             asChild
@@ -1974,7 +2034,7 @@ export default function CoursePage() {
           >
             <Link href={`/dashboard/courses/${courseId}/share`}>
               <QrCode className="h-4 w-4" />
-              Create/Share Feedback Code
+              Share Feedback Code
             </Link>
           </Button>
         </div>

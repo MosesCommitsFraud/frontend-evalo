@@ -461,7 +461,6 @@ export default function EventAnalyticsPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
-
   // Get top words for word cloud
   const topWords = analytics.commonWords;
 
@@ -581,115 +580,120 @@ export default function EventAnalyticsPage() {
       {/* Charts and Analytics */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Sleek Sentiment Distribution */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Sentiment Distribution</CardTitle>
             <CardDescription>Breakdown of feedback sentiment</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="py-6">
-              {analytics.totalFeedback > 0 ? (
-                <div className="space-y-4">
-                  <div className="relative h-5 w-full overflow-hidden rounded-full bg-neutral-100">
-                    {/* Positive section (left) */}
-                    <div
-                      className="absolute left-0 top-0 h-full bg-emerald-500"
-                      style={{
-                        width: `${Math.round(analytics.positivePercentage)}%`,
-                      }}
-                    />
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            <div className="space-y-4">
+              <div className="relative h-5 w-full overflow-hidden rounded-full bg-neutral-100">
+                {/* Positive section (left) */}
+                <div
+                  className="absolute left-0 top-0 h-full bg-emerald-500"
+                  style={{
+                    width: `${Math.round(analytics.positivePercentage)}%`,
+                  }}
+                />
 
-                    {/* Neutral marker (middle) */}
-                    {analytics.neutralPercentage > 1 && (
-                      <div className="absolute top-0 h-full">
-                        <div
-                          className="relative h-5 w-5 -ml-2.5 rounded-full border-2 border-white bg-gray-400"
-                          style={{
-                            left: `${Math.round(analytics.positivePercentage + analytics.neutralPercentage / 2)}%`,
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Negative section (right) */}
+                {/* Neutral marker (middle) */}
+                {analytics.neutralPercentage > 1 && (
+                  <div className="absolute top-0 h-full">
                     <div
-                      className="absolute right-0 top-0 h-full bg-red-500"
+                      className="relative h-5 w-5 -ml-2.5 rounded-full border-2 border-white bg-gray-400"
                       style={{
-                        width: `${Math.round(analytics.negativePercentage)}%`,
+                        left: `${Math.round(analytics.positivePercentage + analytics.neutralPercentage / 2)}%`,
                       }}
                     />
                   </div>
+                )}
 
-                  {/* Labels */}
-                  <div className="flex justify-between text-sm">
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full bg-emerald-500 mr-2"></div>
-                      <span>{Math.round(analytics.positivePercentage)}%</span>
-                    </div>
+                {/* Negative section (right) */}
+                <div
+                  className="absolute right-0 top-0 h-full bg-red-500"
+                  style={{
+                    width: `${Math.round(analytics.negativePercentage)}%`,
+                  }}
+                />
+              </div>
 
-                    {analytics.neutralPercentage > 0 && (
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-gray-400 mr-2"></div>
-                        <span>{Math.round(analytics.neutralPercentage)}%</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center">
-                      <div className="h-3 w-3 rounded-full bg-red-500 mr-2"></div>
-                      <span>{Math.round(analytics.negativePercentage)}%</span>
-                    </div>
-                  </div>
-
-                  {/* Counts */}
-                  <div className="grid grid-cols-3 gap-4 pt-2">
-                    <div className="text-center">
-                      <div className="text-emerald-600 font-medium">
-                        {analytics.positiveFeedback}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Positive
-                      </div>
-                    </div>
-
-                    <div className="text-center">
-                      <div className="text-gray-600 font-medium">
-                        {analytics.neutralFeedback}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Neutral
-                      </div>
-                    </div>
-
-                    <div className="text-center">
-                      <div className="text-red-600 font-medium">
-                        {analytics.negativeFeedback}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Negative
-                      </div>
-                    </div>
-                  </div>
+              {/* Labels */}
+              <div className="flex justify-between text-sm">
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-emerald-500 mr-2"></div>
+                  <span>{Math.round(analytics.positivePercentage)}%</span>
                 </div>
-              ) : (
-                <div className="flex h-32 items-center justify-center text-muted-foreground">
-                  No sentiment data available
+
+                {analytics.neutralPercentage > 0 && (
+                  <div className="flex items-center">
+                    <div className="h-3 w-3 rounded-full bg-gray-400 mr-2"></div>
+                    <span>{Math.round(analytics.neutralPercentage)}%</span>
+                  </div>
+                )}
+
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-red-500 mr-2"></div>
+                  <span>{Math.round(analytics.negativePercentage)}%</span>
                 </div>
-              )}
+              </div>
+            </div>
+
+            {/* Add sentiment insights to fill the space */}
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-emerald-600 font-medium">
+                    {analytics.positiveFeedback}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Positive</div>
+                </div>
+
+                <div className="text-center">
+                  <div className="text-gray-600 font-medium">
+                    {analytics.neutralFeedback}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Neutral</div>
+                </div>
+
+                <div className="text-center">
+                  <div className="text-red-600 font-medium">
+                    {analytics.negativeFeedback}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Negative</div>
+                </div>
+              </div>
+
+              {/* Sentiment summary */}
+              <div className="mt-5 text-sm text-center text-muted-foreground">
+                {analytics.positivePercentage > 65 ? (
+                  <span>Overall positive feedback</span>
+                ) : analytics.negativePercentage > 65 ? (
+                  <span>Overall negative feedback</span>
+                ) : analytics.positivePercentage >
+                  analytics.negativePercentage ? (
+                  <span>Slightly more positive than negative</span>
+                ) : analytics.negativePercentage >
+                  analytics.positivePercentage ? (
+                  <span>Slightly more negative than positive</span>
+                ) : (
+                  <span>Balanced feedback</span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Common Words/Terms - Sleek Version */}
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Most Common Terms</CardTitle>
             <CardDescription>
               Frequently mentioned words in feedback
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="py-6">
-              {topWords.length > 0 ? (
+          <CardContent className="flex-1 flex flex-col justify-between pb-6">
+            {topWords.length > 0 ? (
+              <>
                 <div className="space-y-3">
                   {topWords.slice(0, 5).map((word, index) => {
                     // Calculate width percentage (max is 90%)
@@ -720,19 +724,41 @@ export default function EventAnalyticsPage() {
                       </div>
                     );
                   })}
+                </div>
 
-                  {topWords.length > 5 && (
-                    <div className="mt-3 text-xs text-muted-foreground text-center">
-                      + {topWords.length - 5} more terms
+                {/* Additional insights for common terms */}
+                <div className="mt-5 pt-5 border-t border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-muted-foreground">
+                      {topWords.length > 5 ? (
+                        <span>+ {topWords.length - 5} more terms found</span>
+                      ) : (
+                        <span>All common terms shown</span>
+                      )}
                     </div>
-                  )}
+
+                    <div className="text-xs text-muted-foreground">
+                      <span>Total unique terms: {topWords.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Most commonly used term insight */}
+                  <div className="mt-5 text-sm text-center text-muted-foreground">
+                    <span>
+                      Most mentioned:{" "}
+                      <span className="font-medium">
+                        {topWords[0]?.text || ""}
+                      </span>{" "}
+                      ({topWords[0]?.value || 0} times)
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex h-32 items-center justify-center text-muted-foreground">
-                  No common terms data available
-                </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                No common terms data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

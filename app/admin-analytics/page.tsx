@@ -232,15 +232,16 @@ export default function AdminAnalyticsPage() {
       setError(null);
 
       try {
+        // Create a clean supabase client for direct queries
         const supabase = createClient();
 
         // Fetch global analytics
         const analyticsData = await dataService.getGlobalAnalytics();
         setAnalytics(analyticsData);
 
-        // Fetch all departments
+        // Fetch all departments using a direct query to avoid relationship issues
         const { data: departmentsData, error: departmentsError } =
-          await dataService.getDepartments();
+          await supabase.from("departments").select("*").order("name");
 
         if (departmentsError) {
           console.error("Error fetching departments:", departmentsError);
@@ -248,38 +249,16 @@ export default function AdminAnalyticsPage() {
         }
         setDepartments(departmentsData || []);
 
-        // Fetch all courses (use dataService for base query)
-        const { data: coursesData, error: coursesError } =
-          await dataService.getAllCourses();
+        // Fetch all courses using a direct query without trying to join departments
+        const { data: coursesData, error: coursesError } = await supabase
+          .from("courses")
+          .select("*, profiles(full_name)")
+          .order("name");
 
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
           throw new Error("Failed to load courses data");
         }
-
-        // Fetch additional department information for each course if needed
-        if (coursesData && coursesData.length > 0) {
-          // Check if department_id exists in the courses
-          const hasDepartmentId = "department_id" in coursesData[0];
-
-          if (hasDepartmentId) {
-            // For courses with department_id, get the department name
-            for (const course of coursesData) {
-              if (course.department_id) {
-                const matchingDept = departmentsData?.find(
-                  (d) => d.id === course.department_id,
-                );
-                if (matchingDept) {
-                  course.departments = {
-                    id: matchingDept.id,
-                    name: matchingDept.name,
-                  };
-                }
-              }
-            }
-          }
-        }
-
         setCourses(coursesData || []);
 
         // Fetch all teachers
@@ -336,31 +315,16 @@ export default function AdminAnalyticsPage() {
 
         setDepartmentData(deptData);
 
-        // Fetch all events with course data
+        // Fetch all events with a direct query without complex joins
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
-          .select("*, courses(name, code, department_id)")
+          .select("*, courses(name, code)")
           .order("created_at", { ascending: false });
 
         if (eventsError) {
           console.error("Error fetching events:", eventsError);
           throw new Error("Failed to load event data");
         }
-
-        // Add department info to the courses in events if needed
-        if (eventsData && eventsData.length > 0 && departmentsData) {
-          eventsData.forEach((event) => {
-            if (event.courses?.department_id) {
-              const matchingDept = departmentsData.find(
-                (d) => d.id === event.courses.department_id,
-              );
-              if (matchingDept) {
-                event.courses.departments = { name: matchingDept.name };
-              }
-            }
-          });
-        }
-
         setEvents(eventsData || []);
 
         // Apply time period filter to events
@@ -660,13 +624,10 @@ export default function AdminAnalyticsPage() {
     return courses.filter((course) => {
       // Department filter
       if (departmentFilter !== "all") {
-        // Try both department_id field and departments relationship
-        const courseDeptId = course.department_id;
-        const relationshipDeptId = course.departments?.id;
-
+        // We're using a direct match on department_id field only
         if (
-          courseDeptId !== departmentFilter &&
-          relationshipDeptId !== departmentFilter
+          !course.department_id ||
+          course.department_id !== departmentFilter
         ) {
           return false;
         }
@@ -725,17 +686,12 @@ export default function AdminAnalyticsPage() {
 
       // Get department information
       let department = "Uncategorized";
-      let departmentId = null;
 
-      if (course.departments?.name) {
-        department = course.departments.name;
-        departmentId = course.departments.id;
-      } else if (course.department_id) {
+      if (course.department_id) {
         // Find department name from departments list
         const dept = departments.find((d) => d.id === course.department_id);
         if (dept) {
           department = dept.name;
-          departmentId = dept.id;
         }
       }
 
@@ -749,7 +705,7 @@ export default function AdminAnalyticsPage() {
         avgSentiment,
         teacher: course.profiles?.full_name || "Unknown Teacher",
         department,
-        departmentId: course.department_id || departmentId,
+        departmentId: course.department_id,
         eventCount: courseEvents.length,
       };
     });

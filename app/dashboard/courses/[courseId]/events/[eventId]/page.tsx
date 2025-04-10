@@ -35,14 +35,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { useParams } from "next/navigation";
 
 interface Event {
@@ -687,7 +679,7 @@ export default function EventAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Common Words/Terms */}
+        {/* Common Words/Terms - Sleek Version */}
         <Card>
           <CardHeader>
             <CardTitle>Most Common Terms</CardTitle>
@@ -696,27 +688,47 @@ export default function EventAnalyticsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="py-6">
               {topWords.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={topWords}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 50,
-                      bottom: 5,
-                    }}
-                  >
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="text" />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#10b981" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-3">
+                  {topWords.slice(0, 5).map((word, index) => {
+                    // Calculate width percentage (max is 90%)
+                    const maxValue = topWords[0].value;
+                    const widthPercentage = Math.max(
+                      20,
+                      Math.round((word.value / maxValue) * 90),
+                    );
+
+                    return (
+                      <div key={index} className="flex items-center">
+                        <div className="w-24 font-medium text-sm truncate mr-2">
+                          {word.text}
+                        </div>
+                        <div className="relative flex-1 h-6">
+                          <div
+                            className="absolute left-0 top-0 h-full bg-emerald-100 rounded-md"
+                            style={{ width: `${widthPercentage}%` }}
+                          />
+                          <div
+                            className="absolute left-0 top-0 h-full bg-emerald-500 rounded-l-md"
+                            style={{ width: `${widthPercentage / 3}%` }}
+                          />
+                          <span className="absolute right-0 top-0 text-xs text-muted-foreground h-full flex items-center">
+                            {word.value}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {topWords.length > 5 && (
+                    <div className="mt-3 text-xs text-muted-foreground text-center">
+                      + {topWords.length - 5} more terms
+                    </div>
+                  )}
+                </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
+                <div className="flex h-32 items-center justify-center text-muted-foreground">
                   No common terms data available
                 </div>
               )}

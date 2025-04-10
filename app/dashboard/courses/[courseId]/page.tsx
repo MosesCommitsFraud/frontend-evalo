@@ -485,8 +485,51 @@ export default function CoursePage() {
 
   // Course settings dialog component
   const CourseSettingsDialog = () => {
+    // Create local state for form values to avoid issues with the modal state
+    const [formValues, setFormValues] = useState({
+      name: updatedCourse.name,
+      code: updatedCourse.code,
+      student_count: updatedCourse.student_count,
+    });
+
+    // Update local state when the course data changes
+    useEffect(() => {
+      if (course) {
+        setFormValues({
+          name: course.name,
+          code: course.code || "",
+          student_count: course.student_count || 0,
+        });
+      }
+    }, [course, settingsDialogOpen]);
+
+    // Handle dialog close properly
+    const handleDialogChange = (open: boolean) => {
+      if (!open) {
+        // If closing, reset local form state
+        setDeleteConfirmation("");
+        if (course) {
+          setFormValues({
+            name: course.name,
+            code: course.code || "",
+            student_count: course.student_count || 0,
+          });
+        }
+      }
+      setSettingsDialogOpen(open);
+    };
+
+    // Handle form submission
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      // Set the updatedCourse state from our local form values
+      setUpdatedCourse(formValues);
+      // Then proceed with save
+      await handleSaveSettings();
+    };
+
     return (
-      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+      <Dialog open={settingsDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Course Settings</DialogTitle>
@@ -496,78 +539,81 @@ export default function CoursePage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="courseName" className="text-sm font-medium">
-                Course Name
-              </label>
-              <Input
-                id="courseName"
-                value={updatedCourse.name}
-                onChange={(e) =>
-                  setUpdatedCourse({ ...updatedCourse, name: e.target.value })
-                }
-                placeholder="e.g. Introduction to Psychology"
-              />
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <label htmlFor="courseName" className="text-sm font-medium">
+                  Course Name
+                </label>
+                <Input
+                  id="courseName"
+                  value={formValues.name}
+                  onChange={(e) =>
+                    setFormValues({ ...formValues, name: e.target.value })
+                  }
+                  placeholder="e.g. Introduction to Psychology"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <label htmlFor="courseCode" className="text-sm font-medium">
+                  Course Code
+                </label>
+                <Input
+                  id="courseCode"
+                  value={formValues.code}
+                  onChange={(e) =>
+                    setFormValues({ ...formValues, code: e.target.value })
+                  }
+                  placeholder="e.g. PSY101"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <label htmlFor="studentCount" className="text-sm font-medium">
+                  Student Count
+                </label>
+                <Input
+                  id="studentCount"
+                  type="number"
+                  min="0"
+                  value={formValues.student_count}
+                  onChange={(e) =>
+                    setFormValues({
+                      ...formValues,
+                      student_count: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="e.g. 30"
+                />
+              </div>
             </div>
 
-            <div className="grid gap-2">
-              <label htmlFor="courseCode" className="text-sm font-medium">
-                Course Code
-              </label>
-              <Input
-                id="courseCode"
-                value={updatedCourse.code}
-                onChange={(e) =>
-                  setUpdatedCourse({ ...updatedCourse, code: e.target.value })
-                }
-                placeholder="e.g. PSY101"
-              />
-            </div>
+            <DialogFooter className="flex-col gap-4 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleDialogChange(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
 
-            <div className="grid gap-2">
-              <label htmlFor="studentCount" className="text-sm font-medium">
-                Student Count
-              </label>
-              <Input
-                id="studentCount"
-                type="number"
-                min="0"
-                value={updatedCourse.student_count}
-                onChange={(e) =>
-                  setUpdatedCourse({
-                    ...updatedCourse,
-                    student_count: parseInt(e.target.value) || 0,
-                  })
-                }
-                placeholder="e.g. 30"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex-col gap-4 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={() => setSettingsDialogOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              onClick={handleSaveSettings}
-              disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </DialogFooter>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
 
           <div className="mt-8 pt-4 border-t">
             <div className="space-y-4">
@@ -588,15 +634,23 @@ export default function CoursePage() {
                 <Input
                   id="deleteConfirmation"
                   value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  onChange={(e) => {
+                    // Use a separate event handler for the delete confirmation
+                    e.stopPropagation(); // Prevent event bubbling
+                    setDeleteConfirmation(e.target.value);
+                  }}
                   placeholder={`Type "${course?.name}" to confirm`}
                   className="border-red-300 focus-visible:ring-red-500"
                 />
               </div>
 
               <Button
+                type="button"
                 variant="destructive"
-                onClick={handleDeleteCourse}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeleteCourse();
+                }}
                 disabled={isSubmitting || deleteConfirmation !== course?.name}
                 className="w-full"
               >

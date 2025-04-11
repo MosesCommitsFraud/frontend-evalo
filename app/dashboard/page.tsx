@@ -450,25 +450,24 @@ export default function DashboardPage() {
     label: "Recent Feedback",
     content: (
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2">
           <CardTitle>Recent Feedback</CardTitle>
           <CardDescription>
             Latest student feedback across your courses
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 py-1">
           {recentFeedback.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
+            <div className="text-center py-4 text-muted-foreground">
               No feedback received yet
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentFeedback.map((item) => (
-                <Card
+                <div
                   key={item.id}
-                  className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer"
+                  className="border rounded-md p-2 hover:border-emerald-300 transition-colors cursor-pointer bg-card"
                   onClick={() => {
-                    // Use router for navigation instead of direct window.location
                     if (item.courseId && item.eventId) {
                       router.push(
                         `/dashboard/courses/${item.courseId}/events/${item.eventId}`,
@@ -476,40 +475,14 @@ export default function DashboardPage() {
                     }
                   }}
                 >
-                  <CardContent className="p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="bg-muted px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                        <Calendar className="h-3.5 w-3.5 mr-1" />
-                        <span>
-                          {item.course}
-                          <span className="mx-1 text-gray-400">|</span>
-                          {item.eventName}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          {item.eventDate ? (
-                            <>
-                              {item.eventDate} at {item.eventTime}
-                              {item.duration && (
-                                <span className="ml-1 text-gray-500">
-                                  ({item.duration})
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            item.time
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mb-1 flex items-center">
+                  <div className="flex justify-between items-center text-xs mb-1">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3 text-emerald-600" />
+                      <span className="font-medium">{item.course}</span>
+                      <span className="text-gray-400">|</span>
                       <Badge
                         variant="outline"
-                        className={`text-xs py-0.5 px-2 ${
+                        className={`inline-flex h-4 text-[10px] px-1.5 py-0 ${
                           item.sentiment === "positive"
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
                             : item.sentiment === "negative"
@@ -517,24 +490,23 @@ export default function DashboardPage() {
                               : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         }`}
                       >
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-0.5">
                           {getSentimentIcon(item.sentiment)}
-                          {item.sentiment.charAt(0).toUpperCase() +
-                            item.sentiment.slice(1)}
+                          <span className="relative top-px">
+                            {item.sentiment.charAt(0).toUpperCase() +
+                              item.sentiment.slice(1)}
+                          </span>
                         </span>
                       </Badge>
                     </div>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Clock className="h-2.5 w-2.5" />
+                      <span>{item.time}</span>
+                    </div>
+                  </div>
 
-                    <p className="mb-2 text-sm">{item.content}</p>
-
-                    {/* Add a subtle "View Details" link */}
-                    {item.eventId && (
-                      <div className="text-xs text-right text-emerald-600">
-                        View Event Details →
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  <div className="line-clamp-2 text-xs">{item.content}</div>
+                </div>
               ))}
             </div>
           )}

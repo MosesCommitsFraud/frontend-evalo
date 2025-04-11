@@ -1916,11 +1916,15 @@ export default function AdminAnalyticsPage() {
               <Card className="shadow-sm">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg">Course Comparison</CardTitle>
+                    <CardTitle className="text-lg">
+                      {selectedDepartment === "all"
+                        ? "Department Comparison"
+                        : "Course Performance"}
+                    </CardTitle>
                     <CardDescription>
                       {selectedDepartment === "all"
-                        ? "Compare metrics across departments"
-                        : "Compare courses within department"}
+                        ? "Compare engagement metrics across departments"
+                        : `Courses in ${departments.find((d) => d.id === selectedDepartment)?.name || ""}`}
                     </CardDescription>
                   </div>
                   <Select
@@ -1990,14 +1994,29 @@ export default function AdminAnalyticsPage() {
                             };
                           })}
                           layout="vertical"
-                          margin={{ top: 20, right: 30, bottom: 20, left: 100 }}
+                          margin={{ top: 20, right: 60, bottom: 20, left: 100 }}
                         >
                           <CartesianGrid
                             strokeDasharray="3 3"
                             stroke="#f5f5f5"
+                            horizontal={false}
                           />
-                          <XAxis type="number" domain={[0, 100]} />
-                          <YAxis type="category" dataKey="name" width={100} />
+                          <XAxis
+                            type="number"
+                            domain={[0, 100]}
+                            tickFormatter={(value) => `${value}%`}
+                            label={{
+                              value: "Percentage (%)",
+                              position: "insideBottom",
+                              offset: -10,
+                            }}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={120}
+                            tick={{ fontSize: 12 }}
+                          />
                           <Tooltip
                             formatter={(value, name) => {
                               if (name === "sentimentScore")
@@ -2012,20 +2031,34 @@ export default function AdminAnalyticsPage() {
                               borderRadius: "8px",
                               border: "none",
                               boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                              padding: "10px 14px",
+                              fontSize: "12px",
+                            }}
+                            itemStyle={{ padding: "2px 0" }}
+                            labelStyle={{
+                              fontWeight: "bold",
+                              marginBottom: "4px",
                             }}
                           />
-                          <Legend iconType="circle" />
+                          <Legend
+                            iconType="circle"
+                            verticalAlign="top"
+                            height={36}
+                            wrapperStyle={{ paddingTop: "10px" }}
+                          />
                           <Bar
                             dataKey="sentimentScore"
-                            name="Sentiment Score"
+                            name="Positive Sentiment %"
                             fill="#16a34a"
                             radius={[0, 4, 4, 0]}
+                            barSize={20}
                           />
                           <Bar
                             dataKey="responseRate"
-                            name="Response Rate"
+                            name="Response Rate %"
                             fill="#3b82f6"
                             radius={[0, 4, 4, 0]}
+                            barSize={20}
                           />
                         </BarChart>
                       </ResponsiveContainer>
@@ -2036,21 +2069,40 @@ export default function AdminAnalyticsPage() {
                             .sort((a, b) => b.feedbackCount - a.feedbackCount)
                             .slice(0, 10)
                             .map((course) => ({
-                              name: course.name,
+                              name: `${course.code} - ${course.name.length > 20 ? course.name.substring(0, 20) + "..." : course.name}`,
                               code: course.code,
                               feedbackCount: course.feedbackCount,
                               responseRate: course.responseRate,
                               avgSentiment: course.avgSentiment,
                             }))}
                           layout="vertical"
-                          margin={{ top: 20, right: 30, bottom: 20, left: 100 }}
+                          margin={{ top: 20, right: 60, bottom: 20, left: 140 }}
                         >
                           <CartesianGrid
                             strokeDasharray="3 3"
                             stroke="#f5f5f5"
+                            horizontal={false}
                           />
-                          <XAxis type="number" />
-                          <YAxis type="category" dataKey="name" width={140} />
+                          <XAxis
+                            type="number"
+                            tickFormatter={(value) => {
+                              // Only add % to values that are percentages
+                              const tickValue = parseInt(value.toString(), 10);
+                              if (tickValue > 100) return value; // Feedback counts
+                              return `${value}%`; // Percentages
+                            }}
+                            label={{
+                              value: "Value",
+                              position: "insideBottom",
+                              offset: -10,
+                            }}
+                          />
+                          <YAxis
+                            type="category"
+                            dataKey="name"
+                            width={140}
+                            tick={{ fontSize: 12 }}
+                          />
                           <Tooltip
                             formatter={(value, name) => {
                               if (name === "avgSentiment")
@@ -2065,26 +2117,41 @@ export default function AdminAnalyticsPage() {
                               borderRadius: "8px",
                               border: "none",
                               boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                              padding: "10px 14px",
+                              fontSize: "12px",
+                            }}
+                            itemStyle={{ padding: "2px 0" }}
+                            labelStyle={{
+                              fontWeight: "bold",
+                              marginBottom: "4px",
                             }}
                           />
-                          <Legend iconType="circle" />
+                          <Legend
+                            iconType="circle"
+                            verticalAlign="top"
+                            height={36}
+                            wrapperStyle={{ paddingTop: "10px" }}
+                          />
                           <Bar
                             dataKey="avgSentiment"
-                            name="Sentiment Score"
+                            name="Positive Sentiment %"
                             fill="#16a34a"
                             radius={[0, 4, 4, 0]}
+                            barSize={16}
                           />
                           <Bar
                             dataKey="feedbackCount"
-                            name="Feedback Count"
+                            name="Total Feedback"
                             fill="#f59e0b"
                             radius={[0, 4, 4, 0]}
+                            barSize={16}
                           />
                           <Bar
                             dataKey="responseRate"
-                            name="Response Rate"
+                            name="Response Rate %"
                             fill="#3b82f6"
                             radius={[0, 4, 4, 0]}
+                            barSize={16}
                           />
                         </BarChart>
                       </ResponsiveContainer>

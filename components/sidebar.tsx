@@ -95,7 +95,7 @@ interface CourseItemProps {
   pathname?: string | null;
 }
 
-// Memoized course item component
+// Memoized course item component with fixed-width icon and proper text truncation
 const CourseItem = memo(({ course, pathname }: CourseItemProps) => {
   const href = `/dashboard/courses/${course.id}`;
   const isActive = pathname === href || pathname?.startsWith(`${href}/`);
@@ -109,7 +109,11 @@ const CourseItem = memo(({ course, pathname }: CourseItemProps) => {
         isActive ? "bg-accent text-accent-foreground" : "transparent",
       )}
     >
-      <BookOpen className="h-4 w-4 mr-2" />
+      {/* Fix icon width to prevent shrinking */}
+      <div className="flex-shrink-0 w-6">
+        <BookOpen className="h-4 w-4" />
+      </div>
+      {/* Allow text to truncate properly */}
       <span className="truncate">{course.name}</span>
     </Link>
   );
@@ -184,8 +188,6 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
       try {
         const supabase = createClient();
 
-        // If user is admin, fetch all courses
-        // Otherwise, fetch only user's courses
         // Get organization_id
         const { data: profile } = await supabase
           .from("profiles")
@@ -207,8 +209,10 @@ export const Sidebar = memo(({ isVisible = true }: SidebarProps) => {
           .select("*")
           .eq("organization_id", profile.organization_id);
 
+        // If admin, show all courses. Otherwise, only show courses where user is the teacher
         if (!isAdmin) {
-          query = query.or(`owner_id.eq.${user.id},teacher.eq.${user.id}`);
+          // Only show courses where user is the teacher
+          query = query.eq("teacher", user.id);
         }
 
         const { data, error } = await query;

@@ -892,98 +892,172 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Feedback Sentiment Distribution (Bar Chart instead of Pie Chart) */}
+      {/* Modern Feedback Distribution Chart */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Feedback Distribution by Course
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Breakdown of feedback sentiment across your courses
+        <CardHeader>
+          <CardTitle>Feedback Distribution by Course</CardTitle>
+          <CardDescription>
+            Sentiment breakdown across your courses
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-2">
-          <div className="h-[240px]">
-            {teacherCourses.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={teacherCourses
-                    .map((course) => {
-                      const courseEvents = events.filter(
-                        (e) => e.course_id === course.id,
-                      );
-                      const courseFeedback = feedback.filter((f) =>
-                        courseEvents.some((e) => e.id === f.event_id),
-                      );
+        <CardContent>
+          {teacherCourses.length > 0 ? (
+            <div className="space-y-8 py-2">
+              {teacherCourses
+                .map((course) => {
+                  const courseEvents = events.filter(
+                    (e) => e.course_id === course.id,
+                  );
+                  const courseFeedback = feedback.filter((f) =>
+                    courseEvents.some((e) => e.id === f.event_id),
+                  );
 
-                      const positive = courseFeedback.filter(
-                        (f) => f.tone === "positive",
-                      ).length;
-                      const neutral = courseFeedback.filter(
-                        (f) => f.tone === "neutral",
-                      ).length;
-                      const negative = courseFeedback.filter(
-                        (f) => f.tone === "negative",
-                      ).length;
+                  const positive = courseFeedback.filter(
+                    (f) => f.tone === "positive",
+                  ).length;
+                  const neutral = courseFeedback.filter(
+                    (f) => f.tone === "neutral",
+                  ).length;
+                  const negative = courseFeedback.filter(
+                    (f) => f.tone === "negative",
+                  ).length;
+                  const total = courseFeedback.length;
 
-                      return {
-                        name: course.code,
-                        positive,
-                        neutral,
-                        negative,
-                        total: courseFeedback.length,
-                      };
-                    })
-                    .filter((item) => item.total > 0)}
-                  layout="vertical"
-                  margin={{ top: 10, right: 10, left: 60, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10 }} />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 10 }}
-                    width={50}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => [value, name]}
-                    contentStyle={{ fontSize: "12px", padding: "8px" }}
-                    itemStyle={{ padding: "2px 0" }}
-                  />
-                  <Legend
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: "10px", paddingTop: "5px" }}
-                  />
-                  <Bar
-                    dataKey="positive"
-                    name="Positive"
-                    fill="#16a34a"
-                    stackId="stack"
-                    barSize={12}
-                  />
-                  <Bar
-                    dataKey="neutral"
-                    name="Neutral"
-                    fill="#737373"
-                    stackId="stack"
-                    barSize={12}
-                  />
-                  <Bar
-                    dataKey="negative"
-                    name="Negative"
-                    fill="#dc2626"
-                    stackId="stack"
-                    barSize={12}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
-                No feedback data available yet
-              </div>
-            )}
-          </div>
+                  // Calculate percentages
+                  const positivePercent =
+                    total > 0 ? Math.round((positive / total) * 100) : 0;
+                  const neutralPercent =
+                    total > 0 ? Math.round((neutral / total) * 100) : 0;
+                  const negativePercent =
+                    total > 0 ? Math.round((negative / total) * 100) : 0;
+
+                  return {
+                    name: course.name,
+                    code: course.code,
+                    positive,
+                    neutral,
+                    negative,
+                    total,
+                    positivePercent,
+                    neutralPercent,
+                    negativePercent,
+                  };
+                })
+                .filter((item) => item.total > 0)
+                .slice(0, 5) // Limit to 5 courses for clarity
+                .map((item, idx) => (
+                  <div key={idx} className="space-y-2">
+                    {/* Course header */}
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-medium text-sm">{item.code}</h3>
+                        <p className="text-xs text-muted-foreground truncate max-w-[250px]">
+                          {item.name}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="ml-auto">
+                        {item.total} responses
+                      </Badge>
+                    </div>
+
+                    {/* Sentiment bar */}
+                    <div className="relative h-8 w-full overflow-hidden rounded-lg bg-neutral-100">
+                      {/* Positive section (left) */}
+                      <div
+                        className="absolute left-0 top-0 h-full bg-emerald-500"
+                        style={{
+                          width: `${item.positivePercent}%`,
+                        }}
+                      />
+
+                      {/* Neutral section (middle) */}
+                      <div
+                        className="absolute h-full bg-gray-400"
+                        style={{
+                          left: `${item.positivePercent}%`,
+                          width: `${item.neutralPercent}%`,
+                        }}
+                      />
+
+                      {/* Negative section (right) */}
+                      <div
+                        className="absolute h-full bg-red-500"
+                        style={{
+                          left: `${item.positivePercent + item.neutralPercent}%`,
+                          width: `${item.negativePercent}%`,
+                        }}
+                      />
+
+                      {/* Percentage labels - only show if enough space */}
+                      {item.positivePercent >= 15 && (
+                        <div className="absolute left-2 top-0 h-full flex items-center text-white text-xs font-medium">
+                          {item.positivePercent}%
+                        </div>
+                      )}
+
+                      {item.neutralPercent >= 15 && (
+                        <div
+                          className="absolute top-0 h-full flex items-center text-white text-xs font-medium"
+                          style={{ left: `${item.positivePercent + 2}%` }}
+                        >
+                          {item.neutralPercent}%
+                        </div>
+                      )}
+
+                      {item.negativePercent >= 15 && (
+                        <div
+                          className="absolute top-0 h-full flex items-center text-white text-xs font-medium"
+                          style={{
+                            left: `${item.positivePercent + item.neutralPercent + 2}%`,
+                          }}
+                        >
+                          {item.negativePercent}%
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Counts legend */}
+                    <div className="flex justify-between text-xs pt-1">
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-emerald-500 mr-1.5"></div>
+                        <span>{item.positive} positive</span>
+                      </div>
+
+                      {item.neutral > 0 && (
+                        <div className="flex items-center">
+                          <div className="h-3 w-3 rounded-full bg-gray-400 mr-1.5"></div>
+                          <span>{item.neutral} neutral</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-red-500 mr-1.5"></div>
+                        <span>{item.negative} negative</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              {/* No data message */}
+              {teacherCourses.filter((course) => {
+                const courseEvents = events.filter(
+                  (e) => e.course_id === course.id,
+                );
+                const courseFeedback = feedback.filter((f) =>
+                  courseEvents.some((e) => e.id === f.event_id),
+                );
+                return courseFeedback.length > 0;
+              }).length === 0 && (
+                <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+                  No feedback data available yet
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+              No courses found
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

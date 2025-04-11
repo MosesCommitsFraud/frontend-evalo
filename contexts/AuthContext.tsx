@@ -99,7 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        // Return the error if sign-in fails
         console.error("Error signing in:", error);
         return { error };
       }
@@ -116,43 +115,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const user = session.user;
 
-      // 3) Check if the user already has a profile
+      // 3) Check if the user already has a profile - IMPROVED ERROR HANDLING
       const { data: existingProfile, error: selectError } = await supabase
         .from("profiles")
         .select("*, organization_id")
         .eq("id", user.id)
-        .maybeSingle();
+        .single(); // Changed from maybeSingle() to single() for stricter error handling
 
       if (selectError) {
         console.error("Error checking profile:", selectError);
-      }
 
-      // 4) If no profile exists, create it
-      if (!existingProfile) {
-        const { error: insertError } = await supabase.from("profiles").insert({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          department: "", // Include required fields
-        });
+        // Check if error is because profile doesn't exist
+        if (selectError.code === "PGRST116") {
+          // Create new profile as before
+          const { error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || "",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              department: "", // Include required fields
+            });
 
-        if (insertError) {
-          console.error("Error creating profile:", insertError);
+          if (insertError) {
+            console.error("Error creating profile:", insertError);
+          }
+
+          // No organization, redirect to organization page
+          window.location.href = "/auth/organization";
+          return { error: null };
+        } else {
+          // Some other error occurred with the query
+          return { error: selectError as unknown as AuthError };
         }
       }
 
-      // 5) Check if user belongs to an organization
+      // 5) Now we can safely check if user belongs to an organization
       if (!existingProfile?.organization_id) {
         // If no organization, redirect to organization page
         window.location.href = "/auth/organization";
         return { error: null };
       }
 
-      // 6) Redirect after sign-in (and profile check/creation) is complete
+      // 6) Redirect after sign-in to dashboard or requested page
       const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-      // Use direct browser navigation instead of router.push
       window.location.href = redirectTo;
 
       return { error: null };

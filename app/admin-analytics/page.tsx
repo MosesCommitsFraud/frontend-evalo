@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  Bar,
-  BarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -1914,292 +1912,433 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
 
-              {/* Department Comparison Graph with Filter */}
+              {/* Sleek Department Comparison for Admin Analytics */}
               <Card className="shadow-sm">
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {selectedDepartment === "all"
-                        ? "Department Comparison"
-                        : "Course Performance"}
-                    </CardTitle>
-                    <CardDescription>
-                      {selectedDepartment === "all"
-                        ? "Compare engagement metrics across departments"
-                        : `Courses in ${departments.find((d) => d.id === selectedDepartment)?.name || ""}`}
-                    </CardDescription>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">
+                    {selectedDepartment === "all"
+                      ? "Department Comparison"
+                      : "Course Performance"}
+                  </CardTitle>
+                  <CardDescription>
+                    {selectedDepartment === "all"
+                      ? "Compare engagement metrics across departments"
+                      : `Courses in ${departments.find((d) => d.id === selectedDepartment)?.name || ""}`}
+                  </CardDescription>
+                  <div className="mt-2">
+                    <Select
+                      value={selectedDepartment}
+                      onValueChange={setSelectedDepartment}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select
-                    value={selectedDepartment}
-                    onValueChange={setSelectedDepartment}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Departments</SelectItem>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[400px]">
-                    {selectedDepartment === "all" ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={departmentData.map((dept) => {
-                            // Calculate department metrics
-                            const deptCourses = courses.filter((c) =>
-                              dept.courseIds.includes(c.id),
-                            );
+                <CardContent className="p-0">
+                  {selectedDepartment === "all" ? (
+                    <div className="pt-2 pb-4">
+                      {departmentData.map((dept, idx) => {
+                        // Calculate department metrics
+                        const deptCourses = courses.filter((c) =>
+                          dept.courseIds.includes(c.id),
+                        );
 
-                            // Get feedback metrics
-                            let positive = 0,
-                              negative = 0,
-                              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                              neutral = 0,
-                              total = 0;
+                        // Get feedback metrics
+                        let positive = 0,
+                          negative = 0,
+                          neutral = 0,
+                          total = 0;
 
-                            deptCourses.forEach((course) => {
-                              const courseEvents = filteredEvents.filter(
-                                (e) => e.course_id === course.id,
-                              );
+                        deptCourses.forEach((course) => {
+                          const courseEvents = filteredEvents.filter(
+                            (e) => e.course_id === course.id,
+                          );
 
-                              courseEvents.forEach((event) => {
-                                positive += event.positive_feedback_count || 0;
-                                negative += event.negative_feedback_count || 0;
-                                neutral += event.neutral_feedback_count || 0;
-                                total += event.total_feedback_count || 0;
-                              });
-                            });
+                          courseEvents.forEach((event) => {
+                            positive += event.positive_feedback_count || 0;
+                            negative += event.negative_feedback_count || 0;
+                            neutral += event.neutral_feedback_count || 0;
+                            total += event.total_feedback_count || 0;
+                          });
+                        });
 
-                            // Calculate percentages
-                            const positiveSentiment =
-                              total > 0
-                                ? Math.round((positive / total) * 100)
-                                : 0;
-                            const negativeSentiment =
-                              total > 0
-                                ? Math.round((negative / total) * 100)
-                                : 0;
-                            const responseRate =
-                              dept.students > 0
-                                ? Math.round((total / dept.students) * 100)
-                                : 0;
+                        // Calculate percentages
+                        const positiveSentiment =
+                          total > 0 ? Math.round((positive / total) * 100) : 0;
+                        const negativeSentiment =
+                          total > 0 ? Math.round((negative / total) * 100) : 0;
+                        const neutralSentiment =
+                          total > 0 ? Math.round((neutral / total) * 100) : 0;
+                        const responseRate =
+                          dept.students > 0
+                            ? Math.round((total / dept.students) * 100)
+                            : 0;
 
-                            return {
-                              name: dept.name,
-                              positiveSentiment,
-                              negativeSentiment,
-                              responseRate,
-                              feedbackCount: total,
-                            };
-                          })}
-                          layout="vertical"
-                          margin={{ top: 20, right: 60, bottom: 20, left: 100 }}
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#f5f5f5"
-                            horizontal={false}
-                          />
-                          <XAxis
-                            type="number"
-                            domain={[0, 100]}
-                            tickFormatter={(value) => `${value}%`}
-                            label={{
-                              value: "Percentage (%)",
-                              position: "insideBottom",
-                              offset: -10,
-                            }}
-                          />
-                          <YAxis
-                            type="category"
-                            dataKey="name"
-                            width={120}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <Tooltip
-                            formatter={(value, name) => {
-                              if (name === "positiveSentiment")
-                                return [`${value}%`, "Positive Sentiment"];
-                              if (name === "negativeSentiment")
-                                return [`${value}%`, "Negative Sentiment"];
-                              if (name === "responseRate")
-                                return [`${value}%`, "Response Rate"];
-                              if (name === "feedbackCount")
-                                return [value, "Total Feedback"];
-                              return [value, name];
-                            }}
-                            contentStyle={{
-                              borderRadius: "8px",
-                              border: "none",
-                              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                              padding: "10px 14px",
-                              fontSize: "12px",
-                            }}
-                            itemStyle={{ padding: "2px 0" }}
-                            labelStyle={{
-                              fontWeight: "bold",
-                              marginBottom: "4px",
-                            }}
-                          />
-                          <Legend
-                            iconType="circle"
-                            verticalAlign="top"
-                            height={36}
-                            wrapperStyle={{ paddingTop: "10px" }}
-                          />
-                          <Bar
-                            dataKey="positiveSentiment"
-                            name="Positive Sentiment %"
-                            fill="#16a34a"
-                            radius={[0, 4, 4, 0]}
-                            barSize={20}
-                          />
-                          <Bar
-                            dataKey="negativeSentiment"
-                            name="Negative Sentiment %"
-                            fill="#dc2626"
-                            radius={[0, 4, 4, 0]}
-                            barSize={20}
-                          />
-                          <Bar
-                            dataKey="responseRate"
-                            name="Response Rate %"
-                            fill="#3b82f6"
-                            radius={[0, 4, 4, 0]}
-                            barSize={20}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={getFilteredDepartmentCourses(selectedDepartment)
-                            .sort((a, b) => b.feedbackCount - a.feedbackCount)
-                            .slice(0, 10)
-                            .map((course) => {
-                              // Calculate negative sentiment (since we already have positive in avgSentiment)
-                              const negativePercent =
-                                course.feedbackCount > 0
-                                  ? 100 -
-                                    course.avgSentiment -
-                                    Math.round(
-                                      ((course.feedbackCount -
-                                        (course.feedbackCount *
-                                          course.avgSentiment) /
-                                          100) /
-                                        course.feedbackCount) *
-                                        100,
-                                    )
-                                  : 0;
+                        // Calculate the class for alternating background rows
+                        const rowBgClass =
+                          idx % 2 === 0 ? "bg-muted/20" : "bg-transparent";
 
-                              return {
-                                name: `${course.code} - ${course.name.length > 20 ? course.name.substring(0, 20) + "..." : course.name}`,
-                                code: course.code,
-                                feedbackCount: course.feedbackCount,
-                                responseRate: course.responseRate,
-                                positiveSentiment: course.avgSentiment,
-                                negativeSentiment: negativePercent,
-                              };
-                            })}
-                          layout="vertical"
-                          margin={{ top: 20, right: 60, bottom: 20, left: 140 }}
-                        >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#f5f5f5"
-                            horizontal={false}
-                          />
-                          <XAxis
-                            type="number"
-                            label={{
-                              value: "Value",
-                              position: "insideBottom",
-                              offset: -10,
-                            }}
-                            tickFormatter={(value) => {
-                              // Only add % to values that are percentages
-                              const tickValue = parseInt(value.toString(), 10);
-                              if (tickValue > 100) return value; // Feedback counts
-                              return `${value}%`; // Percentages
-                            }}
-                          />
-                          <YAxis
-                            type="category"
-                            dataKey="name"
-                            width={140}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <Tooltip
-                            formatter={(value, name) => {
-                              if (name === "positiveSentiment")
-                                return [`${value}%`, "Positive Sentiment"];
-                              if (name === "negativeSentiment")
-                                return [`${value}%`, "Negative Sentiment"];
-                              if (name === "responseRate")
-                                return [`${value}%`, "Response Rate"];
-                              if (name === "feedbackCount")
-                                return [value, "Total Feedback"];
-                              return [value, name];
-                            }}
-                            contentStyle={{
-                              borderRadius: "8px",
-                              border: "none",
-                              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                              padding: "10px 14px",
-                              fontSize: "12px",
-                            }}
-                            itemStyle={{ padding: "2px 0" }}
-                            labelStyle={{
-                              fontWeight: "bold",
-                              marginBottom: "4px",
-                            }}
-                          />
-                          <Legend
-                            iconType="circle"
-                            verticalAlign="top"
-                            height={36}
-                            wrapperStyle={{ paddingTop: "10px" }}
-                          />
-                          <Bar
-                            dataKey="positiveSentiment"
-                            name="Positive Sentiment %"
-                            fill="#16a34a"
-                            radius={[0, 4, 4, 0]}
-                            barSize={16}
-                          />
-                          <Bar
-                            dataKey="negativeSentiment"
-                            name="Negative Sentiment %"
-                            fill="#dc2626"
-                            radius={[0, 4, 4, 0]}
-                            barSize={16}
-                          />
-                          <Bar
-                            dataKey="feedbackCount"
-                            name="Total Feedback"
-                            fill="#f59e0b"
-                            radius={[0, 4, 4, 0]}
-                            barSize={16}
-                          />
-                          <Bar
-                            dataKey="responseRate"
-                            name="Response Rate %"
-                            fill="#3b82f6"
-                            radius={[0, 4, 4, 0]}
-                            barSize={16}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </div>
+                        return (
+                          <div key={idx} className={`px-6 py-4 ${rowBgClass}`}>
+                            {/* Department header with metrics */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{dept.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  ({dept.courses} courses, {dept.teachers}{" "}
+                                  teachers, {dept.students} students)
+                                </span>
+                              </div>
+                              <div className="flex gap-4 items-center">
+                                <div
+                                  className="flex items-center"
+                                  title="Total Feedback"
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5 text-emerald-600 mr-1.5" />
+                                  <span className="text-sm">{total}</span>
+                                </div>
+                                <div
+                                  className="flex items-center"
+                                  title="Response Rate"
+                                >
+                                  <Users className="h-3.5 w-3.5 text-blue-600 mr-1.5" />
+                                  <span className="text-sm">
+                                    {responseRate}%
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Sentiment bars */}
+                            <div className="space-y-2.5">
+                              {/* Sentiment distribution */}
+                              <div className="relative h-6 w-full overflow-hidden rounded-md bg-muted">
+                                {positiveSentiment > 0 && (
+                                  <div
+                                    className="absolute left-0 top-0 h-full bg-emerald-500 flex items-center justify-center text-xs font-medium text-white"
+                                    style={{ width: `${positiveSentiment}%` }}
+                                  >
+                                    {positiveSentiment >= 10 &&
+                                      `${positiveSentiment}%`}
+                                  </div>
+                                )}
+                                {neutralSentiment > 0 && (
+                                  <div
+                                    className="absolute top-0 h-full bg-gray-400 flex items-center justify-center text-xs font-medium text-white"
+                                    style={{
+                                      left: `${positiveSentiment}%`,
+                                      width: `${neutralSentiment}%`,
+                                    }}
+                                  >
+                                    {neutralSentiment >= 10 &&
+                                      `${neutralSentiment}%`}
+                                  </div>
+                                )}
+                                {negativeSentiment > 0 && (
+                                  <div
+                                    className="absolute top-0 h-full bg-red-500 flex items-center justify-center text-xs font-medium text-white"
+                                    style={{
+                                      left: `${positiveSentiment + neutralSentiment}%`,
+                                      width: `${negativeSentiment}%`,
+                                    }}
+                                  >
+                                    {negativeSentiment >= 10 &&
+                                      `${negativeSentiment}%`}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Response rate visualization */}
+                              <div className="mt-3">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    Response Rate
+                                  </span>
+                                  <span className="text-xs font-medium">
+                                    {responseRate}%
+                                  </span>
+                                </div>
+                                <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+                                  <div
+                                    className="absolute left-0 top-0 h-full bg-blue-500"
+                                    style={{ width: `${responseRate}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+
+                              {/* Trend indicators and labels */}
+                              <div className="flex items-center justify-between text-xs px-0.5 mt-2">
+                                <div className="flex gap-3">
+                                  <div className="flex items-center">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 mr-1.5"></div>
+                                    <span>{positive} positive</span>
+                                  </div>
+
+                                  <div className="flex items-center">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-gray-400 mr-1.5"></div>
+                                    <span>{neutral} neutral</span>
+                                  </div>
+
+                                  <div className="flex items-center">
+                                    <div className="h-2.5 w-2.5 rounded-full bg-red-500 mr-1.5"></div>
+                                    <span>{negative} negative</span>
+                                  </div>
+                                </div>
+
+                                {/* Trend indicator */}
+                                {total > 0 && (
+                                  <div className="flex items-center">
+                                    {positiveSentiment >= 70 ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      >
+                                        Very Positive
+                                      </Badge>
+                                    ) : positiveSentiment >= 50 ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      >
+                                        Positive
+                                      </Badge>
+                                    ) : negativeSentiment >= 70 ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-red-50 text-red-700 border-red-200"
+                                      >
+                                        Very Negative
+                                      </Badge>
+                                    ) : negativeSentiment >= 50 ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-red-50 text-red-700 border-red-200"
+                                      >
+                                        Negative
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="bg-gray-50 text-gray-700 border-gray-200"
+                                      >
+                                        Mixed
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="pt-2 pb-4">
+                      {getFilteredDepartmentCourses(selectedDepartment)
+                        .sort((a, b) => b.feedbackCount - a.feedbackCount)
+                        .slice(0, 10)
+                        .map((course, idx) => {
+                          // Calculate negative sentiment (since we already have positive in avgSentiment)
+                          const negativePercent =
+                            course.feedbackCount > 0
+                              ? 100 -
+                                course.avgSentiment -
+                                Math.round(
+                                  ((course.feedbackCount -
+                                    (course.feedbackCount *
+                                      course.avgSentiment) /
+                                      100) /
+                                    course.feedbackCount) *
+                                    100,
+                                )
+                              : 0;
+
+                          // Neutral sentiment is what's left
+                          const neutralPercent =
+                            100 - course.avgSentiment - negativePercent;
+
+                          // Calculate the class for alternating background rows
+                          const rowBgClass =
+                            idx % 2 === 0 ? "bg-muted/20" : "bg-transparent";
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`px-6 py-4 ${rowBgClass}`}
+                            >
+                              {/* Course header with metrics */}
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex-1 flex flex-wrap items-center gap-2">
+                                  <span className="font-medium">
+                                    {course.code}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground max-w-[300px] truncate">
+                                    {course.name}
+                                  </span>
+                                </div>
+                                <div className="flex gap-4 items-center">
+                                  <div
+                                    className="flex items-center"
+                                    title="Total Feedback"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5 text-emerald-600 mr-1.5" />
+                                    <span className="text-sm">
+                                      {course.feedbackCount}
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="flex items-center"
+                                    title="Response Rate"
+                                  >
+                                    <Users className="h-3.5 w-3.5 text-blue-600 mr-1.5" />
+                                    <span className="text-sm">
+                                      {course.responseRate}%
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Sentiment bars */}
+                              <div className="space-y-2.5">
+                                {/* Sentiment distribution */}
+                                <div className="relative h-6 w-full overflow-hidden rounded-md bg-muted">
+                                  {course.avgSentiment > 0 && (
+                                    <div
+                                      className="absolute left-0 top-0 h-full bg-emerald-500 flex items-center justify-center text-xs font-medium text-white"
+                                      style={{
+                                        width: `${course.avgSentiment}%`,
+                                      }}
+                                    >
+                                      {course.avgSentiment >= 10 &&
+                                        `${course.avgSentiment}%`}
+                                    </div>
+                                  )}
+                                  {neutralPercent > 0 && (
+                                    <div
+                                      className="absolute top-0 h-full bg-gray-400 flex items-center justify-center text-xs font-medium text-white"
+                                      style={{
+                                        left: `${course.avgSentiment}%`,
+                                        width: `${neutralPercent}%`,
+                                      }}
+                                    >
+                                      {neutralPercent >= 10 &&
+                                        `${neutralPercent}%`}
+                                    </div>
+                                  )}
+                                  {negativePercent > 0 && (
+                                    <div
+                                      className="absolute top-0 h-full bg-red-500 flex items-center justify-center text-xs font-medium text-white"
+                                      style={{
+                                        left: `${course.avgSentiment + neutralPercent}%`,
+                                        width: `${negativePercent}%`,
+                                      }}
+                                    >
+                                      {negativePercent >= 10 &&
+                                        `${negativePercent}%`}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Response rate visualization */}
+                                <div className="mt-3">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="text-xs text-muted-foreground">
+                                      Response Rate
+                                    </span>
+                                    <span className="text-xs font-medium">
+                                      {course.responseRate}%
+                                    </span>
+                                  </div>
+                                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className="absolute left-0 top-0 h-full bg-blue-500"
+                                      style={{
+                                        width: `${course.responseRate}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+
+                                {/* Student count and event count */}
+                                <div className="flex items-center justify-between text-xs mt-2">
+                                  <div className="text-muted-foreground">
+                                    {course.students} students •{" "}
+                                    {course.eventCount} events
+                                  </div>
+
+                                  {/* Trend indicator */}
+                                  {course.feedbackCount > 0 && (
+                                    <div className="flex items-center">
+                                      {course.avgSentiment >= 70 ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        >
+                                          Very Positive
+                                        </Badge>
+                                      ) : course.avgSentiment >= 50 ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        >
+                                          Positive
+                                        </Badge>
+                                      ) : negativePercent >= 70 ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="bg-red-50 text-red-700 border-red-200"
+                                        >
+                                          Very Negative
+                                        </Badge>
+                                      ) : negativePercent >= 50 ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="bg-red-50 text-red-700 border-red-200"
+                                        >
+                                          Negative
+                                        </Badge>
+                                      ) : (
+                                        <Badge
+                                          variant="outline"
+                                          className="bg-gray-50 text-gray-700 border-gray-200"
+                                        >
+                                          Mixed
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </CardContent>
+                <CardFooter className="px-6 py-3 border-t bg-muted/10 justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    {selectedDepartment === "all"
+                      ? `Showing ${Math.min(departmentData.length, departmentData.length)} departments`
+                      : `Showing ${Math.min(getFilteredDepartmentCourses(selectedDepartment).length, 10)} courses from ${departments.find((d) => d.id === selectedDepartment)?.name || "department"}`}
+                  </div>
+                  {selectedDepartment !== "all" &&
+                    getFilteredDepartmentCourses(selectedDepartment).length >
+                      10 && (
+                      <Button variant="link" size="sm" className="text-xs">
+                        View All Courses
+                      </Button>
+                    )}
+                </CardFooter>
               </Card>
             </>
           )}

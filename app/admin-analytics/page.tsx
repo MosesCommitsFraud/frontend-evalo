@@ -193,7 +193,6 @@ export default function AdminAnalyticsPage() {
   const [showAllCourses, setShowAllCourses] = useState<boolean>(false);
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [courseFilter, setCourseFilter] = useState<string>("all");
-  const [eventFilter, setEventFilter] = useState<string>("all");
   const [sentimentFilter, setSentimentFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [courseSearchQuery, setCourseSearchQuery] = useState<string>("");
@@ -273,6 +272,7 @@ export default function AdminAnalyticsPage() {
         }
 
         console.log(`Fetched ${teachersData?.length || 0} teachers`);
+        console.log("Teacher data sample:", teachersData?.[0]);
         setTeachers(teachersData || []);
 
         // STEP 4: Fetch events (basic)
@@ -496,9 +496,7 @@ export default function AdminAnalyticsPage() {
   // This additional effect will force a re-render when filters change
   useEffect(() => {
     // Just trigger a re-render when these filters change
-    // This ensures the charts update without needing to directly
-    // update the filteredEvents state
-  }, [departmentFilter, courseFilter, eventFilter]);
+  }, [departmentFilter, courseFilter]);
 
   // Helper function to get department name by ID
   const getDepartmentName = (departmentId: string | undefined): string => {
@@ -511,11 +509,21 @@ export default function AdminAnalyticsPage() {
   const getTeacherName = (teacherId: string | undefined): string => {
     if (!teacherId) return "Unknown";
 
+    // Debug: Log teacher ID and teachers array
+    console.log("Looking for teacher ID:", teacherId);
+    console.log("Teachers array length:", teachers.length);
+
     // Find the teacher in the teachers array (loaded from profiles table)
     const teacher = teachers.find((t) => t.id === teacherId);
 
     // If we found the teacher, return their full name, otherwise return "Unknown"
-    return teacher ? teacher.full_name : "Unknown";
+    if (teacher) {
+      console.log("Found teacher:", teacher.full_name);
+      return teacher.full_name;
+    } else {
+      console.log("Teacher not found");
+      return "Unknown";
+    }
   };
 
   // Get events for a given course
@@ -532,17 +540,6 @@ export default function AdminAnalyticsPage() {
         course.department_id !== departmentFilter
       ) {
         return false;
-      }
-
-      // Event count filter
-      if (eventFilter !== "all") {
-        const courseEvents = getCourseEvents(course.id);
-        const eventCount = courseEvents.length;
-
-        if (eventFilter === "high" && eventCount < 5) return false;
-        if (eventFilter === "medium" && (eventCount < 2 || eventCount >= 5))
-          return false;
-        if (eventFilter === "low" && eventCount >= 2) return false;
       }
 
       return true;
@@ -602,8 +599,20 @@ export default function AdminAnalyticsPage() {
 
   // Format course analytics
   const formatCourseData = (): CourseAnalytics[] => {
+    console.log(
+      "Running formatCourseData with teachers:",
+      teachers.length,
+      "teachers",
+    );
+
     return getFilteredCourses().map((course) => {
       const courseEvents = getCourseEvents(course.id);
+      console.log(
+        "Processing course:",
+        course.name,
+        "with owner_id:",
+        course.owner_id,
+      );
 
       // Calculate totals from events
       const feedbackCount = courseEvents.reduce(
@@ -633,6 +642,7 @@ export default function AdminAnalyticsPage() {
 
       // Make sure we're using the correct teacher lookup
       const teacherName = getTeacherName(course.owner_id);
+      console.log("Teacher name result:", teacherName);
 
       return {
         id: course.id,
@@ -642,7 +652,7 @@ export default function AdminAnalyticsPage() {
         feedbackCount,
         responseRate,
         avgSentiment,
-        teacher: teacherName, // This should now correctly show the teacher name
+        teacher: teacherName,
         department: getDepartmentName(course.department_id),
         departmentId: course.department_id,
         eventCount: courseEvents.length,
@@ -1261,18 +1271,6 @@ export default function AdminAnalyticsPage() {
           {/* Charts Filter Controls */}
           <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border">
             <div className="font-medium text-sm">Filter by:</div>
-
-            <Select value={eventFilter} onValueChange={setEventFilter}>
-              <SelectTrigger className="w-[150px] h-8">
-                <SelectValue placeholder="Event Count" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Events</SelectItem>
-                <SelectItem value="high">High (5+)</SelectItem>
-                <SelectItem value="medium">Medium (2-4)</SelectItem>
-                <SelectItem value="low">Low (0-1)</SelectItem>
-              </SelectContent>
-            </Select>
 
             <Select value={courseFilter} onValueChange={setCourseFilter}>
               <SelectTrigger className="w-[150px] h-8">

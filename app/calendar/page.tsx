@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import CustomCreateEventDialog from "@/components/custom-create-event-dialog";
 
 // Type definitions
@@ -39,31 +40,26 @@ interface Course {
 
 interface CalendarEvent {
   id: string;
-  title?: string;
+  title: string;
   courseId: string;
-  courseName?: string;
-  courseCode?: string;
+  courseName: string;
+  courseCode: string;
   date: string;
   endTime: string;
-  type: string;
   status: string;
   entry_code: string;
 }
 
-function getEventBadgeColor(type: string) {
-  switch (type) {
-    case "lecture":
+function getEventBadgeColor(status: string) {
+  switch (status) {
+    case "open":
       return "bg-emerald-100 text-emerald-800 dark:bg-emerald-800 dark:text-emerald-100";
-    case "exam":
+    case "closed":
       return "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100";
-    case "deadline":
-      return "bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100";
-    case "office-hours":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100";
-    case "lab":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100";
-    default:
+    case "archived":
       return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100";
+    default:
+      return "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100";
   }
 }
 
@@ -84,6 +80,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const router = useRouter();
 
   const firstDayCurrentMonth = parse(currentMonth, "MMM-yyyy", new Date());
   const days = eachDayOfInterval({
@@ -143,19 +140,16 @@ export default function CalendarPage() {
         // Format events data
         const formattedEvents: CalendarEvent[] = (eventsData || []).map(
           (event) => {
-            // Determine event type based on status or other factors
-            const eventType = determineEventType(event);
-
+            // Use actual event data instead of determining it
             return {
               id: event.id,
-              title: `${event.courses?.code} ${determineEventTitle(event)}`,
+              title: event.event_name || `Feedback Session`,
               courseId: event.course_id,
               courseName: event.courses?.name || "Unknown Course",
               courseCode: event.courses?.code || "Unknown",
               date: event.event_date,
-              endTime: calculateEndTime(event.event_date), // Calculate end time if not stored
-              type: eventType,
-              status: event.status,
+              endTime: event.end_time || calculateEndTime(event.event_date),
+              status: event.status || "unknown",
               entry_code: event.entry_code || "",
             };
           },
@@ -172,31 +166,6 @@ export default function CalendarPage() {
 
     fetchData();
   }, [user]);
-
-  // Helper function to determine event type (this would ideally be a field in your database)
-  const determineEventType = (event: { event_date: string }): string => {
-    // This is just an example. In a real app, you would have a more sophisticated logic
-    // or store the type in the database
-    const date = new Date(event.event_date);
-    const hour = date.getHours();
-
-    // Simple logic based on time of day
-    if (hour < 10) return "lecture";
-    if (hour < 13) return "lab";
-    if (hour < 16) return "office-hours";
-    return "deadline";
-  };
-
-  // Helper function to determine event title
-  // Helper function to determine event title
-  const determineEventTitle = (event: { status?: string }): string => {
-    // This is just an example. In a real app, you would likely have an event_title field
-    const status = event.status;
-
-    if (status === "open") return "Feedback Session";
-    if (status === "closed") return "Closed Session";
-    return "Event";
-  };
 
   // Helper function to calculate end time (if not stored in database)
   const calculateEndTime = (startTime: string): string => {
@@ -216,6 +185,11 @@ export default function CalendarPage() {
     const firstDayNextMonth = add(firstDayCurrentMonth, { months: 1 });
     setCurrentMonth(format(firstDayNextMonth, "MMM-yyyy"));
   }
+
+  // Navigate to event details
+  const navigateToEvent = (event: CalendarEvent) => {
+    router.push(`/dashboard/courses/${event.courseId}/events/${event.id}`);
+  };
 
   // Event creation callback
   const handleEventCreated = (eventId: string) => {
@@ -240,18 +214,15 @@ export default function CalendarPage() {
         // Format events
         const formattedEvents: CalendarEvent[] = (eventsData || []).map(
           (event) => {
-            const eventType = determineEventType(event);
-
             return {
               id: event.id,
-              title: `${event.courses?.code} ${determineEventTitle(event)}`,
+              title: event.event_name || `Feedback Session`,
               courseId: event.course_id,
               courseName: event.courses?.name || "Unknown Course",
               courseCode: event.courses?.code || "Unknown",
               date: event.event_date,
-              endTime: calculateEndTime(event.event_date),
-              type: eventType,
-              status: event.status,
+              endTime: event.end_time || calculateEndTime(event.event_date),
+              status: event.status || "unknown",
               entry_code: event.entry_code || "",
             };
           },
@@ -469,7 +440,11 @@ export default function CalendarPage() {
             ) : (
               <div className="space-y-3">
                 {filteredEvents.map((event) => (
-                  <Card key={event.id}>
+                  <Card
+                    key={event.id}
+                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                    onClick={() => navigateToEvent(event)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -483,17 +458,16 @@ export default function CalendarPage() {
                               {getFormattedEventTime(event)}
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {event.status === "open" ? "Active" : "Closed"} •
                               Code: {event.entry_code}
                             </div>
                           </div>
                         </div>
                         <Badge
                           variant="outline"
-                          className={getEventBadgeColor(event.type)}
+                          className={getEventBadgeColor(event.status)}
                         >
-                          {event.type.charAt(0).toUpperCase() +
-                            event.type.slice(1)}
+                          {event.status.charAt(0).toUpperCase() +
+                            event.status.slice(1)}
                         </Badge>
                       </div>
                     </CardContent>

@@ -1831,7 +1831,7 @@ export default function CoursePage() {
     </div>
   );
 
-  // Feedback Tab Content
+  // Feedback Tab Content for the Course Page with proper event names
   const feedbackTabContent = (
     <Card>
       <CardHeader>
@@ -1862,7 +1862,8 @@ export default function CoursePage() {
                 <SelectItem value="all">All Events</SelectItem>
                 {events.map((event) => (
                   <SelectItem key={event.id} value={event.id}>
-                    {new Date(event.event_date).toLocaleDateString()}
+                    {event.event_name ||
+                      new Date(event.event_date).toLocaleDateString()}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1969,13 +1970,24 @@ export default function CoursePage() {
                           <Calendar className="h-4 w-4 mr-2 text-emerald-600" />
                           {event ? (
                             <>
-                              Event on{" "}
-                              {new Date(event.event_date).toLocaleDateString()}{" "}
-                              at{" "}
-                              {new Date(event.event_date).toLocaleTimeString(
-                                [],
-                                { hour: "2-digit", minute: "2-digit" },
+                              {/* Display event name if available, otherwise show date */}
+                              {event.event_name ? (
+                                <span>{event.event_name}</span>
+                              ) : (
+                                <span>
+                                  Event on{" "}
+                                  {new Date(
+                                    event.event_date,
+                                  ).toLocaleDateString()}
+                                </span>
                               )}
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                (
+                                {new Date(
+                                  event.event_date,
+                                ).toLocaleDateString()}
+                                )
+                              </span>
                             </>
                           ) : (
                             "Unknown Event"
@@ -2000,6 +2012,14 @@ export default function CoursePage() {
                             Status:{" "}
                             {event.status.charAt(0).toUpperCase() +
                               event.status.slice(1)}
+                          </span>
+                          <span className="mx-2">•</span>
+                          <span className="inline-flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {new Date(event.event_date).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
                         </div>
                       )}

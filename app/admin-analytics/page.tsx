@@ -1509,7 +1509,8 @@ export default function AdminAnalyticsPage() {
                           <div className="font-medium">{course.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {course.code}
-                            <span className="ml-2 text-xs text-gray-500">
+                            <span className="mx-2">•</span>
+                            <span className="text-xs text-gray-500">
                               {course.teacher}
                             </span>
                             <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">

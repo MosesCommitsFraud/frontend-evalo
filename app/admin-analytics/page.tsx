@@ -510,7 +510,11 @@ export default function AdminAnalyticsPage() {
   // Helper function to get teacher name by ID
   const getTeacherName = (teacherId: string | undefined): string => {
     if (!teacherId) return "Unknown";
+
+    // Find the teacher in the teachers array (loaded from profiles table)
     const teacher = teachers.find((t) => t.id === teacherId);
+
+    // If we found the teacher, return their full name, otherwise return "Unknown"
     return teacher ? teacher.full_name : "Unknown";
   };
 
@@ -627,6 +631,9 @@ export default function AdminAnalyticsPage() {
             )
           : 0;
 
+      // Make sure we're using the correct teacher lookup
+      const teacherName = getTeacherName(course.owner_id);
+
       return {
         id: course.id,
         name: course.name,
@@ -635,40 +642,12 @@ export default function AdminAnalyticsPage() {
         feedbackCount,
         responseRate,
         avgSentiment,
-        teacher: getTeacherName(course.owner_id),
+        teacher: teacherName, // This should now correctly show the teacher name
         department: getDepartmentName(course.department_id),
         departmentId: course.department_id,
         eventCount: courseEvents.length,
       };
     });
-  };
-
-  // Helper function to convert display labels back to sortable strings
-  const timeKey = (displayLabel: string): string => {
-    if (displayLabel.includes("W")) {
-      // For weekly format: "W1, Jan" -> "01-Jan"
-      const parts = displayLabel.split(", ");
-      if (parts.length !== 2) return displayLabel;
-
-      const week = parts[0];
-      const month = parts[1];
-      const weekNum = week.replace("W", "");
-      return `${weekNum.padStart(2, "0")}-${month}`;
-    }
-
-    if (displayLabel.includes("Q")) {
-      // For quarterly format: "Q1 2024" -> "2024-1"
-      const parts = displayLabel.split(" ");
-      if (parts.length !== 2) return displayLabel;
-
-      const quarter = parts[0];
-      const year = parts[1];
-      const quarterNum = quarter.replace("Q", "");
-      return `${year}-${quarterNum}`;
-    }
-
-    // For daily/monthly, just return as is
-    return displayLabel;
   };
 
   // Format data for course activity chart
@@ -747,7 +726,7 @@ export default function AdminAnalyticsPage() {
     const result = Object.entries(timeGroupedCounts)
       .map(([timeKey, counts]) => {
         let displayLabel: string;
-
+        const sortKey: string = timeKey; // For sorting purposes
         if (groupingType === "daily") {
           // Format daily display: "Jan 1" format
           const [year, month, day] = timeKey.split("-");
@@ -801,12 +780,18 @@ export default function AdminAnalyticsPage() {
           month: displayLabel, // Keep "month" as the key for compatibility
           responses: counts.responses,
           feedback: counts.feedback,
+          _sortKey: sortKey, // Add a hidden sort key
         };
       })
       .sort((a, b) => {
-        // Custom sort based on the time key
-        return timeKey(a.month).localeCompare(timeKey(b.month));
-      });
+        // Sort directly by the original timeKey (chronological order)
+        return a._sortKey.localeCompare(b._sortKey);
+      })
+      .map(({ month, responses, feedback }) => ({
+        month,
+        responses,
+        feedback, // Remove the _sortKey from the final result
+      }));
 
     return result;
   };
@@ -908,7 +893,7 @@ export default function AdminAnalyticsPage() {
     const result = Object.entries(timeGroupedSentiment)
       .map(([timeKey, counts]) => {
         let displayLabel: string;
-
+        const sortKey: string = timeKey; // For sorting purposes
         if (groupingType === "daily") {
           // Format daily display: "Jan 1" format
           const [year, month, day] = timeKey.split("-");
@@ -961,12 +946,19 @@ export default function AdminAnalyticsPage() {
         return {
           name: displayLabel, // Use "name" as the key for the LineChart
           ...counts,
+          _sortKey: sortKey, // Add a hidden sort key
         };
       })
       .sort((a, b) => {
-        // Custom sort based on the time key
-        return timeKey(a.name).localeCompare(timeKey(b.name));
-      });
+        // Sort directly by the original timeKey (chronological order)
+        return a._sortKey.localeCompare(b._sortKey);
+      })
+      .map(({ name, positive, negative, neutral }) => ({
+        name,
+        positive,
+        negative,
+        neutral, // Remove the _sortKey from the final result
+      }));
 
     return result;
   };

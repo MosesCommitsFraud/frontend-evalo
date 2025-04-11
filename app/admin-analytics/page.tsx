@@ -1957,7 +1957,6 @@ export default function AdminAnalyticsPage() {
 
                             // Get feedback metrics
                             let positive = 0,
-                              // eslint-disable-next-line @typescript-eslint/no-unused-vars
                               negative = 0,
                               // eslint-disable-next-line @typescript-eslint/no-unused-vars
                               neutral = 0,
@@ -1977,9 +1976,13 @@ export default function AdminAnalyticsPage() {
                             });
 
                             // Calculate percentages
-                            const sentimentScore =
+                            const positiveSentiment =
                               total > 0
                                 ? Math.round((positive / total) * 100)
+                                : 0;
+                            const negativeSentiment =
+                              total > 0
+                                ? Math.round((negative / total) * 100)
                                 : 0;
                             const responseRate =
                               dept.students > 0
@@ -1988,7 +1991,8 @@ export default function AdminAnalyticsPage() {
 
                             return {
                               name: dept.name,
-                              sentimentScore,
+                              positiveSentiment,
+                              negativeSentiment,
                               responseRate,
                               feedbackCount: total,
                             };
@@ -2019,8 +2023,10 @@ export default function AdminAnalyticsPage() {
                           />
                           <Tooltip
                             formatter={(value, name) => {
-                              if (name === "sentimentScore")
+                              if (name === "positiveSentiment")
                                 return [`${value}%`, "Positive Sentiment"];
+                              if (name === "negativeSentiment")
+                                return [`${value}%`, "Negative Sentiment"];
                               if (name === "responseRate")
                                 return [`${value}%`, "Response Rate"];
                               if (name === "feedbackCount")
@@ -2047,9 +2053,16 @@ export default function AdminAnalyticsPage() {
                             wrapperStyle={{ paddingTop: "10px" }}
                           />
                           <Bar
-                            dataKey="sentimentScore"
+                            dataKey="positiveSentiment"
                             name="Positive Sentiment %"
                             fill="#16a34a"
+                            radius={[0, 4, 4, 0]}
+                            barSize={20}
+                          />
+                          <Bar
+                            dataKey="negativeSentiment"
+                            name="Negative Sentiment %"
+                            fill="#dc2626"
                             radius={[0, 4, 4, 0]}
                             barSize={20}
                           />
@@ -2068,13 +2081,31 @@ export default function AdminAnalyticsPage() {
                           data={getFilteredDepartmentCourses(selectedDepartment)
                             .sort((a, b) => b.feedbackCount - a.feedbackCount)
                             .slice(0, 10)
-                            .map((course) => ({
-                              name: `${course.code} - ${course.name.length > 20 ? course.name.substring(0, 20) + "..." : course.name}`,
-                              code: course.code,
-                              feedbackCount: course.feedbackCount,
-                              responseRate: course.responseRate,
-                              avgSentiment: course.avgSentiment,
-                            }))}
+                            .map((course) => {
+                              // Calculate negative sentiment (since we already have positive in avgSentiment)
+                              const negativePercent =
+                                course.feedbackCount > 0
+                                  ? 100 -
+                                    course.avgSentiment -
+                                    Math.round(
+                                      ((course.feedbackCount -
+                                        (course.feedbackCount *
+                                          course.avgSentiment) /
+                                          100) /
+                                        course.feedbackCount) *
+                                        100,
+                                    )
+                                  : 0;
+
+                              return {
+                                name: `${course.code} - ${course.name.length > 20 ? course.name.substring(0, 20) + "..." : course.name}`,
+                                code: course.code,
+                                feedbackCount: course.feedbackCount,
+                                responseRate: course.responseRate,
+                                positiveSentiment: course.avgSentiment,
+                                negativeSentiment: negativePercent,
+                              };
+                            })}
                           layout="vertical"
                           margin={{ top: 20, right: 60, bottom: 20, left: 140 }}
                         >
@@ -2085,16 +2116,16 @@ export default function AdminAnalyticsPage() {
                           />
                           <XAxis
                             type="number"
+                            label={{
+                              value: "Value",
+                              position: "insideBottom",
+                              offset: -10,
+                            }}
                             tickFormatter={(value) => {
                               // Only add % to values that are percentages
                               const tickValue = parseInt(value.toString(), 10);
                               if (tickValue > 100) return value; // Feedback counts
                               return `${value}%`; // Percentages
-                            }}
-                            label={{
-                              value: "Value",
-                              position: "insideBottom",
-                              offset: -10,
                             }}
                           />
                           <YAxis
@@ -2105,8 +2136,10 @@ export default function AdminAnalyticsPage() {
                           />
                           <Tooltip
                             formatter={(value, name) => {
-                              if (name === "avgSentiment")
+                              if (name === "positiveSentiment")
                                 return [`${value}%`, "Positive Sentiment"];
+                              if (name === "negativeSentiment")
+                                return [`${value}%`, "Negative Sentiment"];
                               if (name === "responseRate")
                                 return [`${value}%`, "Response Rate"];
                               if (name === "feedbackCount")
@@ -2133,9 +2166,16 @@ export default function AdminAnalyticsPage() {
                             wrapperStyle={{ paddingTop: "10px" }}
                           />
                           <Bar
-                            dataKey="avgSentiment"
+                            dataKey="positiveSentiment"
                             name="Positive Sentiment %"
                             fill="#16a34a"
+                            radius={[0, 4, 4, 0]}
+                            barSize={16}
+                          />
+                          <Bar
+                            dataKey="negativeSentiment"
+                            name="Negative Sentiment %"
+                            fill="#dc2626"
                             radius={[0, 4, 4, 0]}
                             barSize={16}
                           />

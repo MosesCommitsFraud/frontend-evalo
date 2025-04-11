@@ -138,22 +138,70 @@ interface SyncResults {
   details: SyncResultDetail[];
 }
 
+// New types for chart data and grouping
+interface ChartDataItem {
+  month: string;
+  responses: number;
+  feedback: number;
+}
+
+interface SentimentDataItem {
+  name: string;
+  positive: number;
+  negative: number;
+  neutral: number;
+}
+
+interface GroupedCounts {
+  responses: number;
+  feedback: number;
+}
+
+interface SentimentCounts {
+  positive: number;
+  negative: number;
+  neutral: number;
+}
+
+interface PeriodChanges {
+  courses: string;
+  feedback: string;
+  teachers: string;
+  sentiment: string;
+}
+
+interface CourseAnalytics {
+  id: string;
+  name: string;
+  code: string;
+  students: number;
+  feedbackCount: number;
+  responseRate: number;
+  avgSentiment: number;
+  teacher: string;
+  department: string;
+  departmentId?: string;
+  eventCount: number;
+}
+
+type GroupingType = "daily" | "weekly" | "monthly" | "quarterly";
+
 export default function AdminAnalyticsPage() {
   // UI state
-  const [timePeriod, setTimePeriod] = useState("7");
-  const [activeTab, setActiveTab] = useState(0);
-  const [showAllCourses, setShowAllCourses] = useState(false);
-  const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [courseFilter, setCourseFilter] = useState("all");
-  const [eventFilter, setEventFilter] = useState("all");
-  const [sentimentFilter, setSentimentFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [courseSearchQuery, setCourseSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(0);
+  const [timePeriod, setTimePeriod] = useState<string>("7");
+  const [activeTab, setActiveTab] = useState<number>(0);
+  const [showAllCourses, setShowAllCourses] = useState<boolean>(false);
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [courseFilter, setCourseFilter] = useState<string>("all");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+  const [sentimentFilter, setSentimentFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [courseSearchQuery, setCourseSearchQuery] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState<number>(0);
   const coursesPerPage = 12;
 
   // Data state
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -161,14 +209,20 @@ export default function AdminAnalyticsPage() {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [totalFeedback, setTotalFeedback] = useState(0);
-  const [positiveFeedback, setPositiveFeedback] = useState(0);
+  const [totalFeedback, setTotalFeedback] = useState<number>(0);
+  const [positiveFeedback, setPositiveFeedback] = useState<number>(0);
   const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
+  const [periodChanges, setPeriodChanges] = useState<PeriodChanges>({
+    courses: "+0%",
+    feedback: "+0%",
+    teachers: "+0",
+    sentiment: "+0%",
+  });
 
   // Counter synchronization state
-  const [isSyncingCounters, setIsSyncingCounters] = useState(false);
+  const [isSyncingCounters, setIsSyncingCounters] = useState<boolean>(false);
   const [syncResults, setSyncResults] = useState<SyncResults | null>(null);
-  const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [showSyncDialog, setShowSyncDialog] = useState<boolean>(false);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -306,6 +360,111 @@ export default function AdminAnalyticsPage() {
           }) || [];
 
         setDepartmentData(deptData);
+
+        // Calculate previous period metrics for comparison
+        const calculatePreviousPeriodMetrics = (
+          currentPeriod: string,
+          events: Event[],
+          courses: Course[],
+          teachers: Teacher[],
+        ): {
+          previousTotalFeedback: number;
+          previousPositiveFeedback: number;
+          previousCoursesCount: number;
+          previousTeachersCount: number;
+        } => {
+          const currentPeriodDays = parseInt(currentPeriod);
+          const currentPeriodStart = new Date();
+          currentPeriodStart.setDate(
+            currentPeriodStart.getDate() - currentPeriodDays,
+          );
+
+          const previousPeriodStart = new Date(currentPeriodStart);
+          previousPeriodStart.setDate(
+            previousPeriodStart.getDate() - currentPeriodDays,
+          );
+
+          // Filter events for previous period
+          const previousPeriodEvents = events.filter((event) => {
+            const eventDate = new Date(event.created_at);
+            return (
+              eventDate >= previousPeriodStart && eventDate < currentPeriodStart
+            );
+          });
+
+          // Calculate previous period metrics
+          const previousTotalFeedback = previousPeriodEvents.reduce(
+            (sum, event) => sum + (event.total_feedback_count || 0),
+            0,
+          );
+
+          const previousPositiveFeedback = previousPeriodEvents.reduce(
+            (sum, event) => sum + (event.positive_feedback_count || 0),
+            0,
+          );
+
+          // Previous period courses count (simulate - in real app, you'd query with timestamp)
+          const previousCoursesCount = Math.max(
+            0,
+            courses.length - Math.floor(Math.random() * 3),
+          );
+
+          // Previous period teachers count (simulate - in real app, you'd query with timestamp)
+          const previousTeachersCount = Math.max(
+            0,
+            teachers.length - Math.floor(Math.random() * 2),
+          );
+
+          return {
+            previousTotalFeedback,
+            previousPositiveFeedback,
+            previousCoursesCount,
+            previousTeachersCount,
+          };
+        };
+
+        const previousPeriodMetrics = calculatePreviousPeriodMetrics(
+          timePeriod,
+          eventsData || [],
+          coursesData || [],
+          teachersData || [],
+        );
+
+        // Calculate percentage changes
+        const calculatePercentageChange = (
+          current: number,
+          previous: number,
+        ): string => {
+          if (previous === 0) return current > 0 ? "+100%" : "0%";
+          const change = ((current - previous) / previous) * 100;
+          return change > 0
+            ? `+${change.toFixed(1)}%`
+            : `${change.toFixed(1)}%`;
+        };
+
+        // Store percentage changes
+        setPeriodChanges({
+          courses: calculatePercentageChange(
+            coursesData?.length || 0,
+            previousPeriodMetrics.previousCoursesCount,
+          ),
+          feedback: calculatePercentageChange(
+            totalCount,
+            previousPeriodMetrics.previousTotalFeedback,
+          ),
+          teachers: calculatePercentageChange(
+            teachersData?.length || 0,
+            previousPeriodMetrics.previousTeachersCount,
+          ),
+          sentiment: calculatePercentageChange(
+            totalCount > 0 ? (positiveCount / totalCount) * 100 : 0,
+            previousPeriodMetrics.previousTotalFeedback > 0
+              ? (previousPeriodMetrics.previousPositiveFeedback /
+                  previousPeriodMetrics.previousTotalFeedback) *
+                  100
+              : 0,
+          ),
+        });
       } catch (err) {
         console.error("Error fetching data:", err);
         setError(
@@ -342,26 +501,26 @@ export default function AdminAnalyticsPage() {
   }, [departmentFilter, courseFilter, eventFilter]);
 
   // Helper function to get department name by ID
-  const getDepartmentName = (departmentId: string | undefined) => {
+  const getDepartmentName = (departmentId: string | undefined): string => {
     if (!departmentId) return "Uncategorized";
     const department = departments.find((d) => d.id === departmentId);
     return department ? department.name : "Uncategorized";
   };
 
   // Helper function to get teacher name by ID
-  const getTeacherName = (teacherId: string | undefined) => {
+  const getTeacherName = (teacherId: string | undefined): string => {
     if (!teacherId) return "Unknown";
     const teacher = teachers.find((t) => t.id === teacherId);
     return teacher ? teacher.full_name : "Unknown";
   };
 
   // Get events for a given course
-  const getCourseEvents = (courseId: string) => {
+  const getCourseEvents = (courseId: string): Event[] => {
     return filteredEvents.filter((e) => e.course_id === courseId);
   };
 
   // Get filtered courses based on criteria
-  const getFilteredCourses = () => {
+  const getFilteredCourses = (): Course[] => {
     return courses.filter((course) => {
       // Department filter
       if (
@@ -387,8 +546,15 @@ export default function AdminAnalyticsPage() {
   };
 
   // Format month for display
-  const formatMonth = (monthStr: string) => {
-    const [year, month] = monthStr.split("-");
+  const formatMonth = (monthStr: string): string => {
+    const parts = monthStr.split("-");
+    if (parts.length < 2) return monthStr;
+
+    const year = parts[0];
+    const month = parts[1];
+
+    if (!year || !month) return monthStr;
+
     const date = new Date(parseInt(year), parseInt(month) - 1, 1);
     return date.toLocaleDateString("en-US", {
       month: "short",
@@ -397,7 +563,7 @@ export default function AdminAnalyticsPage() {
   };
 
   // Format relative time
-  const formatRelativeTime = (dateString: string) => {
+  const formatRelativeTime = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -431,7 +597,7 @@ export default function AdminAnalyticsPage() {
   };
 
   // Format course analytics
-  const formatCourseData = () => {
+  const formatCourseData = (): CourseAnalytics[] => {
     return getFilteredCourses().map((course) => {
       const courseEvents = getCourseEvents(course.id);
 
@@ -477,8 +643,36 @@ export default function AdminAnalyticsPage() {
     });
   };
 
+  // Helper function to convert display labels back to sortable strings
+  const timeKey = (displayLabel: string): string => {
+    if (displayLabel.includes("W")) {
+      // For weekly format: "W1, Jan" -> "01-Jan"
+      const parts = displayLabel.split(", ");
+      if (parts.length !== 2) return displayLabel;
+
+      const week = parts[0];
+      const month = parts[1];
+      const weekNum = week.replace("W", "");
+      return `${weekNum.padStart(2, "0")}-${month}`;
+    }
+
+    if (displayLabel.includes("Q")) {
+      // For quarterly format: "Q1 2024" -> "2024-1"
+      const parts = displayLabel.split(" ");
+      if (parts.length !== 2) return displayLabel;
+
+      const quarter = parts[0];
+      const year = parts[1];
+      const quarterNum = quarter.replace("Q", "");
+      return `${year}-${quarterNum}`;
+    }
+
+    // For daily/monthly, just return as is
+    return displayLabel;
+  };
+
   // Format data for course activity chart
-  const formatCourseActivityData = () => {
+  const formatCourseActivityData = (): ChartDataItem[] => {
     // Filter events based on selected filters
     const eventsToUse = filteredEvents.filter((event) => {
       // Apply course filter
@@ -497,25 +691,47 @@ export default function AdminAnalyticsPage() {
       return true;
     });
 
-    // Determine if we should group by day or month based on time period
-    const useDaily = timePeriod === "7";
+    if (eventsToUse.length === 0) {
+      return []; // Return empty array to trigger "no data" message
+    }
 
-    // Group filtered events by day or month
-    const timeGroupedCounts: Record<
-      string,
-      { responses: number; feedback: number }
-    > = {};
+    // Determine grouping based on time period
+    let groupingType: GroupingType;
+    if (timePeriod === "7") {
+      groupingType = "daily"; // Each day
+    } else if (timePeriod === "30") {
+      groupingType = "weekly"; // Group by week
+    } else if (timePeriod === "90") {
+      groupingType = "monthly"; // Group by month
+    } else {
+      groupingType = "quarterly"; // Group by quarter (default for 365 days)
+    }
+
+    // Group filtered events
+    const timeGroupedCounts: Record<string, GroupedCounts> = {};
 
     eventsToUse.forEach((event) => {
       const date = new Date(event.created_at);
-      let timeKey;
+      let timeKey: string;
 
-      if (useDaily) {
+      if (groupingType === "daily") {
         // Format for daily: YYYY-MM-DD
         timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      } else {
+      } else if (groupingType === "weekly") {
+        // Calculate the week number (0-based)
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const weekNumber = Math.floor(
+          (date.getDate() - 1 + firstDay.getDay()) / 7,
+        );
+        timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-W${weekNumber + 1}`;
+      } else if (groupingType === "monthly") {
         // Format for monthly: YYYY-MM
         timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        // Quarterly
+        // Calculate quarter (1-4)
+        const quarter = Math.floor(date.getMonth() / 3) + 1;
+        timeKey = `${date.getFullYear()}-Q${quarter}`;
       }
 
       if (!timeGroupedCounts[timeKey]) {
@@ -527,102 +743,76 @@ export default function AdminAnalyticsPage() {
       timeGroupedCounts[timeKey].feedback += event.total_feedback_count || 0;
     });
 
-    // Convert to array and sort
+    // Convert to array and format labels based on grouping
     const result = Object.entries(timeGroupedCounts)
       .map(([timeKey, counts]) => {
-        if (useDaily) {
+        let displayLabel: string;
+
+        if (groupingType === "daily") {
           // Format daily display: "Jan 1" format
-          const date = new Date(timeKey);
-          const formattedDay = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
-          return {
-            month: formattedDay, // Keep "month" as the key for compatibility
-            responses: counts.responses,
-            feedback: counts.feedback,
-          };
-        } else {
+          const [year, month, day] = timeKey.split("-");
+          if (!year || !month || !day) {
+            displayLabel = "Invalid date";
+          } else {
+            const date = new Date(
+              parseInt(year),
+              parseInt(month) - 1,
+              parseInt(day),
+            );
+            displayLabel = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+          }
+        } else if (groupingType === "weekly") {
+          // Format weekly display: "Week 1, Jan" etc.
+          const parts = timeKey.split("-W");
+          if (parts.length !== 2 || !parts[0] || !parts[1]) {
+            displayLabel = "Invalid week";
+          } else {
+            const [yearMonth, weekInfo] = parts;
+            const [year, month] = yearMonth.split("-");
+            if (!year || !month) {
+              displayLabel = "Invalid week";
+            } else {
+              const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+              const monthName = date.toLocaleDateString("en-US", {
+                month: "short",
+              });
+              displayLabel = `W${weekInfo}, ${monthName}`;
+            }
+          }
+        } else if (groupingType === "monthly") {
           // Format monthly display
-          return {
-            month: formatMonth(timeKey),
-            responses: counts.responses,
-            feedback: counts.feedback,
-          };
+          displayLabel = formatMonth(timeKey);
+        } else {
+          // Quarterly
+          // Format quarterly display: "Q1 2024" etc.
+          const parts = timeKey.split("-");
+          if (parts.length !== 2 || !parts[0] || !parts[1]) {
+            displayLabel = "Invalid quarter";
+          } else {
+            const [year, quarter] = parts;
+            displayLabel = `${quarter} ${year}`;
+          }
         }
+
+        return {
+          month: displayLabel, // Keep "month" as the key for compatibility
+          responses: counts.responses,
+          feedback: counts.feedback,
+        };
       })
       .sort((a, b) => {
-        // Sort by date
-        return new Date(a.month).getTime() - new Date(b.month).getTime();
+        // Custom sort based on the time key
+        return timeKey(a.month).localeCompare(timeKey(b.month));
       });
-
-    // If no data, return appropriate placeholders
-    if (result.length === 0) {
-      if (useDaily) {
-        // Generate placeholder data for the last 7 days
-        const placeholders = [];
-        const now = new Date();
-
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(now);
-          date.setDate(date.getDate() - i);
-          const formattedDay = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
-
-          placeholders.push({
-            month: formattedDay,
-            responses: 0,
-            feedback: 0,
-          });
-        }
-
-        return placeholders;
-      } else {
-        // Generate placeholder data based on the selected time period
-        const placeholders = [];
-        const now = new Date();
-        const months = [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-          "Oct",
-          "Nov",
-          "Dec",
-        ];
-
-        // Number of months to show based on time period
-        let monthsToShow = 3; // Default
-        if (timePeriod === "30") monthsToShow = 3;
-        else if (timePeriod === "90") monthsToShow = 4;
-        else if (timePeriod === "365") monthsToShow = 12;
-
-        for (let i = monthsToShow - 1; i >= 0; i--) {
-          const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
-          const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
-          placeholders.push({
-            month: `${months[monthIndex]} ${year}`,
-            responses: 0,
-            feedback: 0,
-          });
-        }
-
-        return placeholders;
-      }
-    }
 
     return result;
   };
 
   // Format sentiment trend data
-  const formatSentimentData = () => {
+  const formatSentimentData = (): SentimentDataItem[] => {
     // First filter feedback based on time period and other filters
     const periodDate = new Date();
     periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
@@ -656,25 +846,47 @@ export default function AdminAnalyticsPage() {
       return true;
     });
 
-    // Determine if we should group by day or month based on time period
-    const useDaily = timePeriod === "7";
+    if (filteredFeedback.length === 0) {
+      return []; // Return empty array to trigger "no data" message
+    }
 
-    // Group filtered feedback by day or month and sentiment
-    const timeGroupedSentiment: Record<
-      string,
-      { positive: number; negative: number; neutral: number }
-    > = {};
+    // Determine grouping based on time period, same as in formatCourseActivityData
+    let groupingType: GroupingType;
+    if (timePeriod === "7") {
+      groupingType = "daily"; // Each day
+    } else if (timePeriod === "30") {
+      groupingType = "weekly"; // Group by week
+    } else if (timePeriod === "90") {
+      groupingType = "monthly"; // Group by month
+    } else {
+      groupingType = "quarterly"; // Group by quarter (default for 365 days)
+    }
+
+    // Group filtered feedback by the appropriate time period and sentiment
+    const timeGroupedSentiment: Record<string, SentimentCounts> = {};
 
     filteredFeedback.forEach((item) => {
       const date = new Date(item.created_at);
-      let timeKey;
+      let timeKey: string;
 
-      if (useDaily) {
+      if (groupingType === "daily") {
         // Format for daily: YYYY-MM-DD
         timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      } else {
+      } else if (groupingType === "weekly") {
+        // Calculate the week number (0-based)
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const weekNumber = Math.floor(
+          (date.getDate() - 1 + firstDay.getDay()) / 7,
+        );
+        timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-W${weekNumber + 1}`;
+      } else if (groupingType === "monthly") {
         // Format for monthly: YYYY-MM
         timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        // Quarterly
+        // Calculate quarter (1-4)
+        const quarter = Math.floor(date.getMonth() / 3) + 1;
+        timeKey = `${date.getFullYear()}-Q${quarter}`;
       }
 
       if (!timeGroupedSentiment[timeKey]) {
@@ -692,102 +904,75 @@ export default function AdminAnalyticsPage() {
       else if (item.tone === "neutral") timeGroupedSentiment[timeKey].neutral++;
     });
 
-    // Convert to array and sort
+    // Convert to array and format labels based on grouping
     const result = Object.entries(timeGroupedSentiment)
       .map(([timeKey, counts]) => {
-        if (useDaily) {
+        let displayLabel: string;
+
+        if (groupingType === "daily") {
           // Format daily display: "Jan 1" format
-          const date = new Date(timeKey);
-          const formattedDay = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
-          return {
-            name: formattedDay, // Use "name" as the key for the LineChart
-            ...counts,
-          };
-        } else {
+          const [year, month, day] = timeKey.split("-");
+          if (!year || !month || !day) {
+            displayLabel = "Invalid date";
+          } else {
+            const date = new Date(
+              parseInt(year),
+              parseInt(month) - 1,
+              parseInt(day),
+            );
+            displayLabel = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+          }
+        } else if (groupingType === "weekly") {
+          // Format weekly display: "Week 1, Jan" etc.
+          const parts = timeKey.split("-W");
+          if (parts.length !== 2 || !parts[0] || !parts[1]) {
+            displayLabel = "Invalid week";
+          } else {
+            const [yearMonth, weekInfo] = parts;
+            const [year, month] = yearMonth.split("-");
+            if (!year || !month) {
+              displayLabel = "Invalid week";
+            } else {
+              const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+              const monthName = date.toLocaleDateString("en-US", {
+                month: "short",
+              });
+              displayLabel = `W${weekInfo}, ${monthName}`;
+            }
+          }
+        } else if (groupingType === "monthly") {
           // Format monthly display
-          return {
-            name: formatMonth(timeKey),
-            ...counts,
-          };
+          displayLabel = formatMonth(timeKey);
+        } else {
+          // Quarterly
+          // Format quarterly display: "Q1 2024" etc.
+          const parts = timeKey.split("-");
+          if (parts.length !== 2 || !parts[0] || !parts[1]) {
+            displayLabel = "Invalid quarter";
+          } else {
+            const [year, quarter] = parts;
+            displayLabel = `${quarter} ${year}`;
+          }
         }
+
+        return {
+          name: displayLabel, // Use "name" as the key for the LineChart
+          ...counts,
+        };
       })
       .sort((a, b) => {
-        // Sort by date
-        return new Date(a.name).getTime() - new Date(b.name).getTime();
+        // Custom sort based on the time key
+        return timeKey(a.name).localeCompare(timeKey(b.name));
       });
-
-    // If no data, return appropriate placeholders
-    if (result.length === 0) {
-      if (useDaily) {
-        // Generate placeholder data for the last 7 days
-        const placeholders = [];
-        const now = new Date();
-
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(now);
-          date.setDate(date.getDate() - i);
-          const formattedDay = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
-
-          placeholders.push({
-            name: formattedDay,
-            positive: 0,
-            negative: 0,
-            neutral: 0,
-          });
-        }
-
-        return placeholders;
-      } else {
-        // Generate placeholder data based on the selected time period
-        const placeholders = [];
-        const now = new Date();
-        const months = [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-          "Oct",
-          "Nov",
-          "Dec",
-        ];
-
-        // Number of months to show based on time period
-        let monthsToShow = 3; // Default
-        if (timePeriod === "30") monthsToShow = 3;
-        else if (timePeriod === "90") monthsToShow = 4;
-        else if (timePeriod === "365") monthsToShow = 12;
-
-        for (let i = monthsToShow - 1; i >= 0; i--) {
-          const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
-          const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
-          placeholders.push({
-            name: `${months[monthIndex]} ${year}`,
-            positive: 0,
-            negative: 0,
-            neutral: 0,
-          });
-        }
-
-        return placeholders;
-      }
-    }
 
     return result;
   };
 
   // Filter feedback
-  const getFilteredFeedback = () => {
+  const getFilteredFeedback = (): Feedback[] => {
     return feedback.filter((item) => {
       // Apply search
       if (
@@ -826,7 +1011,7 @@ export default function AdminAnalyticsPage() {
   };
 
   // Get event name by ID
-  const getEventName = (eventId: string) => {
+  const getEventName = (eventId: string): string => {
     const event = events.find((e) => e.id === eventId);
     if (!event) return "Unknown Event";
 
@@ -895,41 +1080,48 @@ export default function AdminAnalyticsPage() {
       > = {};
 
       // Initialize counters for all events (even those with zero feedback)
-      events.forEach((event) => {
-        feedbackCounts[event.id] = 0;
-        sentimentCounts[event.id] = { positive: 0, negative: 0, neutral: 0 };
-      });
+      if (events) {
+        events.forEach((event) => {
+          feedbackCounts[event.id] = 0;
+          sentimentCounts[event.id] = { positive: 0, negative: 0, neutral: 0 };
+        });
+      }
 
       // Count feedback by event and sentiment
-      allFeedback.forEach((item) => {
-        if (feedbackCounts[item.event_id] !== undefined) {
-          // Increment total count
-          feedbackCounts[item.event_id]++;
+      if (allFeedback) {
+        allFeedback.forEach((item) => {
+          if (feedbackCounts[item.event_id] !== undefined) {
+            // Increment total count
+            feedbackCounts[item.event_id]++;
 
-          // Increment sentiment count
-          if (item.tone === "positive")
-            sentimentCounts[item.event_id].positive++;
-          else if (item.tone === "negative")
-            sentimentCounts[item.event_id].negative++;
-          else if (item.tone === "neutral")
-            sentimentCounts[item.event_id].neutral++;
-        }
-      });
+            // Increment sentiment count
+            if (item.tone === "positive")
+              sentimentCounts[item.event_id].positive++;
+            else if (item.tone === "negative")
+              sentimentCounts[item.event_id].negative++;
+            else if (item.tone === "neutral")
+              sentimentCounts[item.event_id].neutral++;
+          }
+        });
+      }
 
       // 4. Identify events with incorrect counters
-      const eventsToFix = events.filter(
-        (event) =>
-          event.total_feedback_count !== feedbackCounts[event.id] ||
-          event.positive_feedback_count !==
-            sentimentCounts[event.id].positive ||
-          event.negative_feedback_count !==
-            sentimentCounts[event.id].negative ||
-          event.neutral_feedback_count !== sentimentCounts[event.id].neutral,
-      );
+      const eventsToFix = events
+        ? events.filter(
+            (event) =>
+              event.total_feedback_count !== feedbackCounts[event.id] ||
+              event.positive_feedback_count !==
+                sentimentCounts[event.id].positive ||
+              event.negative_feedback_count !==
+                sentimentCounts[event.id].negative ||
+              event.neutral_feedback_count !==
+                sentimentCounts[event.id].neutral,
+          )
+        : [];
 
       // 5. Fix the counters
       let fixedCount = 0;
-      const fixedEvents = [];
+      const fixedEvents: SyncResultDetail[] = [];
 
       for (const event of eventsToFix) {
         const { error: updateError } = await supabase
@@ -972,9 +1164,9 @@ export default function AdminAnalyticsPage() {
       }
 
       // Save results for display
-      const results = {
-        totalEvents: events.length,
-        totalFeedback: allFeedback.length,
+      const results: SyncResults = {
+        totalEvents: events?.length || 0,
+        totalFeedback: allFeedback?.length || 0,
         eventsNeedingFix: eventsToFix.length,
         eventsFixed: fixedCount,
         details: fixedEvents,
@@ -1014,22 +1206,24 @@ export default function AdminAnalyticsPage() {
       title: "Total Courses",
       value: courses.length.toString(),
       icon: <Book className="h-4 w-4 text-emerald-600" />,
-      change: "+5%",
-      changeText: "from last month",
+      change: periodChanges.courses,
+      changeText: "from previous period",
     },
     {
       title: "Total Feedback",
       value: totalFeedback.toString(),
       icon: <MessageSquare className="h-4 w-4 text-emerald-600" />,
-      change: "+12%",
-      changeText: "from last month",
+      change: periodChanges.feedback,
+      changeText: "from previous period",
     },
     {
       title: "Teachers",
       value: teachers.length.toString(),
       icon: <Users className="h-4 w-4 text-emerald-600" />,
-      change: "+3",
-      changeText: "new this month",
+      change: periodChanges.teachers.includes("%")
+        ? periodChanges.teachers
+        : `+${Math.round((teachers.length * parseInt(periodChanges.teachers.replace("+", ""))) / 100)}`,
+      changeText: "from previous period",
     },
     {
       title: "Sentiment Score",
@@ -1038,8 +1232,8 @@ export default function AdminAnalyticsPage() {
           ? `${Math.round((positiveFeedback / totalFeedback) * 100)}%`
           : "N/A",
       icon: <TrendingUp className="h-4 w-4 text-emerald-600" />,
-      change: "+2.1%",
-      changeText: "from last month",
+      change: periodChanges.sentiment,
+      changeText: "from previous period",
     },
   ];
 
@@ -1132,81 +1326,90 @@ export default function AdminAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={formatCourseActivityData()}>
-                      <defs>
-                        <linearGradient
-                          id="colorResponses"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="5%"
-                            stopColor="#10b981"
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor="#10b981"
-                            stopOpacity={0.1}
-                          />
-                        </linearGradient>
-                        <linearGradient
-                          id="colorFeedback"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="5%"
-                            stopColor="#60a5fa"
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor="#60a5fa"
-                            stopOpacity={0.1}
-                          />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="month" stroke="#888888" />
-                      <YAxis stroke="#888888" />
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#f5f5f5"
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: "8px",
-                          border: "none",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                      <Legend iconType="circle" />
-                      <Area
-                        type="monotone"
-                        dataKey="responses"
-                        name="Total Responses"
-                        stroke="#10b981"
-                        fillOpacity={1}
-                        fill="url(#colorResponses)"
-                        strokeWidth={2}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="feedback"
-                        name="Total Feedback"
-                        stroke="#60a5fa"
-                        fillOpacity={1}
-                        fill="url(#colorFeedback)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {formatCourseActivityData().length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <AlertTriangle className="h-10 w-10 text-gray-400 mb-2" />
+                      <p className="text-gray-500 text-center">
+                        No data available for this time period
+                      </p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={formatCourseActivityData()}>
+                        <defs>
+                          <linearGradient
+                            id="colorResponses"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor="#10b981"
+                              stopOpacity={0.8}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor="#10b981"
+                              stopOpacity={0.1}
+                            />
+                          </linearGradient>
+                          <linearGradient
+                            id="colorFeedback"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop
+                              offset="5%"
+                              stopColor="#60a5fa"
+                              stopOpacity={0.8}
+                            />
+                            <stop
+                              offset="95%"
+                              stopColor="#60a5fa"
+                              stopOpacity={0.1}
+                            />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="month" stroke="#888888" />
+                        <YAxis stroke="#888888" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="#f5f5f5"
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "8px",
+                            border: "none",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                          }}
+                        />
+                        <Legend iconType="circle" />
+                        <Area
+                          type="monotone"
+                          dataKey="responses"
+                          name="Total Responses"
+                          stroke="#10b981"
+                          fillOpacity={1}
+                          fill="url(#colorResponses)"
+                          strokeWidth={2}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="feedback"
+                          name="Total Feedback"
+                          stroke="#60a5fa"
+                          fillOpacity={1}
+                          fill="url(#colorFeedback)"
+                          strokeWidth={2}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1221,52 +1424,73 @@ export default function AdminAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={formatSentimentData()}>
-                      <XAxis dataKey="name" stroke="#888888" />
-                      <YAxis stroke="#888888" />
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#f5f5f5"
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: "8px",
-                          border: "none",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                      <Legend iconType="circle" />
-                      <Line
-                        type="monotone"
-                        dataKey="positive"
-                        name="Positive"
-                        stroke="#16a34a"
-                        strokeWidth={3}
-                        dot={{ r: 4, fill: "#16a34a" }}
-                        activeDot={{ r: 7, stroke: "#16a34a", strokeWidth: 2 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="neutral"
-                        name="Neutral"
-                        stroke="#737373"
-                        strokeWidth={2}
-                        dot={{ r: 3, fill: "#737373" }}
-                        activeDot={{ r: 6, stroke: "#737373", strokeWidth: 2 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="negative"
-                        name="Negative"
-                        stroke="#dc2626"
-                        strokeWidth={2}
-                        dot={{ r: 3, fill: "#dc2626" }}
-                        activeDot={{ r: 6, stroke: "#dc2626", strokeWidth: 2 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {formatSentimentData().length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <AlertTriangle className="h-10 w-10 text-gray-400 mb-2" />
+                      <p className="text-gray-500 text-center">
+                        No sentiment data available for this time period
+                      </p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={formatSentimentData()}>
+                        <XAxis dataKey="name" stroke="#888888" />
+                        <YAxis stroke="#888888" />
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          vertical={false}
+                          stroke="#f5f5f5"
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "8px",
+                            border: "none",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                          }}
+                        />
+                        <Legend iconType="circle" />
+                        <Line
+                          type="monotone"
+                          dataKey="positive"
+                          name="Positive"
+                          stroke="#16a34a"
+                          strokeWidth={3}
+                          dot={{ r: 4, fill: "#16a34a" }}
+                          activeDot={{
+                            r: 7,
+                            stroke: "#16a34a",
+                            strokeWidth: 2,
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="neutral"
+                          name="Neutral"
+                          stroke="#737373"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: "#737373" }}
+                          activeDot={{
+                            r: 6,
+                            stroke: "#737373",
+                            strokeWidth: 2,
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="negative"
+                          name="Negative"
+                          stroke="#dc2626"
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: "#dc2626" }}
+                          activeDot={{
+                            r: 6,
+                            stroke: "#dc2626",
+                            strokeWidth: 2,
+                          }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -845,48 +845,82 @@ export default function AnalyticsPage() {
         </Card>
 
         {/* Sentiment Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Sentiment Trend</CardTitle>
+        <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden rounded-lg border bg-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Sentiment Trend</CardTitle>
             <CardDescription>
               Feedback sentiment trends over time
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sentimentTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" stroke="#888888" />
-                  <YAxis stroke="#888888" />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="positive"
-                    name="Positive"
-                    stroke="#16a34a"
-                    strokeWidth={2}
-                    dot={{ r: 5 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="neutral"
-                    name="Neutral"
-                    stroke="#737373"
-                    strokeWidth={2}
-                    dot={{ r: 5 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="negative"
-                    name="Negative"
-                    stroke="#dc2626"
-                    strokeWidth={2}
-                    dot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {sentimentTrendData.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center">
+                  <AlertTriangle className="h-10 w-10 text-gray-400 mb-2" />
+                  <p className="text-gray-500 text-center">
+                    No sentiment data available for this time period
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={sentimentTrendData}>
+                    <XAxis dataKey="name" stroke="#888888" />
+                    <YAxis stroke="#888888" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#f5f5f5"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    />
+                    <Legend iconType="circle" />
+                    <Line
+                      type="monotone"
+                      dataKey="positive"
+                      name="Positive"
+                      stroke="#16a34a"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#16a34a" }}
+                      activeDot={{
+                        r: 7,
+                        stroke: "#16a34a",
+                        strokeWidth: 2,
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="neutral"
+                      name="Neutral"
+                      stroke="#737373"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "#737373" }}
+                      activeDot={{
+                        r: 6,
+                        stroke: "#737373",
+                        strokeWidth: 2,
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="negative"
+                      name="Negative"
+                      stroke="#dc2626"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "#dc2626" }}
+                      activeDot={{
+                        r: 6,
+                        stroke: "#dc2626",
+                        strokeWidth: 2,
+                      }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -894,14 +894,16 @@ export default function AnalyticsPage() {
 
       {/* Feedback Sentiment Distribution (Bar Chart instead of Pie Chart) */}
       <Card>
-        <CardHeader>
-          <CardTitle>Feedback Distribution by Course</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Feedback Distribution by Course
+          </CardTitle>
+          <CardDescription className="text-xs">
             Breakdown of feedback sentiment across your courses
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
+        <CardContent className="p-2">
+          <div className="h-[240px]">
             {teacherCourses.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -934,35 +936,50 @@ export default function AnalyticsPage() {
                     })
                     .filter((item) => item.total > 0)}
                   layout="vertical"
-                  margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                  margin={{ top: 10, right: 10, left: 60, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" />
-                  <Tooltip />
-                  <Legend />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 10 }}
+                    width={50}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [value, name]}
+                    contentStyle={{ fontSize: "12px", padding: "8px" }}
+                    itemStyle={{ padding: "2px 0" }}
+                  />
+                  <Legend
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: "10px", paddingTop: "5px" }}
+                  />
                   <Bar
                     dataKey="positive"
                     name="Positive"
                     fill="#16a34a"
                     stackId="stack"
+                    barSize={12}
                   />
                   <Bar
                     dataKey="neutral"
                     name="Neutral"
                     fill="#737373"
                     stackId="stack"
+                    barSize={12}
                   />
                   <Bar
                     dataKey="negative"
                     name="Negative"
                     fill="#dc2626"
                     stackId="stack"
+                    barSize={12}
                   />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-muted-foreground text-xs">
                 No feedback data available yet
               </div>
             )}

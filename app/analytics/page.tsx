@@ -19,6 +19,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -158,6 +159,10 @@ export default function AnalyticsPage() {
     positive: number;
     negative: number;
     neutral: number;
+    positiveFeedback: number;
+    negativeFeedback: number;
+    neutralFeedback: number;
+    totalFeedback: number;
   }
 
   const [courseComparisonData, setCourseComparisonData] = useState<
@@ -1126,43 +1131,188 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Engagement Trends by Course */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Engagement Trends by Course</CardTitle>
+      {/* Sleek Engagement Trends by Course */}
+      <Card className="overflow-hidden border">
+        <CardHeader className="pb-0">
+          <CardTitle className="text-lg font-semibold">
+            Engagement Trends by Course
+          </CardTitle>
           <CardDescription>
-            Tracking student participation and feedback rates
+            Sentiment and response metrics across your courses
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            {courseComparisonData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={courseComparisonData}
-                  layout="vertical"
-                  margin={{ top: 20, right: 30, left: 50, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" domain={[0, 100]} />
-                  <YAxis type="category" dataKey="name" />
-                  <Tooltip formatter={(value, name) => [`${value}%`, name]} />
-                  <Legend />
-                  <Bar
-                    dataKey="positive"
-                    name="Positive Sentiment"
-                    fill="#16a34a"
-                    barSize={20}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                No engagement data available yet
-              </div>
-            )}
-          </div>
+        <CardContent className="p-0">
+          {courseComparisonData.length > 0 ? (
+            <div className="pt-2 pb-4">
+              {courseComparisonData.map((course, idx) => {
+                // Calculate the class for alternating background rows
+                const rowBgClass =
+                  idx % 2 === 0 ? "bg-muted/20" : "bg-transparent";
+
+                // Percentage of feedback compared to highest course
+                const maxFeedback = Math.max(
+                  ...courseComparisonData.map((c) => c.totalFeedback || 0),
+                );
+                const feedbackPercentage =
+                  maxFeedback > 0
+                    ? Math.round(
+                        ((course.totalFeedback || 0) / maxFeedback) * 100,
+                      )
+                    : 0;
+
+                return (
+                  <div key={idx} className={`px-6 py-4 ${rowBgClass}`}>
+                    {/* Course header with metrics */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{course.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({course.totalFeedback || 0} responses)
+                        </span>
+                      </div>
+                      <div className="flex gap-4 items-center">
+                        <div
+                          className="flex items-center"
+                          title="Total Feedback"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-emerald-600 mr-1.5" />
+                          <span className="text-sm">
+                            {course.totalFeedback || 0}
+                          </span>
+                        </div>
+                        <div
+                          className="flex items-center"
+                          title="Response Rate"
+                        >
+                          <Users className="h-3.5 w-3.5 text-blue-600 mr-1.5" />
+                          <span className="text-sm">
+                            {course.totalFeedback
+                              ? `${feedbackPercentage}%`
+                              : "0%"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sentiment bars */}
+                    <div className="space-y-2.5">
+                      {/* Sentiment distribution */}
+                      <div className="relative h-6 w-full overflow-hidden rounded-md bg-muted">
+                        {course.positive > 0 && (
+                          <div
+                            className="absolute left-0 top-0 h-full bg-emerald-500 flex items-center justify-center text-xs font-medium text-white"
+                            style={{ width: `${course.positive}%` }}
+                          >
+                            {course.positive >= 10 && `${course.positive}%`}
+                          </div>
+                        )}
+                        {course.neutral > 0 && (
+                          <div
+                            className="absolute top-0 h-full bg-gray-400 flex items-center justify-center text-xs font-medium text-white"
+                            style={{
+                              left: `${course.positive}%`,
+                              width: `${course.neutral}%`,
+                            }}
+                          >
+                            {course.neutral >= 10 && `${course.neutral}%`}
+                          </div>
+                        )}
+                        {course.negative > 0 && (
+                          <div
+                            className="absolute top-0 h-full bg-red-500 flex items-center justify-center text-xs font-medium text-white"
+                            style={{
+                              left: `${course.positive + course.neutral}%`,
+                              width: `${course.negative}%`,
+                            }}
+                          >
+                            {course.negative >= 10 && `${course.negative}%`}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Trend indicators and labels */}
+                      <div className="flex items-center justify-between text-xs px-0.5">
+                        <div className="flex gap-3">
+                          <div className="flex items-center">
+                            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 mr-1.5"></div>
+                            <span>{course.positiveFeedback || 0} positive</span>
+                          </div>
+
+                          <div className="flex items-center">
+                            <div className="h-2.5 w-2.5 rounded-full bg-gray-400 mr-1.5"></div>
+                            <span>{course.neutralFeedback || 0} neutral</span>
+                          </div>
+
+                          <div className="flex items-center">
+                            <div className="h-2.5 w-2.5 rounded-full bg-red-500 mr-1.5"></div>
+                            <span>{course.negativeFeedback || 0} negative</span>
+                          </div>
+                        </div>
+
+                        {/* Trend indicator */}
+                        {course.totalFeedback > 0 && (
+                          <div className="flex items-center">
+                            {course.positive >= 70 ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                              >
+                                Very Positive
+                              </Badge>
+                            ) : course.positive >= 50 ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-emerald-50 text-emerald-700 border-emerald-200"
+                              >
+                                Positive
+                              </Badge>
+                            ) : course.negative >= 70 ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-red-50 text-red-700 border-red-200"
+                              >
+                                Very Negative
+                              </Badge>
+                            ) : course.negative >= 50 ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-red-50 text-red-700 border-red-200"
+                              >
+                                Negative
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-gray-50 text-gray-700 border-gray-200"
+                              >
+                                Mixed
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+              No engagement data available yet
+            </div>
+          )}
         </CardContent>
+        {courseComparisonData.length > 5 && (
+          <CardFooter className="px-6 py-3 border-t bg-muted/10">
+            <div className="text-xs text-muted-foreground">
+              Showing {Math.min(courseComparisonData.length, 5)} of{" "}
+              {courseComparisonData.length} courses
+            </div>
+            <Button variant="link" size="sm" className="ml-auto text-xs">
+              View All Courses
+            </Button>
+          </CardFooter>
+        )}
       </Card>
 
       {/* Upcoming Events */}

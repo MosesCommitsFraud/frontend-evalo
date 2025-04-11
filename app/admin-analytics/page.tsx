@@ -72,7 +72,7 @@ interface Course {
   name: string;
   code: string;
   student_count?: number;
-  owner_id: string;
+  teacher: string;
   department_id?: string;
 }
 
@@ -192,7 +192,7 @@ type GroupingType = "daily" | "weekly" | "monthly" | "quarterly";
 
 export default function AdminAnalyticsPage() {
   // UI state
-  const [timePeriod, setTimePeriod] = useState<string>("7");
+  const [timePeriod, setTimePeriod] = useState<string>("30");
   const [activeTab, setActiveTab] = useState<number>(0);
   const [showAllCourses, setShowAllCourses] = useState<boolean>(false);
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
@@ -243,7 +243,7 @@ export default function AdminAnalyticsPage() {
         console.log("Fetching courses...");
         const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
-          .select("id, name, code, student_count, owner_id, department_id");
+          .select("id, name, code, student_count, teacher, department_id");
 
         if (coursesError) {
           console.error("Error fetching courses:", coursesError);
@@ -270,8 +270,7 @@ export default function AdminAnalyticsPage() {
         console.log("Fetching teachers...");
         const { data: teachersData, error: teachersError } = await supabase
           .from("profiles")
-          .select("id, full_name")
-          .eq("role", "teacher");
+          .select("id, full_name");
 
         if (teachersError) {
           console.error("Error fetching teachers:", teachersError);
@@ -304,7 +303,7 @@ export default function AdminAnalyticsPage() {
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select(
-            "id, course_id, event_date, created_at, positive_feedback_count, negative_feedback_count, neutral_feedback_count, total_feedback_count",
+            "id, course_id, event_date, created_at, positive_feedback_count, negative_feedback_count, neutral_feedback_count, total_feedback_count, entry_code, status",
           );
 
         if (eventsError) {
@@ -370,7 +369,7 @@ export default function AdminAnalyticsPage() {
 
             // Find teachers teaching courses in this department
             const teacherIds = [
-              ...new Set(coursesInDept.map((c) => c.owner_id)),
+              ...new Set(coursesInDept.map((c) => c.teacher)),
             ];
 
             return {
@@ -654,7 +653,7 @@ export default function AdminAnalyticsPage() {
           : 0;
 
       // Get teacher name from lookup map
-      const teacherName = getTeacherName(course.owner_id);
+      const teacherName = getTeacherName(course.teacher);
 
       return {
         id: course.id,
@@ -1510,6 +1509,9 @@ export default function AdminAnalyticsPage() {
                           <div className="font-medium">{course.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {course.code}
+                            <span className="ml-2 text-xs text-gray-500">
+                              {course.teacher}
+                            </span>
                             <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
                               {course.department}
                             </span>

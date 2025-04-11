@@ -52,6 +52,8 @@ import {
   RefreshCw,
   CheckCircle2,
   ChevronDown,
+  Calendar,
+  Filter,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/toast";
@@ -88,6 +90,8 @@ interface Event {
   negative_feedback_count: number;
   neutral_feedback_count: number;
   total_feedback_count: number;
+  entry_code?: string;
+  status?: "open" | "closed" | "archived";
 }
 
 interface Feedback {
@@ -1020,16 +1024,6 @@ export default function AdminAnalyticsPage() {
     });
   };
 
-  // Get event name by ID
-  const getEventName = (eventId: string): string => {
-    const event = events.find((e) => e.id === eventId);
-    if (!event) return "Unknown Event";
-
-    const course = courses.find((c) => c.id === event.course_id);
-    const date = new Date(event.event_date);
-    return `${course?.code || "Unknown"}: Event on ${date.toLocaleDateString()}`;
-  };
-
   // Loading State Component
   const LoadingState = () => (
     <div className="flex flex-col items-center justify-center py-12">
@@ -1515,7 +1509,7 @@ export default function AdminAnalyticsPage() {
                         <div>
                           <div className="font-medium">{course.name}</div>
                           <div className="text-sm text-muted-foreground">
-                            {course.code} • {course.teacher}
+                            {course.code}
                             <span className="ml-2 text-xs px-2 py-0.5 bg-gray-100 rounded-full">
                               {course.department}
                             </span>
@@ -1986,117 +1980,220 @@ export default function AdminAnalyticsPage() {
   );
 
   // Content for Feedback tab
+  // Content for Feedback tab
   const feedbackTabContent = (
-    <div className="space-y-6">
-      {isLoading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} />
-      ) : (
-        <>
-          {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-muted/30 rounded-lg border">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search feedback..."
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Course" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Courses</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.id}>
-                      {course.code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={departmentFilter}
-                onValueChange={setDepartmentFilter}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={sentimentFilter}
-                onValueChange={setSentimentFilter}
-              >
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Sentiment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="positive">Positive</SelectItem>
-                  <SelectItem value="neutral">Neutral</SelectItem>
-                  <SelectItem value="negative">Negative</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Student Feedback</CardTitle>
+        <CardDescription>
+          View and analyze feedback from all events in this course
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Filter Bar */}
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search feedback..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
-          {/* Feedback List */}
-          <div className="space-y-4">
-            {getFilteredFeedback()
-              .slice(0, 5)
-              .map((item) => (
-                <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            item.tone === "positive"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : item.tone === "negative"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                          }
-                        >
-                          <span className="flex items-center gap-1">
-                            {getSentimentIcon(item.tone)}
-                            {item.tone.charAt(0).toUpperCase() +
-                              item.tone.slice(1)}
-                          </span>
+          <div className="flex gap-2">
+            <Select value={courseFilter} onValueChange={setCourseFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by course" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Courses</SelectItem>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sentimentFilter} onValueChange={setSentimentFilter}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Sentiment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="positive">Positive</SelectItem>
+                <SelectItem value="neutral">Neutral</SelectItem>
+                <SelectItem value="negative">Negative</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" size="icon">
+              <Filter className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Feedback List - Grouped by Events */}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+            <span className="ml-2">Loading feedback...</span>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-12">
+            <AlertTriangle className="h-8 w-8 text-amber-500 mr-2" />
+            <span>{error}</span>
+          </div>
+        ) : getFilteredFeedback().length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            {feedback.length === 0 ? (
+              <>
+                <h3 className="text-lg font-medium mb-2">No feedback yet</h3>
+                <p className="text-muted-foreground max-w-md">
+                  Feedback from students will appear here once they submit it
+                  using your course feedback codes.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-medium mb-2">
+                  No matching feedback
+                </h3>
+                <p className="text-muted-foreground">
+                  Try adjusting your search filters to find what you&#39;re
+                  looking for.
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSentimentFilter("all");
+                    setCourseFilter("all");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {(() => {
+              // Group feedback by events
+              const eventGroups: Record<string, Feedback[]> = {};
+
+              // First, group all feedback by event_id
+              getFilteredFeedback().forEach((item) => {
+                if (!eventGroups[item.event_id]) {
+                  eventGroups[item.event_id] = [];
+                }
+                eventGroups[item.event_id].push(item);
+              });
+
+              // Create an array of event IDs sorted by date (most recent first)
+              const sortedEventIds = Object.keys(eventGroups).sort((a, b) => {
+                const eventA = events.find((e) => e.id === a);
+                const eventB = events.find((e) => e.id === b);
+                if (!eventA || !eventB) return 0;
+                return (
+                  new Date(eventB.created_at).getTime() -
+                  new Date(eventA.created_at).getTime()
+                );
+              });
+
+              // Render each event group
+              return sortedEventIds.map((eventId) => {
+                const event = events.find((e) => e.id === eventId);
+                const eventFeedback = eventGroups[eventId];
+
+                return (
+                  <div key={eventId} className="space-y-3">
+                    <div className="border-b pb-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium flex items-center">
+                          <Calendar className="h-4 w-4 mr-2 text-emerald-600" />
+                          {event ? (
+                            <>
+                              Event on{" "}
+                              {new Date(
+                                event.event_date,
+                              ).toLocaleDateString()}{" "}
+                            </>
+                          ) : (
+                            "Unknown Event"
+                          )}
+                        </h3>
+                        <Badge variant="outline">
+                          {eventFeedback.length}{" "}
+                          {eventFeedback.length === 1
+                            ? "response"
+                            : "responses"}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>{formatRelativeTime(item.created_at)}</span>
-                      </div>
+                      {event && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          <span className="inline-flex items-center">
+                            <MessageSquare className="h-3 w-3 mr-1" />
+                            Code: {event.entry_code || "N/A"}
+                          </span>
+                          <span className="mx-2">•</span>
+                          <span className="inline-flex items-center">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Status:{" "}
+                            {event.status
+                              ? event.status.charAt(0).toUpperCase() +
+                                event.status.slice(1)
+                              : "Unknown"}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <p className="mb-3">{item.content}</p>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" />
-                      <span>{getEventName(item.event_id)}</span>
+
+                    <div className="space-y-3 pl-4 border-l-2 border-emerald-100 dark:border-emerald-900/30">
+                      {eventFeedback.map((item) => (
+                        <Card key={item.id} className="overflow-hidden">
+                          <CardContent className="p-4">
+                            <div className="mb-2 flex items-center justify-between">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  item.tone === "positive"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                    : item.tone === "negative"
+                                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                                      : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                }
+                              >
+                                <span className="flex items-center gap-1">
+                                  {getSentimentIcon(item.tone)}
+                                  {item.tone.charAt(0).toUpperCase() +
+                                    item.tone.slice(1)}
+                                </span>
+                              </Badge>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3" />
+                                <span>
+                                  {formatRelativeTime(item.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="mb-0">{item.content}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+                );
+              });
+            })()}
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 
   // Create tabs data for CustomTabs component

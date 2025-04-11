@@ -497,78 +497,125 @@ export default function AdminAnalyticsPage() {
       return true;
     });
 
-    // Group filtered events by month
-    const monthlyCounts: Record<
+    // Determine if we should group by day or month based on time period
+    const useDaily = timePeriod === "7";
+
+    // Group filtered events by day or month
+    const timeGroupedCounts: Record<
       string,
       { responses: number; feedback: number }
     > = {};
 
     eventsToUse.forEach((event) => {
       const date = new Date(event.created_at);
-      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      let timeKey;
 
-      if (!monthlyCounts[monthYear]) {
-        monthlyCounts[monthYear] = { responses: 0, feedback: 0 };
+      if (useDaily) {
+        // Format for daily: YYYY-MM-DD
+        timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      } else {
+        // Format for monthly: YYYY-MM
+        timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      if (!timeGroupedCounts[timeKey]) {
+        timeGroupedCounts[timeKey] = { responses: 0, feedback: 0 };
       }
 
       // Add event counts
-      monthlyCounts[monthYear].responses += 1;
-      monthlyCounts[monthYear].feedback += event.total_feedback_count || 0;
+      timeGroupedCounts[timeKey].responses += 1;
+      timeGroupedCounts[timeKey].feedback += event.total_feedback_count || 0;
     });
 
-    // Convert to array and sort by month
-    const result = Object.entries(monthlyCounts)
-      .map(([monthYear, counts]) => ({
-        month: formatMonth(monthYear),
-        responses: counts.responses,
-        feedback: counts.feedback,
-      }))
+    // Convert to array and sort
+    const result = Object.entries(timeGroupedCounts)
+      .map(([timeKey, counts]) => {
+        if (useDaily) {
+          // Format daily display: "Jan 1" format
+          const date = new Date(timeKey);
+          const formattedDay = date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          return {
+            month: formattedDay, // Keep "month" as the key for compatibility
+            responses: counts.responses,
+            feedback: counts.feedback,
+          };
+        } else {
+          // Format monthly display
+          return {
+            month: formatMonth(timeKey),
+            responses: counts.responses,
+            feedback: counts.feedback,
+          };
+        }
+      })
       .sort((a, b) => {
-        const [aYear, aMonth] = a.month.split(" ");
-        const [bYear, bMonth] = b.month.split(" ");
-        return (
-          new Date(`${aMonth} ${aYear}`).getTime() -
-          new Date(`${bMonth} ${bYear}`).getTime()
-        );
+        // Sort by date
+        return new Date(a.month).getTime() - new Date(b.month).getTime();
       });
 
-    // If no data, return a placeholder that looks like the selected time period
+    // If no data, return appropriate placeholders
     if (result.length === 0) {
-      // Generate placeholder data based on the selected time period
-      const placeholders = [];
-      const now = new Date();
-      const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
+      if (useDaily) {
+        // Generate placeholder data for the last 7 days
+        const placeholders = [];
+        const now = new Date();
 
-      // Number of months to show based on time period
-      let monthsToShow = 3; // Default
-      if (timePeriod === "7" || timePeriod === "30") monthsToShow = 3;
-      else if (timePeriod === "90") monthsToShow = 4;
-      else if (timePeriod === "365") monthsToShow = 12;
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          const formattedDay = date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
 
-      for (let i = 0; i < monthsToShow; i++) {
-        const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
-        const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
-        placeholders.unshift({
-          month: `${months[monthIndex]} ${year}`,
-          responses: 0,
-          feedback: 0,
-        });
+          placeholders.push({
+            month: formattedDay,
+            responses: 0,
+            feedback: 0,
+          });
+        }
+
+        return placeholders;
+      } else {
+        // Generate placeholder data based on the selected time period
+        const placeholders = [];
+        const now = new Date();
+        const months = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+
+        // Number of months to show based on time period
+        let monthsToShow = 3; // Default
+        if (timePeriod === "30") monthsToShow = 3;
+        else if (timePeriod === "90") monthsToShow = 4;
+        else if (timePeriod === "365") monthsToShow = 12;
+
+        for (let i = monthsToShow - 1; i >= 0; i--) {
+          const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
+          const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
+          placeholders.push({
+            month: `${months[monthIndex]} ${year}`,
+            responses: 0,
+            feedback: 0,
+          });
+        }
+
+        return placeholders;
       }
-
-      return placeholders;
     }
 
     return result;
@@ -576,7 +623,7 @@ export default function AdminAnalyticsPage() {
 
   // Format sentiment trend data
   const formatSentimentData = () => {
-    // First filter feedback based on time period
+    // First filter feedback based on time period and other filters
     const periodDate = new Date();
     periodDate.setDate(periodDate.getDate() - parseInt(timePeriod));
 
@@ -609,79 +656,131 @@ export default function AdminAnalyticsPage() {
       return true;
     });
 
-    // Group filtered feedback by month and sentiment
-    const monthlySentiment: Record<
+    // Determine if we should group by day or month based on time period
+    const useDaily = timePeriod === "7";
+
+    // Group filtered feedback by day or month and sentiment
+    const timeGroupedSentiment: Record<
       string,
       { positive: number; negative: number; neutral: number }
     > = {};
 
     filteredFeedback.forEach((item) => {
       const date = new Date(item.created_at);
-      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      let timeKey;
 
-      if (!monthlySentiment[monthYear]) {
-        monthlySentiment[monthYear] = { positive: 0, negative: 0, neutral: 0 };
+      if (useDaily) {
+        // Format for daily: YYYY-MM-DD
+        timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      } else {
+        // Format for monthly: YYYY-MM
+        timeKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       }
 
-      // Increment the appropriate sentiment counter
-      if (item.tone === "positive") monthlySentiment[monthYear].positive++;
-      else if (item.tone === "negative") monthlySentiment[monthYear].negative++;
-      else if (item.tone === "neutral") monthlySentiment[monthYear].neutral++;
-    });
-
-    // Convert to array and sort by month
-    const result = Object.entries(monthlySentiment)
-      .map(([monthYear, counts]) => ({
-        name: formatMonth(monthYear),
-        ...counts,
-      }))
-      .sort((a, b) => {
-        const [aYear, aMonth] = a.name.split(" ");
-        const [bYear, bMonth] = b.name.split(" ");
-        return (
-          new Date(`${aMonth} ${aYear}`).getTime() -
-          new Date(`${bMonth} ${bYear}`).getTime()
-        );
-      });
-
-    // If no data, return a placeholder based on the selected time period
-    if (result.length === 0) {
-      // Generate placeholder data based on the selected time period
-      const placeholders = [];
-      const now = new Date();
-      const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-
-      // Number of months to show based on time period
-      let monthsToShow = 3; // Default
-      if (timePeriod === "7" || timePeriod === "30") monthsToShow = 3;
-      else if (timePeriod === "90") monthsToShow = 4;
-      else if (timePeriod === "365") monthsToShow = 12;
-
-      for (let i = 0; i < monthsToShow; i++) {
-        const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
-        const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
-        placeholders.unshift({
-          name: `${months[monthIndex]} ${year}`,
+      if (!timeGroupedSentiment[timeKey]) {
+        timeGroupedSentiment[timeKey] = {
           positive: 0,
           negative: 0,
           neutral: 0,
-        });
+        };
       }
 
-      return placeholders;
+      // Increment the appropriate sentiment counter
+      if (item.tone === "positive") timeGroupedSentiment[timeKey].positive++;
+      else if (item.tone === "negative")
+        timeGroupedSentiment[timeKey].negative++;
+      else if (item.tone === "neutral") timeGroupedSentiment[timeKey].neutral++;
+    });
+
+    // Convert to array and sort
+    const result = Object.entries(timeGroupedSentiment)
+      .map(([timeKey, counts]) => {
+        if (useDaily) {
+          // Format daily display: "Jan 1" format
+          const date = new Date(timeKey);
+          const formattedDay = date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          return {
+            name: formattedDay, // Use "name" as the key for the LineChart
+            ...counts,
+          };
+        } else {
+          // Format monthly display
+          return {
+            name: formatMonth(timeKey),
+            ...counts,
+          };
+        }
+      })
+      .sort((a, b) => {
+        // Sort by date
+        return new Date(a.name).getTime() - new Date(b.name).getTime();
+      });
+
+    // If no data, return appropriate placeholders
+    if (result.length === 0) {
+      if (useDaily) {
+        // Generate placeholder data for the last 7 days
+        const placeholders = [];
+        const now = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          const formattedDay = date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+
+          placeholders.push({
+            name: formattedDay,
+            positive: 0,
+            negative: 0,
+            neutral: 0,
+          });
+        }
+
+        return placeholders;
+      } else {
+        // Generate placeholder data based on the selected time period
+        const placeholders = [];
+        const now = new Date();
+        const months = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+
+        // Number of months to show based on time period
+        let monthsToShow = 3; // Default
+        if (timePeriod === "30") monthsToShow = 3;
+        else if (timePeriod === "90") monthsToShow = 4;
+        else if (timePeriod === "365") monthsToShow = 12;
+
+        for (let i = monthsToShow - 1; i >= 0; i--) {
+          const monthIndex = (now.getMonth() - i + 12) % 12; // Go back i months
+          const year = now.getFullYear() - (now.getMonth() < i ? 1 : 0); // Adjust year if we go back to previous year
+          placeholders.push({
+            name: `${months[monthIndex]} ${year}`,
+            positive: 0,
+            negative: 0,
+            neutral: 0,
+          });
+        }
+
+        return placeholders;
+      }
     }
 
     return result;

@@ -208,6 +208,9 @@ export default function AdminAnalyticsPage() {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teacherNameMap, setTeacherNameMap] = useState<Record<string, string>>(
+    {},
+  );
   const [totalFeedback, setTotalFeedback] = useState<number>(0);
   const [positiveFeedback, setPositiveFeedback] = useState<number>(0);
   const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
@@ -259,7 +262,7 @@ export default function AdminAnalyticsPage() {
         console.log(`Fetched ${departmentsData?.length || 0} departments`);
         setDepartments(departmentsData || []);
 
-        // STEP 3: Fetch teachers (basic)
+        // STEP 3: Fetch teachers and create a lookup dictionary
         console.log("Fetching teachers...");
         const { data: teachersData, error: teachersError } = await supabase
           .from("profiles")
@@ -272,8 +275,25 @@ export default function AdminAnalyticsPage() {
         }
 
         console.log(`Fetched ${teachersData?.length || 0} teachers`);
-        console.log("Teacher data sample:", teachersData?.[0]);
+
+        // Store the original teachers array for backward compatibility
         setTeachers(teachersData || []);
+
+        // Create a lookup dictionary/map for efficient teacher name lookup
+        const teacherMap: Record<string, string> = {};
+        teachersData?.forEach((teacher) => {
+          teacherMap[teacher.id] = teacher.full_name;
+        });
+
+        console.log(
+          "Created teacher lookup map:",
+          Object.keys(teacherMap).length,
+          "entries",
+        );
+        if (teachersData && teachersData.length > 0) {
+          console.log("Sample teacher entry:", teachersData[0]);
+        }
+        setTeacherNameMap(teacherMap);
 
         // STEP 4: Fetch events (basic)
         console.log("Fetching events...");
@@ -478,6 +498,13 @@ export default function AdminAnalyticsPage() {
     fetchData();
   }, [timePeriod]); // Refetch when time period changes
 
+  // Log when teacher maps change
+  useEffect(() => {
+    console.log(
+      `Teacher name map updated with ${Object.keys(teacherNameMap).length} entries`,
+    );
+  }, [teacherNameMap]);
+
   // Update filtered events when time period or other filters change
   useEffect(() => {
     if (events.length > 0) {
@@ -509,21 +536,8 @@ export default function AdminAnalyticsPage() {
   const getTeacherName = (teacherId: string | undefined): string => {
     if (!teacherId) return "Unknown";
 
-    // Debug: Log teacher ID and teachers array
-    console.log("Looking for teacher ID:", teacherId);
-    console.log("Teachers array length:", teachers.length);
-
-    // Find the teacher in the teachers array (loaded from profiles table)
-    const teacher = teachers.find((t) => t.id === teacherId);
-
-    // If we found the teacher, return their full name, otherwise return "Unknown"
-    if (teacher) {
-      console.log("Found teacher:", teacher.full_name);
-      return teacher.full_name;
-    } else {
-      console.log("Teacher not found");
-      return "Unknown";
-    }
+    // Simple dictionary lookup is much faster and more reliable than array.find()
+    return teacherNameMap[teacherId] || "Unknown";
   };
 
   // Get events for a given course
@@ -599,20 +613,15 @@ export default function AdminAnalyticsPage() {
 
   // Format course analytics
   const formatCourseData = (): CourseAnalytics[] => {
+    console.log("Running formatCourseData");
     console.log(
-      "Running formatCourseData with teachers:",
-      teachers.length,
-      "teachers",
+      "Teacher map has",
+      Object.keys(teacherNameMap).length,
+      "entries",
     );
 
     return getFilteredCourses().map((course) => {
       const courseEvents = getCourseEvents(course.id);
-      console.log(
-        "Processing course:",
-        course.name,
-        "with owner_id:",
-        course.owner_id,
-      );
 
       // Calculate totals from events
       const feedbackCount = courseEvents.reduce(
@@ -640,9 +649,8 @@ export default function AdminAnalyticsPage() {
             )
           : 0;
 
-      // Make sure we're using the correct teacher lookup
+      // Get teacher name from lookup map
       const teacherName = getTeacherName(course.owner_id);
-      console.log("Teacher name result:", teacherName);
 
       return {
         id: course.id,

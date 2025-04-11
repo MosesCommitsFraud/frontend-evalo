@@ -456,17 +456,17 @@ export default function DashboardPage() {
             Latest student feedback across your courses
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-3 py-1">
+        <CardContent className="px-3 py-2">
           {recentFeedback.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground">
               No feedback received yet
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recentFeedback.map((item) => (
                 <div
                   key={item.id}
-                  className="border rounded-md p-2 hover:border-emerald-300 transition-colors cursor-pointer bg-card"
+                  className="border rounded-md p-3 hover:border-emerald-300 transition-colors cursor-pointer bg-card"
                   onClick={() => {
                     if (item.courseId && item.eventId) {
                       router.push(
@@ -475,37 +475,46 @@ export default function DashboardPage() {
                     }
                   }}
                 >
-                  <div className="flex justify-between items-center text-xs mb-1">
+                  {/* Course + Event Info */}
+                  <div className="flex justify-between items-center text-xs mb-2">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3 w-3 text-emerald-600" />
                       <span className="font-medium">{item.course}</span>
-                      <span className="text-gray-400">|</span>
-                      <Badge
-                        variant="outline"
-                        className={`inline-flex h-4 text-[10px] px-1.5 py-0 ${
-                          item.sentiment === "positive"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : item.sentiment === "negative"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
-                        }`}
-                      >
-                        <span className="flex items-center gap-0.5">
-                          {getSentimentIcon(item.sentiment)}
-                          <span className="relative top-px">
-                            {item.sentiment.charAt(0).toUpperCase() +
-                              item.sentiment.slice(1)}
-                          </span>
+                      <span className="text-gray-400 mx-1">|</span>
+                      <span className="text-muted-foreground max-w-[150px] truncate">
+                        {item.eventName}
+                      </span>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`inline-flex h-5 text-xs px-2 py-0 ${
+                        item.sentiment === "positive"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                          : item.sentiment === "negative"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1">
+                        {getSentimentIcon(item.sentiment)}
+                        <span>
+                          {item.sentiment.charAt(0).toUpperCase() +
+                            item.sentiment.slice(1)}
                         </span>
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="h-2.5 w-2.5" />
-                      <span>{item.time}</span>
-                    </div>
+                      </span>
+                    </Badge>
                   </div>
 
-                  <div className="line-clamp-2 text-xs">{item.content}</div>
+                  {/* Feedback Content */}
+                  <div className="line-clamp-2 text-sm mb-1">
+                    {item.content}
+                  </div>
+
+                  {/* Timestamp at bottom */}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                    <Clock className="h-3 w-3" />
+                    <span>{item.time}</span>
+                  </div>
                 </div>
               ))}
             </div>

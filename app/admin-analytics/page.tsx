@@ -64,6 +64,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { router } from "next/client";
 
 // Simple type definitions
 interface Course {
@@ -84,6 +85,7 @@ interface Event {
   id: string;
   course_id: string;
   event_date: string;
+  event_name: string;
   created_at: string;
   positive_feedback_count: number;
   negative_feedback_count: number;
@@ -306,7 +308,7 @@ export default function AdminAnalyticsPage() {
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select(
-            "id, course_id, event_date, created_at, positive_feedback_count, negative_feedback_count, neutral_feedback_count, total_feedback_count, entry_code, status",
+            "id, course_id, event_date, created_at, positive_feedback_count, negative_feedback_count, neutral_feedback_count, total_feedback_count, entry_code, status, event_name",
           );
 
         if (eventsError) {
@@ -2206,8 +2208,7 @@ export default function AdminAnalyticsPage() {
     </div>
   );
 
-  // Content for Feedback tab
-  // Content for Feedback tab
+  // Content for Feedback tab - UPDATED with event names
   const feedbackTabContent = (
     <Card>
       <CardHeader>
@@ -2236,11 +2237,13 @@ export default function AdminAnalyticsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Courses</SelectItem>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.code}
-                  </SelectItem>
-                ))}
+                {courses.map(
+                  (course: { id: string; name: string; code: string }) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.code}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
 
@@ -2263,49 +2266,34 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* Feedback List - Grouped by Events */}
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-            <span className="ml-2">Loading feedback...</span>
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center py-12">
-            <AlertTriangle className="h-8 w-8 text-amber-500 mr-2" />
-            <span>{error}</span>
+        {feedback.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No feedback yet</h3>
+            <p className="text-muted-foreground max-w-md">
+              Feedback from students will appear here once they submit it using
+              your course feedback codes.
+            </p>
           </div>
         ) : getFilteredFeedback().length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-            {feedback.length === 0 ? (
-              <>
-                <h3 className="text-lg font-medium mb-2">No feedback yet</h3>
-                <p className="text-muted-foreground max-w-md">
-                  Feedback from students will appear here once they submit it
-                  using your course feedback codes.
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-medium mb-2">
-                  No matching feedback
-                </h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your search filters to find what you&#39;re
-                  looking for.
-                </p>
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSentimentFilter("all");
-                    setCourseFilter("all");
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </>
-            )}
+            <h3 className="text-lg font-medium mb-2">No matching feedback</h3>
+            <p className="text-muted-foreground">
+              Try adjusting your search filters to find what you&#39;re looking
+              for.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setSearchQuery("");
+                setSentimentFilter("all");
+                setCourseFilter("all");
+              }}
+            >
+              Clear Filters
+            </Button>
           </div>
         ) : (
           <div className="space-y-6">
@@ -2336,6 +2324,12 @@ export default function AdminAnalyticsPage() {
               return sortedEventIds.map((eventId) => {
                 const event = events.find((e) => e.id === eventId);
                 const eventFeedback = eventGroups[eventId];
+                const course = event
+                  ? courses.find(
+                      (c: { id: string; code: string; name: string }) =>
+                        c.id === event.course_id,
+                    )
+                  : null;
 
                 return (
                   <div key={eventId} className="space-y-3">
@@ -2345,10 +2339,22 @@ export default function AdminAnalyticsPage() {
                           <Calendar className="h-4 w-4 mr-2 text-emerald-600" />
                           {event ? (
                             <>
-                              Event on{" "}
-                              {new Date(
-                                event.event_date,
-                              ).toLocaleDateString()}{" "}
+                              {/* Display event name if available, otherwise show date */}
+                              {event.event_name ? (
+                                <span>{event.event_name}</span>
+                              ) : (
+                                <span>
+                                  Event on{" "}
+                                  {new Date(
+                                    event.event_date,
+                                  ).toLocaleDateString()}
+                                </span>
+                              )}
+                              {course && (
+                                <span className="ml-1 text-muted-foreground">
+                                  ({course.code})
+                                </span>
+                              )}
                             </>
                           ) : (
                             "Unknown Event"
@@ -2376,13 +2382,35 @@ export default function AdminAnalyticsPage() {
                                 event.status.slice(1)
                               : "Unknown"}
                           </span>
+                          <span className="mx-2">•</span>
+                          <span className="inline-flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {new Date(
+                              event.event_date,
+                            ).toLocaleDateString()}{" "}
+                            {new Date(event.event_date).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
                         </div>
                       )}
                     </div>
 
                     <div className="space-y-3 pl-4 border-l-2 border-emerald-100 dark:border-emerald-900/30">
                       {eventFeedback.map((item) => (
-                        <Card key={item.id} className="overflow-hidden">
+                        <Card
+                          key={item.id}
+                          className="overflow-hidden hover:border-emerald-300 transition-colors cursor-pointer"
+                          onClick={() => {
+                            // Navigate to event details page if event exists
+                            if (event) {
+                              router.push(
+                                `/dashboard/courses/${event.course_id}/events/${event.id}`,
+                              );
+                            }
+                          }}
+                        >
                           <CardContent className="p-4">
                             <div className="mb-2 flex items-center justify-between">
                               <Badge

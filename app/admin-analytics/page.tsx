@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { router } from "next/client";
 import {
   ResponsiveContainer,
   Tooltip,
@@ -62,7 +63,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { router } from "next/client";
 
 // Simple type definitions
 interface Course {
@@ -2544,6 +2544,7 @@ export default function AdminAnalyticsPage() {
                           onClick={() => {
                             // Navigate to event details page if event exists
                             if (event) {
+                              // Using the router hook instance
                               router.push(
                                 `/dashboard/courses/${event.course_id}/events/${event.id}`,
                               );

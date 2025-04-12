@@ -1993,12 +1993,28 @@ export default function CoursePage() {
                             "Unknown Event"
                           )}
                         </h3>
-                        <Badge variant="outline">
-                          {eventFeedback.length}{" "}
-                          {eventFeedback.length === 1
-                            ? "response"
-                            : "responses"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {eventFeedback.length}{" "}
+                            {eventFeedback.length === 1
+                              ? "response"
+                              : "responses"}
+                          </Badge>
+                          {event && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-3"
+                              asChild
+                            >
+                              <Link
+                                href={`/dashboard/courses/${courseId}/events/${eventId}`}
+                              >
+                                View Event
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {event && (
                         <div className="text-xs text-muted-foreground mt-1">
@@ -2027,7 +2043,15 @@ export default function CoursePage() {
 
                     <div className="space-y-3 pl-4 border-l-2 border-emerald-100 dark:border-emerald-900/30">
                       {eventFeedback.map((item: FeedbackItem) => (
-                        <Card key={item.id} className="overflow-hidden">
+                        <Card
+                          key={item.id}
+                          className="overflow-hidden cursor-pointer hover:border-emerald-300 transition-colors"
+                          onClick={() => {
+                            router.push(
+                              `/dashboard/courses/${courseId}/events/${item.event_id}`,
+                            );
+                          }}
+                        >
                           <CardContent className="p-4">
                             <div className="mb-2 flex items-center justify-between">
                               <Badge

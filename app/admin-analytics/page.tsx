@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { router } from "next/client";
+import { useRouter } from "next/navigation";
 import {
   ResponsiveContainer,
   Tooltip,
@@ -190,6 +190,7 @@ interface CourseAnalytics {
 type GroupingType = "daily" | "weekly" | "monthly" | "quarterly";
 
 export default function AdminAnalyticsPage() {
+  const router = useRouter();
   // UI state
   const [timePeriod, setTimePeriod] = useState<string>("30");
   const [activeTab, setActiveTab] = useState<number>(0);

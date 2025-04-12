@@ -49,6 +49,7 @@ interface Event {
   negative_feedback_count: number;
   neutral_feedback_count: number;
   total_feedback_count: number;
+  event_name: string; // Add this line
   courses?: {
     name: string;
     code: string;
@@ -510,7 +511,9 @@ export default function EventAnalyticsPage() {
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to {courseCode || "Course"}
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Event Analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {event?.event_name || "Event"}
+          </h1>
           <p className="text-muted-foreground">
             {courseName} • {event ? formatDate(event.event_date) : ""}
           </p>

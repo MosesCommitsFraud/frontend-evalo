@@ -2592,7 +2592,6 @@ export default function AdminAnalyticsPage() {
     </Card>
   );
 
-  // Create tabs data for CustomTabs component
   const tabsData = [
     {
       label: (

@@ -1341,88 +1341,88 @@ export default function AdminAnalyticsPage() {
               <CardContent>
                 <div className="h-[300px]">
                   {formatCourseActivityData().length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center">
-                      <AlertTriangle className="h-10 w-10 text-gray-400 mb-2" />
-                      <p className="text-gray-500 text-center">
-                        No data available for this time period
-                      </p>
-                    </div>
+                      <div className="h-full flex flex-col items-center justify-center">
+                        <AlertTriangle className="h-10 w-10 text-gray-400 mb-2" />
+                        <p className="text-gray-500 text-center">
+                          No data available for this time period
+                        </p>
+                      </div>
                   ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={formatCourseActivityData()}>
-                        <defs>
-                          <linearGradient
-                            id="colorResponses"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#10b981"
-                              stopOpacity={0.8}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#10b981"
-                              stopOpacity={0.1}
-                            />
-                          </linearGradient>
-                          <linearGradient
-                            id="colorFeedback"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#60a5fa"
-                              stopOpacity={0.8}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#60a5fa"
-                              stopOpacity={0.1}
-                            />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="month" stroke="#888888" />
-                        <YAxis stroke="#888888" />
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          vertical={false}
-                          stroke="#f5f5f5"
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "8px",
-                            border: "none",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          }}
-                        />
-                        <Legend iconType="circle" />
-                        <Area
-                          type="monotone"
-                          dataKey="responses"
-                          name="Total Responses"
-                          stroke="#10b981"
-                          fillOpacity={1}
-                          fill="url(#colorResponses)"
-                          strokeWidth={2}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="feedback"
-                          name="Total Feedback"
-                          stroke="#60a5fa"
-                          fillOpacity={1}
-                          fill="url(#colorFeedback)"
-                          strokeWidth={2}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={formatCourseActivityData()}>
+                          <defs>
+                            <linearGradient
+                                id="colorResponses"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                              <stop
+                                  offset="5%"
+                                  stopColor="#10b981"
+                                  stopOpacity={0.8}
+                              />
+                              <stop
+                                  offset="95%"
+                                  stopColor="#10b981"
+                                  stopOpacity={0.1}
+                              />
+                            </linearGradient>
+                            <linearGradient
+                                id="colorFeedback"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                            >
+                              <stop
+                                  offset="5%"
+                                  stopColor="#60a5fa"
+                                  stopOpacity={0.8}
+                              />
+                              <stop
+                                  offset="95%"
+                                  stopColor="#60a5fa"
+                                  stopOpacity={0.1}
+                              />
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="month" stroke="#888888" />
+                          <YAxis stroke="#888888" />
+                          <CartesianGrid
+                              strokeDasharray="3 3"
+                              vertical={false}
+                              stroke="#f5f5f5"
+                          />
+                          <Tooltip
+                              contentStyle={{
+                                borderRadius: "8px",
+                                border: "none",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                              }}
+                          />
+                          <Legend iconType="circle" />
+                          <Area
+                              type="monotone"
+                              dataKey="responses"
+                              name="Total Responses"
+                              stroke="#10b981"
+                              fillOpacity={1}
+                              fill="url(#colorResponses)"
+                              strokeWidth={2}
+                          />
+                          <Area
+                              type="monotone"
+                              dataKey="feedback"
+                              name="Total Feedback"
+                              stroke="#60a5fa"
+                              fillOpacity={1}
+                              fill="url(#colorFeedback)"
+                              strokeWidth={2}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
                   )}
                 </div>
               </CardContent>

@@ -203,8 +203,10 @@ export default function StudentFeedbackPage() {
         sentimentResult.confidence,
       );
 
-      // Submit the feedback with the determined sentiment
+      // Use the dataService to submit feedback with the organization_id
       const supabase = createClient();
+
+      // We need to submit directly to handle the organization_id which the dataService might not support
       const { error: insertError } = await supabase.from("feedback").insert({
         event_id: eventInfo.eventId,
         content: feedback,
@@ -222,7 +224,9 @@ export default function StudentFeedbackPage() {
         return;
       }
 
-      // Update the event's feedback counts
+      // Use dataService to update the event counts for consistency
+      // Note: We're not using dataService.submitFeedback() directly because it might not support organization_id
+      // Instead, we'll update the event stats separately
       const { data: eventData, error: eventError } = await supabase
         .from("events")
         .select(

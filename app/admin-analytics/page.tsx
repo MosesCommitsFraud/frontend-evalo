@@ -10,10 +10,10 @@ import {
   YAxis,
   Legend,
   CartesianGrid,
-  AreaChart,
-  Area,
   Line,
   LineChart,
+  Bar,
+  BarChart,
 } from "recharts";
 import {
   Card,
@@ -1331,99 +1331,127 @@ export default function AdminAnalyticsPage() {
           {/* Activity Charts */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Course Activity Chart */}
-            <Card className="shadow-sm hover:shadow-md transition-shadow overflow-hidden rounded-lg border bg-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Platform Activity</CardTitle>
+            {/* Platform Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Activity</CardTitle>
                 <CardDescription>
-                  Monthly responses and feedback across all courses
+                  Monthly activity and sentiment breakdown
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  {formatCourseActivityData().length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center">
-                      <AlertTriangle className="h-10 w-10 text-gray-400 mb-2" />
-                      <p className="text-gray-500 text-center">
-                        No data available for this time period
-                      </p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={formatCourseActivityData()}>
-                        <defs>
-                          <linearGradient
-                            id="colorResponses"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#10b981"
-                              stopOpacity={0.8}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#10b981"
-                              stopOpacity={0.1}
-                            />
-                          </linearGradient>
-                          <linearGradient
-                            id="colorFeedback"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#60a5fa"
-                              stopOpacity={0.8}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#60a5fa"
-                              stopOpacity={0.1}
-                            />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="month" stroke="#888888" />
-                        <YAxis stroke="#888888" />
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          vertical={false}
-                          stroke="#f5f5f5"
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "8px",
-                            border: "none",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          }}
-                        />
-                        <Legend iconType="circle" />
-                        <Area
-                          type="monotone"
-                          dataKey="responses"
-                          name="Total Responses"
-                          stroke="#10b981"
-                          fillOpacity={1}
-                          fill="url(#colorResponses)"
-                          strokeWidth={2}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="feedback"
-                          name="Total Feedback"
-                          stroke="#60a5fa"
-                          fillOpacity={1}
-                          fill="url(#colorFeedback)"
-                          strokeWidth={2}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  )}
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={formatCourseActivityData()}>
+                      <defs>
+                        <linearGradient
+                          id="positiveGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#10b981"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#10b981"
+                            stopOpacity={0.3}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="neutralGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#94a3b8"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#94a3b8"
+                            stopOpacity={0.3}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="negativeGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#ef4444"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#ef4444"
+                            stopOpacity={0.3}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="totalGradient"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#3b82f6"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#3b82f6"
+                            stopOpacity={0.3}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" stroke="#888888" />
+                      <YAxis stroke="#888888" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                          borderRadius: "8px",
+                          border: "1px solid #f0f0f0",
+                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                        }}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="positive"
+                        name="Positive Feedback"
+                        stackId="a"
+                        fill="url(#positiveGradient)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="neutral"
+                        name="Neutral Feedback"
+                        stackId="a"
+                        fill="url(#neutralGradient)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="negative"
+                        name="Negative Feedback"
+                        stackId="a"
+                        fill="url(#negativeGradient)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>

@@ -36,7 +36,7 @@ export interface Course {
   teacher?: string;
   cycle?: string;
   organization_id?: string;
-  department: string; // Required field for department
+  department_id: string; // Changed from 'department' to 'department_id'
 }
 
 interface Teacher {
@@ -245,9 +245,9 @@ const AdminCreateCourseDialog = ({
           name: name,
           code: code,
           student_count: studentCount ? parseInt(studentCount, 10) : 0,
-          owner_id: teacherId, // Both owner_id and teacher are set to the same value
-          teacher: teacherId, // This is important for multiple courses per teacher
-          department: departmentId, // Added department field as required
+          owner_id: teacherId,
+          teacher: teacherId,
+          department_id: departmentId, // Changed from 'department' to 'department_id'
           organization_id: orgId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
